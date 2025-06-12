@@ -21,22 +21,17 @@ export interface CabinetTemplate {
   previewImage: string;
   description: string;
   features: string[];
-  construction: {
-    hasTop: boolean;
-    hasBottom: boolean;
-    hasBack: boolean;
-    hasDoubleBack: boolean;
-    hasToe: boolean;
-    hasFixedShelf: boolean;
-    isCorner: boolean;
-    hasFrontPanel: boolean;
-    hasFillerPanel: boolean;
-  };
-  materialOptions: {
-    body: string[];
-    doors: string[];
-    drawers: string[];
-    shelves: string[];
+  construction?: {
+    hasTop?: boolean;
+    hasBottom?: boolean;
+    hasBack?: boolean;
+    hasDoubleBack?: boolean;
+    hasToe?: boolean;
+    hasFixedShelf?: boolean;
+    isCorner?: boolean;
+    hasFrontPanel?: boolean;
+    hasFillerPanel?: boolean;
+    hasUprights?: boolean;
   };
   materialThickness: {
     side: number;
@@ -44,23 +39,19 @@ export interface CabinetTemplate {
     back: number;
     shelf: number;
     door: number;
-    drawer: number;
-    fixedPanel: number;
+    drawer?: number;
+    fixedPanel?: number;
+    drawerBottom?: number;
+    uprights?: number;
+    doubleBack?: number;
   };
   hardware: {
     hinges: number;
     slides: number;
     handles: number;
     shelves: number;
-    shelfPins: number;
-    drawerBoxType: 'standard' | 'dovetail' | 'metal';
-  };
-  edgeBanding: {
-    bodyVisible: boolean;
-    bodyHidden: boolean;
-    shelfFront: boolean;
-    shelfSides: boolean;
-    doorAll: boolean;
+    shelfPins?: number;
+    drawerBoxType?: 'standard' | 'dovetail' | 'metal';
   };
   isActive: boolean;
   isCustom?: boolean;
@@ -83,15 +74,6 @@ export interface CabinetConfiguration {
     doorStyle: string;
     finish: string;
     hardware: string;
-    bodyMaterial: string;
-    doorMaterial: string;
-    drawerMaterial: string;
-    shelfMaterial: string;
-    hasFillerPanel: boolean;
-    fillerWidth: number;
-    cornerType?: 'standard' | 'lazy_susan' | 'diagonal';
-    toekickHeight?: number;
-    backPanelType?: 'standard' | 'double' | 'none';
   };
   materials: CabinetMaterial[];
   hardware: CabinetHardware[];
@@ -120,8 +102,6 @@ export interface CuttingListItem {
   };
   grain: 'length' | 'width';
   priority: number;
-  partType: 'side' | 'top' | 'bottom' | 'back' | 'shelf' | 'door' | 'drawer_front' | 'drawer_side' | 'drawer_back' | 'drawer_bottom' | 'filler' | 'fixed_panel';
-  notes?: string;
 }
 
 export interface CabinetMaterial {

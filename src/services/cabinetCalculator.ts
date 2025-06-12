@@ -26,8 +26,9 @@ export class CabinetCalculatorService {
   // Calculate cutting list for a cabinet configuration
   static calculateCuttingList(template: CabinetTemplate, config: CabinetConfiguration): CuttingListItem[] {
     const { width, height, depth } = config.dimensions;
-    const { side, topBottom, back, shelf, door } = template.materialThickness;
+    const { side, topBottom, back, shelf, door, drawer, fixedPanel, drawerBottom, uprights, doubleBack } = template.materialThickness;
     const cuttingList: CuttingListItem[] = [];
+    const construction = template.construction || {};
 
     // Helper function to add cutting list item
     const addItem = (
@@ -67,52 +68,146 @@ export class CabinetCalculatorService {
           'Side Panel',
           'Plywood',
           side,
-          height - topBottom,
-          depth - back,
+          height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+          depth - (construction.hasBack !== false ? back : 0),
           2,
           { length1: true, length2: true, width1: true, width2: false },
           'length',
           1
         );
 
-        // Top and Bottom (2 pieces)
-        addItem(
-          'Top/Bottom Panel',
-          'Plywood',
-          topBottom,
-          width - (side * 2),
-          depth - back,
-          2,
-          { length1: true, length2: true, width1: true, width2: false },
-          'length',
-          1
-        );
+        // Top panel (if applicable)
+        if (construction.hasTop !== false) {
+          addItem(
+            'Top Panel',
+            'Plywood',
+            topBottom,
+            width - (side * 2),
+            depth - (construction.hasBack !== false ? back : 0),
+            1,
+            { length1: true, length2: true, width1: true, width2: false },
+            'length',
+            1
+          );
+        }
 
-        // Back panel
-        addItem(
-          'Back Panel',
-          'Plywood',
-          back,
-          height - topBottom,
-          width - (side * 2),
-          1,
-          { length1: false, length2: false, width1: false, width2: false },
-          'length',
-          2
-        );
+        // Bottom panel (if applicable)
+        if (construction.hasBottom !== false) {
+          addItem(
+            'Bottom Panel',
+            'Plywood',
+            topBottom,
+            width - (side * 2),
+            depth - (construction.hasBack !== false ? back : 0),
+            1,
+            { length1: true, length2: true, width1: true, width2: false },
+            'length',
+            1
+          );
+        }
 
-        // Shelves
+        // Back panel (if applicable)
+        if (construction.hasBack !== false) {
+          addItem(
+            'Back Panel',
+            'Plywood',
+            back,
+            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+            width - (side * 2),
+            1,
+            { length1: false, length2: false, width1: false, width2: false },
+            'length',
+            2
+          );
+        }
+
+        // Double back panel (if applicable)
+        if (construction.hasDoubleBack === true) {
+          addItem(
+            'Double Back Panel',
+            'Plywood',
+            doubleBack || back,
+            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+            width - (side * 2),
+            1,
+            { length1: false, length2: false, width1: false, width2: false },
+            'length',
+            2
+          );
+        }
+
+        // Fixed shelf (if applicable)
+        if (construction.hasFixedShelf === true) {
+          addItem(
+            'Fixed Shelf',
+            'Plywood',
+            shelf,
+            width - (side * 2) - 3, // 3mm clearance
+            depth - (construction.hasBack !== false ? back : 0) - 20, // 20mm back clearance
+            1,
+            { length1: true, length2: true, width1: true, width2: false },
+            'length',
+            2
+          );
+        }
+
+        // Adjustable shelves
         if (config.customizations.shelfCount > 0) {
           addItem(
             'Adjustable Shelf',
             'Plywood',
             shelf,
             width - (side * 2) - 6, // 3mm clearance each side
-            depth - back - 50, // 50mm back clearance
+            depth - (construction.hasBack !== false ? back : 0) - 50, // 50mm back clearance
             config.customizations.shelfCount,
             { length1: true, length2: true, width1: true, width2: false },
             'length',
             2
+          );
+        }
+
+        // Front fixed panel (if applicable)
+        if (construction.hasFrontPanel === true) {
+          addItem(
+            'Front Fixed Panel',
+            'Plywood',
+            fixedPanel || side,
+            width - (side * 2),
+            100, // Typical height for a fixed panel
+            1,
+            { length1: true, length2: true, width1: true, width2: true },
+            'length',
+            3
+          );
+        }
+
+        // Filler panel (if applicable)
+        if (construction.hasFillerPanel === true) {
+          addItem(
+            'Filler Panel',
+            'Plywood',
+            door,
+            height - 6, // 3mm gap top and bottom
+            50, // Typical width for a filler panel
+            1,
+            { length1: true, length2: true, width1: true, width2: true },
+            'length',
+            3
+          );
+        }
+
+        // Uprights (if applicable)
+        if (construction.hasUprights === true) {
+          addItem(
+            'Upright',
+            'Plywood',
+            uprights || side,
+            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+            depth - (construction.hasBack !== false ? back : 0),
+            1, // Typically one upright in the middle
+            { length1: true, length2: true, width1: true, width2: false },
+            'length',
+            1
           );
         }
 
@@ -142,39 +237,58 @@ export class CabinetCalculatorService {
           'Side Panel',
           'Plywood',
           side,
-          height - topBottom,
-          depth - back,
+          height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+          depth - (construction.hasBack !== false ? back : 0),
           2,
           { length1: true, length2: true, width1: true, width2: false },
           'length',
           1
         );
 
-        // Top and Bottom (2 pieces)
-        addItem(
-          'Top/Bottom Panel',
-          'Plywood',
-          topBottom,
-          width - (side * 2),
-          depth - back,
-          2,
-          { length1: true, length2: true, width1: true, width2: false },
-          'length',
-          1
-        );
+        // Top panel (if applicable)
+        if (construction.hasTop !== false) {
+          addItem(
+            'Top Panel',
+            'Plywood',
+            topBottom,
+            width - (side * 2),
+            depth - (construction.hasBack !== false ? back : 0),
+            1,
+            { length1: true, length2: true, width1: true, width2: false },
+            'length',
+            1
+          );
+        }
 
-        // Back panel
-        addItem(
-          'Back Panel',
-          'Plywood',
-          back,
-          height - topBottom,
-          width - (side * 2),
-          1,
-          { length1: false, length2: false, width1: false, width2: false },
-          'length',
-          2
-        );
+        // Bottom panel (if applicable)
+        if (construction.hasBottom !== false) {
+          addItem(
+            'Bottom Panel',
+            'Plywood',
+            topBottom,
+            width - (side * 2),
+            depth - (construction.hasBack !== false ? back : 0),
+            1,
+            { length1: true, length2: true, width1: true, width2: false },
+            'length',
+            1
+          );
+        }
+
+        // Back panel (if applicable)
+        if (construction.hasBack !== false) {
+          addItem(
+            'Back Panel',
+            'Plywood',
+            back,
+            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+            width - (side * 2),
+            1,
+            { length1: false, length2: false, width1: false, width2: false },
+            'length',
+            2
+          );
+        }
 
         // Drawer fronts
         const drawerCount = config.customizations.drawerCount;
@@ -197,7 +311,7 @@ export class CabinetCalculatorService {
           addItem(
             `Drawer Side ${i + 1}`,
             'Plywood',
-            15, // Thinner material for drawer box
+            drawer || 15, // Thinner material for drawer box
             depth - 80, // Shorter than cabinet depth
             drawerHeight - 30, // Lower than front
             2,
@@ -209,7 +323,7 @@ export class CabinetCalculatorService {
           addItem(
             `Drawer Back ${i + 1}`,
             'Plywood',
-            15,
+            drawer || 15,
             width - 90, // Narrower than cabinet width
             drawerHeight - 30,
             1,
@@ -221,7 +335,7 @@ export class CabinetCalculatorService {
           addItem(
             `Drawer Bottom ${i + 1}`,
             'Plywood',
-            12, // Thinner material for bottom
+            drawerBottom || 12, // Thinner material for bottom
             width - 90,
             depth - 80,
             1,
@@ -233,86 +347,109 @@ export class CabinetCalculatorService {
         break;
 
       case 'corner':
-        // Corner cabinet calculations would go here
-        // This requires special geometry calculations
-        addItem(
-          'Side Panel A',
-          'Plywood',
-          side,
-          height - topBottom,
-          depth - back,
-          2,
-          { length1: true, length2: true, width1: true, width2: false },
-          'length',
-          1
-        );
-
-        addItem(
-          'Side Panel B',
-          'Plywood',
-          side,
-          height - topBottom,
-          depth - back,
-          2,
-          { length1: true, length2: true, width1: true, width2: false },
-          'length',
-          1
-        );
-
-        // Top and Bottom (2 pieces)
-        addItem(
-          'Corner Top/Bottom',
-          'Plywood',
-          topBottom,
-          width,
-          depth,
-          2,
-          { length1: true, length2: true, width1: true, width2: true },
-          'length',
-          1
-        );
-
-        // Back panels
-        addItem(
-          'Back Panel',
-          'Plywood',
-          back,
-          height - topBottom,
-          width - side,
-          2,
-          { length1: false, length2: false, width1: false, width2: false },
-          'length',
-          2
-        );
-
-        // Shelves for lazy susan
-        if (config.customizations.shelfCount > 0) {
+        // Corner cabinet has special geometry
+        if (construction.isCorner === true) {
+          // Side panels (typically 2 for L-shape)
           addItem(
-            'Lazy Susan Shelf',
+            'Side Panel A',
             'Plywood',
-            shelf,
-            width - 100, // Circular shelf
-            width - 100, // Circular shelf
-            config.customizations.shelfCount,
-            { length1: true, length2: true, width1: true, width2: true },
+            side,
+            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+            depth - (construction.hasBack !== false ? back : 0),
+            2,
+            { length1: true, length2: true, width1: true, width2: false },
             'length',
-            2
+            1
           );
-        }
 
-        // Doors
-        if (config.customizations.doorCount > 0) {
-          addItem(
-            'Corner Door',
-            'Melamine',
-            door,
-            height - 6,
-            width / 2 - 3,
-            config.customizations.doorCount,
-            { length1: true, length2: true, width1: true, width2: true },
-            'length',
-            3
-          );
+          // Top and Bottom (if applicable)
+          if (construction.hasTop !== false) {
+            addItem(
+              'Corner Top',
+              'Plywood',
+              topBottom,
+              width,
+              depth,
+              1,
+              { length1: true, length2: true, width1: true, width2: true },
+              'length',
+              1
+            );
+          }
+          
+          if (construction.hasBottom !== false) {
+            addItem(
+              'Corner Bottom',
+              'Plywood',
+              topBottom,
+              width,
+              depth,
+              1,
+              { length1: true, length2: true, width1: true, width2: true },
+              'length',
+              1
+            );
+          }
+
+          // Back panels (if applicable)
+          if (construction.hasBack !== false) {
+            addItem(
+              'Back Panel',
+              'Plywood',
+              back,
+              height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+              width - side,
+              2, // Two back panels for corner cabinet
+              { length1: false, length2: false, width1: false, width2: false },
+              'length',
+              2
+            );
+          }
+
+          // Fixed front panel for corner cabinet
+          if (construction.hasFrontPanel === true) {
+            addItem(
+              'Front Fixed Panel',
+              'Plywood',
+              fixedPanel || side,
+              height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+              100, // Typical width for a fixed panel
+              1,
+              { length1: true, length2: true, width1: true, width2: true },
+              'length',
+              3
+            );
+          }
+
+          // Shelves
+          if (config.customizations.shelfCount > 0) {
+            addItem(
+              'Corner Shelf',
+              'Plywood',
+              shelf,
+              width - 100, // Circular or L-shaped shelf
+              width - 100,
+              config.customizations.shelfCount,
+              { length1: true, length2: true, width1: true, width2: true },
+              'length',
+              2
+            );
+          }
+
+          // Doors
+          if (config.customizations.doorCount > 0) {
+            addItem(
+              'Corner Door',
+              'Melamine',
+              door,
+              height - 6,
+              width / 2 - 3,
+              config.customizations.doorCount,
+              { length1: true, length2: true, width1: true, width2: true },
+              'length',
+              3
+            );
+          }
         }
         break;
 
@@ -323,52 +460,73 @@ export class CabinetCalculatorService {
           'Side Panel',
           'Plywood',
           side,
-          height - topBottom,
-          depth - back,
+          height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+          depth - (construction.hasBack !== false ? back : 0),
           2,
           { length1: true, length2: true, width1: true, width2: false },
           'length',
           1
         );
 
-        // Bottom (1 piece) - no top for sink
-        addItem(
-          'Bottom Panel',
-          'Plywood',
-          topBottom,
-          width - (side * 2),
-          depth - back,
-          1,
-          { length1: true, length2: true, width1: true, width2: false },
-          'length',
-          1
-        );
+        // Top panel (if applicable)
+        if (construction.hasTop !== false) {
+          addItem(
+            'Top Panel',
+            'Plywood',
+            topBottom,
+            width - (side * 2),
+            depth - (construction.hasBack !== false ? back : 0),
+            1,
+            { length1: true, length2: true, width1: true, width2: false },
+            'length',
+            1
+          );
+        }
 
-        // Back panel
-        addItem(
-          'Back Panel',
-          'Plywood',
-          back,
-          height - topBottom,
-          width - (side * 2),
-          1,
-          { length1: false, length2: false, width1: false, width2: false },
-          'length',
-          2
-        );
+        // Bottom panel (if applicable)
+        if (construction.hasBottom !== false) {
+          addItem(
+            'Bottom Panel',
+            'Plywood',
+            topBottom,
+            width - (side * 2),
+            depth - (construction.hasBack !== false ? back : 0),
+            1,
+            { length1: true, length2: true, width1: true, width2: false },
+            'length',
+            1
+          );
+        }
+
+        // Back panel (if applicable)
+        if (construction.hasBack !== false) {
+          addItem(
+            'Back Panel',
+            'Plywood',
+            back,
+            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
+            width - (side * 2),
+            1,
+            { length1: false, length2: false, width1: false, width2: false },
+            'length',
+            2
+          );
+        }
 
         // Support rails for sink
-        addItem(
-          'Support Rail',
-          'Plywood',
-          topBottom,
-          width - (side * 2),
-          100, // 100mm wide support
-          2,
-          { length1: true, length2: true, width1: false, width2: false },
-          'length',
-          1
-        );
+        if (template.type === 'specialty' && !construction.hasTop) {
+          addItem(
+            'Support Rail',
+            'Plywood',
+            topBottom,
+            width - (side * 2),
+            100, // 100mm wide support
+            2,
+            { length1: true, length2: true, width1: false, width2: false },
+            'length',
+            1
+          );
+        }
 
         // Doors
         if (config.customizations.doorCount > 0) {
@@ -571,6 +729,52 @@ export class CabinetCalculatorService {
     return materialCost + hardwareCost + laborCost;
   }
 
+  // Generate complete cabinet configuration
+  static generateConfiguration(
+    template: CabinetTemplate,
+    customDimensions: { width: number; height: number; depth: number },
+    customizations: any
+  ): CabinetConfiguration {
+    const config: CabinetConfiguration = {
+      id: `config-${Date.now()}`,
+      templateId: template.id,
+      name: `${template.name} - ${customDimensions.width}x${customDimensions.height}x${customDimensions.depth}`,
+      dimensions: customDimensions,
+      customizations: {
+        doorCount: customizations.doorCount || (template.type === 'drawer' ? 0 : template.name.includes('Double') ? 2 : 1),
+        drawerCount: customizations.drawerCount || (template.type === 'drawer' ? 3 : 0),
+        shelfCount: customizations.shelfCount || template.hardware.shelves,
+        doorStyle: customizations.doorStyle || 'Shaker',
+        finish: customizations.finish || 'White',
+        hardware: customizations.hardware || 'Chrome'
+      },
+      materials: [],
+      hardware: [],
+      cuttingList: [],
+      totalCost: 0,
+      laborCost: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Calculate cutting list
+    config.cuttingList = this.calculateCuttingList(template, config);
+
+    // Calculate materials
+    config.materials = this.calculateMaterials(config.cuttingList);
+
+    // Calculate hardware
+    config.hardware = this.calculateHardware(template, config);
+
+    // Calculate labor cost
+    config.laborCost = this.calculateLaborCost(config);
+
+    // Calculate total cost
+    config.totalCost = this.calculateTotalCost(config);
+
+    return config;
+  }
+
   // Simple nesting algorithm (placeholder for deepnest.js integration)
   static calculateNesting(cuttingList: CuttingListItem[]): NestingResult[] {
     const results: NestingResult[] = [];
@@ -628,52 +832,6 @@ export class CabinetCalculatorService {
     });
 
     return results;
-  }
-
-  // Generate complete cabinet configuration
-  static generateConfiguration(
-    template: CabinetTemplate,
-    customDimensions: { width: number; height: number; depth: number },
-    customizations: any
-  ): CabinetConfiguration {
-    const config: CabinetConfiguration = {
-      id: `config-${Date.now()}`,
-      templateId: template.id,
-      name: `${template.name} - ${customDimensions.width}x${customDimensions.height}x${customDimensions.depth}`,
-      dimensions: customDimensions,
-      customizations: {
-        doorCount: customizations.doorCount || (template.type === 'drawer' ? 0 : template.name.includes('Double') ? 2 : 1),
-        drawerCount: customizations.drawerCount || (template.type === 'drawer' ? 3 : 0),
-        shelfCount: customizations.shelfCount || template.hardware.shelves,
-        doorStyle: customizations.doorStyle || 'Shaker',
-        finish: customizations.finish || 'White',
-        hardware: customizations.hardware || 'Chrome'
-      },
-      materials: [],
-      hardware: [],
-      cuttingList: [],
-      totalCost: 0,
-      laborCost: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    // Calculate cutting list
-    config.cuttingList = this.calculateCuttingList(template, config);
-
-    // Calculate materials
-    config.materials = this.calculateMaterials(config.cuttingList);
-
-    // Calculate hardware
-    config.hardware = this.calculateHardware(template, config);
-
-    // Calculate labor cost
-    config.laborCost = this.calculateLaborCost(config);
-
-    // Calculate total cost
-    config.totalCost = this.calculateTotalCost(config);
-
-    return config;
   }
 
   // Create a new project with multiple cabinet configurations
@@ -786,27 +944,6 @@ export class CabinetCalculatorService {
     return csv;
   }
 
-  // Generate DXF file content (simplified for demonstration)
-  static generateDXF(config: CabinetConfiguration): string {
-    // This is a simplified DXF format - in a real implementation, this would be more complex
-    let dxf = '0\nSECTION\n2\nENTITIES\n';
-    
-    config.cuttingList.forEach(item => {
-      // For each part, create a rectangle
-      dxf += `0\nPOLYLINE\n8\n${item.materialType}\n66\n1\n70\n1\n`;
-      dxf += `0\nVERTEX\n8\n${item.materialType}\n10\n0\n20\n0\n`;
-      dxf += `0\nVERTEX\n8\n${item.materialType}\n10\n${item.length}\n20\n0\n`;
-      dxf += `0\nVERTEX\n8\n${item.materialType}\n10\n${item.length}\n20\n${item.width}\n`;
-      dxf += `0\nVERTEX\n8\n${item.materialType}\n10\n0\n20\n${item.width}\n`;
-      dxf += `0\nVERTEX\n8\n${item.materialType}\n10\n0\n20\n0\n`;
-      dxf += '0\nSEQEND\n';
-    });
-    
-    dxf += '0\nENDSEC\n0\nEOF\n';
-    
-    return dxf;
-  }
-
   // Integrate with deepnest.js (placeholder)
   static async optimizeNesting(cuttingList: CuttingListItem[]): Promise<NestingResult[]> {
     try {
@@ -843,7 +980,7 @@ export class CabinetStorageService {
   // Save template to database
   static async saveTemplate(template: CabinetTemplate): Promise<void> {
     try {
-      if (template.id) {
+      if (template.id && !template.id.startsWith('template-')) {
         // Update existing template
         await axios.put(`${API_BASE_URL}/cabinet-calculator/templates/${template.id}`, 
           template,
