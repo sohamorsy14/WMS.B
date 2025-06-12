@@ -252,6 +252,67 @@ const createTables = async () => {
     )
   `;
 
+  // New tables for Cabinet Calculator
+  const createCabinetTemplatesTable = `
+    CREATE TABLE IF NOT EXISTS cabinet_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      default_dimensions TEXT NOT NULL,
+      min_dimensions TEXT NOT NULL,
+      max_dimensions TEXT NOT NULL,
+      preview_image TEXT NOT NULL,
+      description TEXT NOT NULL,
+      features TEXT NOT NULL,
+      material_thickness TEXT NOT NULL,
+      hardware TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT 1,
+      is_custom BOOLEAN DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  const createCabinetConfigurationsTable = `
+    CREATE TABLE IF NOT EXISTS cabinet_configurations (
+      id TEXT PRIMARY KEY,
+      template_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      dimensions TEXT NOT NULL,
+      customizations TEXT NOT NULL,
+      materials TEXT NOT NULL,
+      hardware TEXT NOT NULL,
+      cutting_list TEXT NOT NULL,
+      total_cost REAL NOT NULL,
+      labor_cost REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  const createCabinetProjectsTable = `
+    CREATE TABLE IF NOT EXISTS cabinet_projects (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      customer_name TEXT NOT NULL,
+      customer_contact TEXT,
+      configurations TEXT NOT NULL,
+      total_material_cost REAL NOT NULL,
+      total_labor_cost REAL NOT NULL,
+      total_hardware_cost REAL NOT NULL,
+      subtotal REAL NOT NULL,
+      tax REAL NOT NULL,
+      total REAL NOT NULL,
+      estimated_days INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft',
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
   try {
     console.log('📋 Creating database tables...');
     
@@ -266,6 +327,11 @@ const createTables = async () => {
     await db.exec(createOrdersTable);
     await db.exec(createBomsTable);
     await db.exec(createPrototypesTable);
+    
+    // Create Cabinet Calculator tables
+    await db.exec(createCabinetTemplatesTable);
+    await db.exec(createCabinetConfigurationsTable);
+    await db.exec(createCabinetProjectsTable);
 
     // Add password_changed column if it doesn't exist (for existing databases)
     try {

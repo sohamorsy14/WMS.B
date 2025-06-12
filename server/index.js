@@ -21,6 +21,7 @@ import bomRoutes from './routes/boms.js';
 import prototypeRoutes from './routes/prototypes.js';
 import purchaseOrderRoutes from './routes/purchase-orders.js';
 import supplierRoutes from './routes/suppliers.js';
+import cabinetCalculatorRoutes from './routes/cabinet-calculator.js';
 
 // ES module dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -54,6 +55,7 @@ app.use('/api/boms', bomRoutes);
 app.use('/api/prototypes', prototypeRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/cabinet-calculator', cabinetCalculatorRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
