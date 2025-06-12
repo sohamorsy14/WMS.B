@@ -28,6 +28,8 @@ const CabinetCalculator: React.FC = () => {
   const [bomModalOpen, setBomModalOpen] = useState(false);
   const [allTemplates, setAllTemplates] = useState<CabinetTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSheetSize, setSelectedSheetSize] = useState<string>('2440x1220');
+  const [selectedMaterial, setSelectedMaterial] = useState<string>('all');
   
   useEffect(() => {
     // Load saved configurations and templates
@@ -107,10 +109,7 @@ const CabinetCalculator: React.FC = () => {
     }
   };
 
-  const handleOptimizeNesting = async (
-    sheetSize?: { width: number; length: number },
-    materialType?: string
-  ) => {
+  const handleOptimizeNesting = async () => {
     if (!currentConfiguration) {
       toast.error('Please configure a cabinet first');
       return;
@@ -118,18 +117,20 @@ const CabinetCalculator: React.FC = () => {
 
     setIsOptimizing(true);
     try {
-      // Filter cutting list by material type if specified
-      let cuttingList = [...currentConfiguration.cuttingList];
-      if (materialType && materialType !== 'all') {
-        cuttingList = cuttingList.filter(item => 
-          item.materialType.toLowerCase() === materialType.toLowerCase()
-        );
+      // Parse sheet size from dropdown
+      let sheetSize;
+      if (selectedSheetSize) {
+        const [length, width] = selectedSheetSize.split('x').map(Number);
+        if (!isNaN(length) && !isNaN(width)) {
+          sheetSize = { length, width };
+        }
       }
 
-      // Call the backend API for nesting optimization with custom sheet size if provided
+      // Call the optimizeNesting method with sheet size and material type
       const results = await CabinetCalculatorService.optimizeNesting(
-        cuttingList,
-        sheetSize
+        currentConfiguration.cuttingList,
+        sheetSize,
+        selectedMaterial !== 'all' ? selectedMaterial : undefined
       );
       
       setNestingResults(results);

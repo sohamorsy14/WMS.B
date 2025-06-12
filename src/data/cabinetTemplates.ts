@@ -18,7 +18,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 2,
@@ -45,7 +50,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 4,
@@ -72,7 +82,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 0,
@@ -101,7 +116,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 2,
@@ -128,7 +148,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 4,
@@ -157,7 +182,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 6,
@@ -184,7 +214,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 4,
@@ -213,7 +248,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 4,
@@ -242,7 +282,12 @@ export const cabinetTemplates: CabinetTemplate[] = [
       topBottom: 18,
       back: 12,
       shelf: 18,
-      door: 18
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
     },
     hardware: {
       hinges: 4,
@@ -265,6 +310,30 @@ export const materialSheets = [
     width: 1220,
     costPerSheet: 52.75,
     costPerSqM: 17.75,
+    supplier: 'Wood Supply Co.',
+    isStandard: true
+  },
+  {
+    id: 'ply-18-2100-2800',
+    name: 'Plywood 18mm (2100×2800)',
+    type: 'Plywood',
+    thickness: 18,
+    length: 2100,
+    width: 2800,
+    costPerSheet: 85.50,
+    costPerSqM: 14.50,
+    supplier: 'Wood Supply Co.',
+    isStandard: true
+  },
+  {
+    id: 'ply-18-1520-1520',
+    name: 'Plywood 18mm (1520×1520)',
+    type: 'Plywood',
+    thickness: 18,
+    length: 1520,
+    width: 1520,
+    costPerSheet: 42.25,
+    costPerSqM: 18.30,
     supplier: 'Wood Supply Co.',
     isStandard: true
   },
@@ -301,6 +370,30 @@ export const materialSheets = [
     width: 1220,
     costPerSheet: 35.25,
     costPerSqM: 11.86,
+    supplier: 'Wood Supply Co.',
+    isStandard: true
+  },
+  {
+    id: 'ply-18-1800-3600',
+    name: 'Plywood 18mm (1800×3600)',
+    type: 'Plywood',
+    thickness: 18,
+    length: 1800,
+    width: 3600,
+    costPerSheet: 94.50,
+    costPerSqM: 14.58,
+    supplier: 'Wood Supply Co.',
+    isStandard: true
+  },
+  {
+    id: 'ply-18-2100-2100',
+    name: 'Plywood 18mm (2100×2100)',
+    type: 'Plywood',
+    thickness: 18,
+    length: 2100,
+    width: 2100,
+    costPerSheet: 64.25,
+    costPerSqM: 14.58,
     supplier: 'Wood Supply Co.',
     isStandard: true
   }

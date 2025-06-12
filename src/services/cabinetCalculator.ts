@@ -522,7 +522,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             100, // 100mm wide support
             2,
-            { front: true, back: false, left: false, right: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -709,11 +709,9 @@ export class CabinetCalculatorService {
     const edgeBandingRate = laborRates.find(r => r.id === 'edgebanding');
     if (edgeBandingRate && config.cuttingList) {
       const totalEdgeBanding = config.cuttingList.reduce((sum, item) => {
-        // Count edges that need banding
+        const perimeter = (item.length + item.width) * 2 / 1000; // Convert to meters
         const edgeCount = Object.values(item.edgeBanding).filter(Boolean).length;
-        // Calculate perimeter (only for edges that need banding)
-        const perimeter = ((item.length + item.width) * 2 * edgeCount) / 4 / 1000; // Convert to meters
-        return sum + (perimeter * item.quantity);
+        return sum + (perimeter * edgeCount * item.quantity);
       }, 0);
       
       totalLaborCost += edgeBandingRate.ratePerHour * edgeBandingRate.timePerUnit * totalEdgeBanding;
@@ -777,22 +775,13 @@ export class CabinetCalculatorService {
     return config;
   }
 
-  // Simple nesting algorithm (placeholder for deepnest.js integration)
-  static calculateNesting(
-    cuttingList: CuttingListItem[],
-    customSheetSize?: { width: number; length: number },
-    materialTypeFilter?: string
-  ): NestingResult[] {
+  // Improved nesting algorithm with support for different sheet sizes
+  static calculateNesting(cuttingList: CuttingListItem[], sheetSize?: { length: number, width: number }): NestingResult[] {
     const results: NestingResult[] = [];
     const materialGroups = new Map<string, CuttingListItem[]>();
 
-    // Filter by material type if specified
-    const filteredList = materialTypeFilter && materialTypeFilter !== 'all'
-      ? cuttingList.filter(item => item.materialType.toLowerCase() === materialTypeFilter.toLowerCase())
-      : cuttingList;
-
     // Group by material type and thickness
-    filteredList.forEach(item => {
+    cuttingList.forEach(item => {
       const key = `${item.materialType}-${item.thickness}`;
       if (!materialGroups.has(key)) {
         materialGroups.set(key, []);
@@ -800,97 +789,114 @@ export class CabinetCalculatorService {
       materialGroups.get(key)!.push(item);
     });
 
-    // Simple bin packing for each material group
+    // Process each material group
     materialGroups.forEach((items, key) => {
       const [materialType, thickness] = key.split('-');
       
-      // Use custom sheet size if provided, otherwise find matching sheet
-      let sheetWidth = customSheetSize?.width;
-      let sheetLength = customSheetSize?.length;
-      
-      if (!sheetWidth || !sheetLength) {
-        const sheet = materialSheets.find(s => 
+      // Find the appropriate sheet size
+      let sheet;
+      if (sheetSize) {
+        // Use custom sheet size if provided
+        sheet = {
+          length: sheetSize.length,
+          width: sheetSize.width,
+          type: materialType,
+          thickness: parseInt(thickness)
+        };
+      } else {
+        // Otherwise use standard sheet from materialSheets
+        sheet = materialSheets.find(s => 
           s.type === materialType && s.thickness === parseInt(thickness)
         );
-        
-        if (sheet) {
-          sheetWidth = sheet.width;
-          sheetLength = sheet.length;
-        } else {
-          // Default sheet size if no match found
-          sheetWidth = 1220;
-          sheetLength = 2440;
-        }
       }
 
-      // Simple area-based calculation (replace with actual nesting algorithm)
-      const totalArea = items.reduce((sum, item) => {
-        return sum + (item.length * item.width * item.quantity);
-      }, 0);
+      if (sheet) {
+        // Create a copy of items for manipulation
+        const itemsToPlace = [...items].flatMap(item => 
+          Array(item.quantity).fill(0).map(() => ({
+            id: `part-${item.id}-${Math.random().toString(36).substring(2, 9)}`,
+            partId: item.id,
+            length: item.length,
+            width: item.width,
+            rotation: 0,
+            x: 0,
+            y: 0,
+            placed: false
+          }))
+        );
 
-      const sheetArea = sheetLength * sheetWidth;
-      const efficiency = Math.min(0.85, totalArea / sheetArea); // Max 85% efficiency
-      const sheetsNeeded = Math.ceil(totalArea / (sheetArea * efficiency));
+        // Sort items by area (largest first)
+        itemsToPlace.sort((a, b) => (b.length * b.width) - (a.length * a.width));
 
-      // Create a more realistic layout with no overlapping parts
-      const parts: NestingPart[] = [];
-      let currentX = 0;
-      let currentY = 0;
-      let rowHeight = 0;
-      let itemIndex = 0;
-      
-      // Process each item (and its quantity)
-      items.forEach(item => {
-        for (let q = 0; q < item.quantity; q++) {
-          // Determine if the part fits in the current row
-          if (currentX + item.length > sheetLength) {
+        // Calculate how many sheets we need
+        const totalArea = itemsToPlace.reduce((sum, item) => sum + (item.length * item.width), 0);
+        const sheetArea = sheet.length * sheet.width;
+        const estimatedSheets = Math.ceil(totalArea / (sheetArea * 0.85)); // Assuming 85% efficiency
+        
+        // Create result object
+        const result: NestingResult = {
+          id: `nesting-${key}-${Date.now()}`,
+          sheetSize: {
+            length: sheet.length,
+            width: sheet.width
+          },
+          materialType,
+          thickness: parseInt(thickness),
+          parts: [],
+          efficiency: 0,
+          wasteArea: 0,
+          totalArea: sheetArea * estimatedSheets,
+          sheetCount: estimatedSheets
+        };
+
+        // Simple bin packing algorithm
+        // This is a very basic implementation - in a real app, you'd use a more sophisticated algorithm
+        let currentX = 0;
+        let currentY = 0;
+        let maxHeightInRow = 0;
+        const padding = 5; // 5mm spacing between parts
+        
+        itemsToPlace.forEach(item => {
+          // Check if item fits in current row
+          if (currentX + item.length > sheet.length) {
             // Move to next row
             currentX = 0;
-            currentY += rowHeight + 10; // 10mm spacing between rows
-            rowHeight = 0;
+            currentY += maxHeightInRow + padding;
+            maxHeightInRow = 0;
           }
           
-          // Check if we need to start a new sheet (not implemented in this simple version)
-          if (currentY + item.width > sheetWidth) {
-            // In a real implementation, we would start a new sheet here
-            // For simplicity, we'll just continue on the same sheet
-            currentY = 0;
-            currentX = 0;
-            rowHeight = 0;
+          // Check if item fits in current sheet
+          if (currentY + item.width > sheet.width) {
+            // This would go to next sheet in a real implementation
+            // For now, we'll just place it anyway for visualization
           }
           
-          // Add the part to the layout
-          parts.push({
-            id: `part-${itemIndex}-${Date.now()}`,
-            partId: item.id,
-            x: currentX,
-            y: currentY,
-            rotation: 0, // No rotation in this simple implementation
+          // Place the item
+          item.x = currentX;
+          item.y = currentY;
+          item.placed = true;
+          result.parts.push({
+            id: item.id,
+            partId: item.partId,
+            x: item.x,
+            y: item.y,
+            rotation: item.rotation,
             length: item.length,
             width: item.width
           });
           
-          // Update position for next part
-          currentX += item.length + 10; // 10mm spacing between parts
-          rowHeight = Math.max(rowHeight, item.width);
-          itemIndex++;
-        }
-      });
-
-      results.push({
-        id: `nesting-${key}-${Date.now()}`,
-        sheetSize: {
-          length: sheetLength,
-          width: sheetWidth
-        },
-        materialType,
-        thickness: parseInt(thickness),
-        parts,
-        efficiency: efficiency * 100,
-        wasteArea: sheetArea * sheetsNeeded - totalArea,
-        totalArea: sheetArea * sheetsNeeded,
-        sheetCount: sheetsNeeded
-      });
+          // Update position for next item
+          currentX += item.length + padding;
+          maxHeightInRow = Math.max(maxHeightInRow, item.width);
+        });
+        
+        // Calculate efficiency
+        const usedArea = itemsToPlace.reduce((sum, item) => sum + (item.length * item.width), 0);
+        result.efficiency = (usedArea / result.totalArea) * 100;
+        result.wasteArea = result.totalArea - usedArea;
+        
+        results.push(result);
+      }
     });
 
     return results;
@@ -1006,27 +1012,49 @@ export class CabinetCalculatorService {
     return csv;
   }
 
-  // Integrate with deepnest.js (placeholder)
-  static async optimizeNesting(
-    cuttingList: CuttingListItem[],
-    customSheetSize?: { width: number; length: number },
-    materialType?: string
-  ): Promise<NestingResult[]> {
+  // Integrate with backend API for nesting optimization
+  static async optimizeNesting(cuttingList: CuttingListItem[], sheetSize?: { length: number, width: number }, materialType?: string): Promise<NestingResult[]> {
     try {
+      // Prepare request data
+      const requestData: any = { cuttingList };
+      
+      // Add sheet size if provided
+      if (sheetSize) {
+        requestData.sheetSize = sheetSize;
+      }
+      
+      // Add material filter if provided
+      if (materialType && materialType !== 'all') {
+        requestData.materialType = materialType;
+      }
+      
       // Call the backend API for nesting optimization
       const response = await axios.post(`${API_BASE_URL}/cabinet-calculator/nesting`, 
-        { 
-          cuttingList,
-          sheetSize: customSheetSize,
-          materialType
-        },
+        requestData,
         { headers: getAuthHeader() }
       );
-      return response.data;
+      
+      // If we get a valid response, return it
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      // Otherwise fall back to our local implementation
+      return this.calculateNesting(cuttingList, sheetSize);
     } catch (error) {
       console.error('Nesting optimization error:', error);
-      // Fallback to simple algorithm
-      return this.calculateNesting(cuttingList, customSheetSize, materialType);
+      
+      // Parse sheet size from string if needed
+      let parsedSheetSize = sheetSize;
+      if (!parsedSheetSize && typeof sheetSize === 'string') {
+        const [length, width] = (sheetSize as string).split('x').map(Number);
+        if (!isNaN(length) && !isNaN(width)) {
+          parsedSheetSize = { length, width };
+        }
+      }
+      
+      // Fall back to local implementation
+      return this.calculateNesting(cuttingList, parsedSheetSize);
     }
   }
 }

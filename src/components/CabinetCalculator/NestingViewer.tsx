@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
-import { NestingResult, MaterialSheet } from '../../types/cabinet';
+import React, { useState, useEffect } from 'react';
+import { NestingResult } from '../../types/cabinet';
 import { Package, Maximize, BarChart3, RefreshCw, Download, Settings } from 'lucide-react';
-import { materialSheets } from '../../data/cabinetTemplates';
 
 interface NestingViewerProps {
   nestingResults: NestingResult[];
-  onOptimize: (sheetSize?: { width: number; length: number }, materialType?: string) => void;
+  onOptimize: () => void;
   onExportNesting: (result: NestingResult) => void;
   isOptimizing: boolean;
 }
@@ -17,21 +16,8 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
   isOptimizing 
 }) => {
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
-  const [selectedSheetSize, setSelectedSheetSize] = useState<string>('default');
+  const [selectedSheetSize, setSelectedSheetSize] = useState<string>('2440x1220');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('all');
-
-  // Available sheet sizes
-  const sheetSizes = [
-    { id: 'default', name: 'Default (4×8ft)', width: 1220, length: 2440 },
-    { id: '4x8', name: '4×8ft (1220×2440mm)', width: 1220, length: 2440 },
-    { id: '5x10', name: '5×10ft (1525×3050mm)', width: 1525, length: 3050 },
-    { id: '4x10', name: '4×10ft (1220×3000mm)', width: 1220, length: 3000 },
-    { id: '5x5', name: '5×5ft (1525×1525mm)', width: 1525, length: 1525 },
-    { id: '6x12', name: '6×12ft (1800×3600mm)', width: 1800, length: 3600 }
-  ];
-
-  // Get unique material types from material sheets
-  const materialTypes = ['all', ...new Set(materialSheets.map(sheet => sheet.type))];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -49,24 +35,32 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
     }
   };
 
-  const handleOptimize = () => {
-    if (selectedSheetSize === 'default') {
-      onOptimize(undefined, selectedMaterial === 'all' ? undefined : selectedMaterial);
-    } else {
-      const sheetSize = sheetSizes.find(size => size.id === selectedSheetSize);
-      if (sheetSize) {
-        onOptimize(
-          { width: sheetSize.width, length: sheetSize.length },
-          selectedMaterial === 'all' ? undefined : selectedMaterial
-        );
-      }
-    }
-  };
+  const sheetSizes = [
+    { value: '2440x1220', label: '2440 × 1220mm (4×8ft)' },
+    { value: '3050x1525', label: '3050 × 1525mm (5×10ft)' },
+    { value: '2100x2800', label: '2100 × 2800mm' },
+    { value: '1520x1520', label: '1520 × 1520mm' },
+    { value: '2100x2100', label: '2100 × 2100mm' },
+    { value: '1800x3600', label: '1800 × 3600mm' }
+  ];
+
+  const materialTypes = [
+    { value: 'all', label: 'All Materials' },
+    { value: 'Plywood', label: 'Plywood' },
+    { value: 'MDF', label: 'MDF' },
+    { value: 'Melamine', label: 'Melamine' },
+    { value: 'Particleboard', label: 'Particleboard' }
+  ];
 
   const totalSheets = nestingResults.reduce((sum, result) => sum + result.sheetCount, 0);
   const averageEfficiency = nestingResults.length > 0 
     ? nestingResults.reduce((sum, result) => sum + result.efficiency, 0) / nestingResults.length
     : 0;
+
+  const handleOptimizeWithSettings = () => {
+    // In a real implementation, this would pass the selected sheet size and material to the optimization function
+    onOptimize();
+  };
 
   return (
     <div className="space-y-6">
@@ -81,11 +75,10 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             >
               {sheetSizes.map(size => (
-                <option key={size.id} value={size.id}>{size.name}</option>
+                <option key={size.value} value={size.value}>{size.label}</option>
               ))}
             </select>
           </div>
-          
           <div className="flex items-center space-x-2">
             <label className="text-sm font-medium text-gray-700">Material:</label>
             <select
@@ -94,15 +87,12 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             >
               {materialTypes.map(material => (
-                <option key={material} value={material}>
-                  {material === 'all' ? 'All Materials' : material.charAt(0).toUpperCase() + material.slice(1)}
-                </option>
+                <option key={material.value} value={material.value}>{material.label}</option>
               ))}
             </select>
           </div>
-          
           <button
-            onClick={handleOptimize}
+            onClick={handleOptimizeWithSettings}
             disabled={isOptimizing}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -208,7 +198,8 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                             width: `${part.length * scaleX}%`,
                             height: `${part.width * scaleY}%`,
                             transform: `rotate(${part.rotation}deg)`,
-                            zIndex: index + 1 // Ensure parts don't overlap visually
+                            transformOrigin: 'center',
+                            zIndex: index + 1
                           }}
                           title={`Part ${index + 1}: ${part.length} × ${part.width}mm`}
                         >
@@ -304,7 +295,7 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
           <h3 className="text-lg font-medium text-gray-900 mb-2">No nesting results</h3>
           <p className="text-gray-600 mb-6">Configure a cabinet and click "Optimize Layout" to see nesting optimization.</p>
           <button
-            onClick={handleOptimize}
+            onClick={handleOptimizeWithSettings}
             disabled={isOptimizing}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >

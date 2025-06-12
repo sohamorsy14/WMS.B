@@ -95,14 +95,10 @@ export interface CuttingListItem {
   width: number;
   quantity: number;
   edgeBanding: {
-    front?: boolean;
-    back?: boolean;
-    left?: boolean;
-    right?: boolean;
-    length1?: boolean;
-    length2?: boolean;
-    width1?: boolean;
-    width2?: boolean;
+    front: boolean;
+    back: boolean;
+    left: boolean;
+    right: boolean;
   };
   grain: 'length' | 'width';
   priority: number;
