@@ -7,6 +7,177 @@ const router = express.Router();
 // Apply authentication to all cabinet calculator routes
 router.use(authenticateToken);
 
+// Get all custom templates
+router.get('/templates', requirePermission('cabinet_calc.view'), async (req, res) => {
+  try {
+    const templates = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT id, name, description, category, dimensions, panels, hardware, 
+               materials, construction, created_by, created_at, updated_at
+        FROM cabinet_templates 
+        WHERE is_custom = 1
+        ORDER BY name ASC
+      `, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    // Parse JSON fields
+    const parsedTemplates = templates.map(template => ({
+      ...template,
+      dimensions: JSON.parse(template.dimensions || '{}'),
+      panels: JSON.parse(template.panels || '[]'),
+      hardware: JSON.parse(template.hardware || '[]'),
+      materials: JSON.parse(template.materials || '[]'),
+      construction: JSON.parse(template.construction || '{}')
+    }));
+
+    res.json(parsedTemplates);
+  } catch (error) {
+    console.error('Error fetching custom templates:', error);
+    res.status(500).json({ error: 'Failed to fetch custom templates' });
+  }
+});
+
+// Get a specific template by ID
+router.get('/templates/:id', requirePermission('cabinet_calc.view'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const template = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT id, name, description, category, dimensions, panels, hardware, 
+               materials, construction, created_by, created_at, updated_at
+        FROM cabinet_templates 
+        WHERE id = ? AND is_custom = 1
+      `, [id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    // Parse JSON fields
+    const parsedTemplate = {
+      ...template,
+      dimensions: JSON.parse(template.dimensions || '{}'),
+      panels: JSON.parse(template.panels || '[]'),
+      hardware: JSON.parse(template.hardware || '[]'),
+      materials: JSON.parse(template.materials || '[]'),
+      construction: JSON.parse(template.construction || '{}')
+    };
+
+    res.json(parsedTemplate);
+  } catch (error) {
+    console.error('Error fetching template:', error);
+    res.status(500).json({ error: 'Failed to fetch template' });
+  }
+});
+
+// Create a new custom template
+router.post('/templates', requirePermission('cabinet_calc.edit'), async (req, res) => {
+  try {
+    const { name, description, category, dimensions, panels, hardware, materials, construction } = req.body;
+    const userId = req.user.id;
+
+    const result = await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO cabinet_templates (
+          name, description, category, dimensions, panels, hardware, 
+          materials, construction, is_custom, created_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))
+      `, [
+        name,
+        description,
+        category,
+        JSON.stringify(dimensions || {}),
+        JSON.stringify(panels || []),
+        JSON.stringify(hardware || []),
+        JSON.stringify(materials || []),
+        JSON.stringify(construction || {}),
+        userId
+      ], function(err) {
+        if (err) reject(err);
+        else resolve({ id: this.lastID });
+      });
+    });
+
+    res.status(201).json({ id: result.id, message: 'Template created successfully' });
+  } catch (error) {
+    console.error('Error creating template:', error);
+    res.status(500).json({ error: 'Failed to create template' });
+  }
+});
+
+// Update an existing template
+router.put('/templates/:id', requirePermission('cabinet_calc.edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, category, dimensions, panels, hardware, materials, construction } = req.body;
+
+    const result = await new Promise((resolve, reject) => {
+      db.run(`
+        UPDATE cabinet_templates 
+        SET name = ?, description = ?, category = ?, dimensions = ?, panels = ?, 
+            hardware = ?, materials = ?, construction = ?, updated_at = datetime('now')
+        WHERE id = ? AND is_custom = 1
+      `, [
+        name,
+        description,
+        category,
+        JSON.stringify(dimensions || {}),
+        JSON.stringify(panels || []),
+        JSON.stringify(hardware || []),
+        JSON.stringify(materials || []),
+        JSON.stringify(construction || {}),
+        id
+      ], function(err) {
+        if (err) reject(err);
+        else resolve({ changes: this.changes });
+      });
+    });
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    res.json({ message: 'Template updated successfully' });
+  } catch (error) {
+    console.error('Error updating template:', error);
+    res.status(500).json({ error: 'Failed to update template' });
+  }
+});
+
+// Delete a template
+router.delete('/templates/:id', requirePermission('cabinet_calc.edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await new Promise((resolve, reject) => {
+      db.run(`
+        DELETE FROM cabinet_templates 
+        WHERE id = ? AND is_custom = 1
+      `, [id], function(err) {
+        if (err) reject(err);
+        else resolve({ changes: this.changes });
+      });
+    });
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    res.json({ message: 'Template deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    res.status(500).json({ error: 'Failed to delete template' });
+  }
+});
+
 // Nesting optimization endpoint with sheet size and material type selection
 router.post('/nesting', requirePermission('cabinet_calc.view'), async (req, res) => {
   try {
