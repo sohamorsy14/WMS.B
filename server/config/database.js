@@ -267,8 +267,12 @@ const createTables = async () => {
       features TEXT NOT NULL,
       material_thickness TEXT NOT NULL,
       hardware TEXT NOT NULL,
+      panels TEXT DEFAULT '[]',
+      materials TEXT DEFAULT '[]',
+      construction TEXT DEFAULT '{}',
       is_active BOOLEAN DEFAULT 1,
       is_custom BOOLEAN DEFAULT 1,
+      created_by TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -286,6 +290,7 @@ const createTables = async () => {
       cutting_list TEXT NOT NULL,
       total_cost REAL NOT NULL,
       labor_cost REAL NOT NULL,
+      created_by TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -337,6 +342,44 @@ const createTables = async () => {
     try {
       await db.exec('ALTER TABLE users ADD COLUMN password_changed BOOLEAN DEFAULT 0');
       console.log('✅ Added password_changed column to users table');
+    } catch (error) {
+      // Column already exists, ignore error
+    }
+
+    // Add created_by column to cabinet_templates if it doesn't exist
+    try {
+      await db.exec('ALTER TABLE cabinet_templates ADD COLUMN created_by TEXT');
+      console.log('✅ Added created_by column to cabinet_templates table');
+    } catch (error) {
+      // Column already exists, ignore error
+    }
+
+    // Add created_by column to cabinet_configurations if it doesn't exist
+    try {
+      await db.exec('ALTER TABLE cabinet_configurations ADD COLUMN created_by TEXT');
+      console.log('✅ Added created_by column to cabinet_configurations table');
+    } catch (error) {
+      // Column already exists, ignore error
+    }
+
+    // Add missing columns to cabinet_templates if they don't exist
+    try {
+      await db.exec('ALTER TABLE cabinet_templates ADD COLUMN panels TEXT DEFAULT "[]"');
+      console.log('✅ Added panels column to cabinet_templates table');
+    } catch (error) {
+      // Column already exists, ignore error
+    }
+
+    try {
+      await db.exec('ALTER TABLE cabinet_templates ADD COLUMN materials TEXT DEFAULT "[]"');
+      console.log('✅ Added materials column to cabinet_templates table');
+    } catch (error) {
+      // Column already exists, ignore error
+    }
+
+    try {
+      await db.exec('ALTER TABLE cabinet_templates ADD COLUMN construction TEXT DEFAULT "{}"');
+      console.log('✅ Added construction column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
     }
