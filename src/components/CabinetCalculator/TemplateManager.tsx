@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CabinetTemplate } from '../../types/cabinet';
-import { Plus, Edit, Trash2, Eye, Package, Settings, Search, Filter } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Package, Settings, Search, Filter, Ruler } from 'lucide-react';
 import { CabinetStorageService } from '../../services/cabinetCalculator';
 import TemplateCreator from './TemplateCreator';
 import Modal from '../Common/Modal';
