@@ -1,5 +1,25 @@
 import { CabinetTemplate, CabinetConfiguration, CuttingListItem, CabinetMaterial, CabinetHardware, NestingResult, CabinetProject } from '../types/cabinet';
 import { materialSheets, laborRates } from '../data/cabinetTemplates';
+import axios from 'axios';
+
+// Get API URL
+const getApiUrl = () => {
+  // In development, use Vite proxy
+  if (import.meta.env.DEV) {
+    return '/api';
+  }
+  
+  // In production, use relative API path
+  return '/api';
+};
+
+const API_BASE_URL = getApiUrl();
+
+// Configure axios with auth token
+const getAuthHeader = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export class CabinetCalculatorService {
   
@@ -790,9 +810,12 @@ export class CabinetCalculatorService {
   // Integrate with deepnest.js (placeholder)
   static async optimizeNesting(cuttingList: CuttingListItem[]): Promise<NestingResult[]> {
     try {
-      // In a real implementation, this would call the deepnest.js library
-      // For now, we'll use our simple nesting algorithm
-      return this.calculateNesting(cuttingList);
+      // Call the backend API for nesting optimization
+      const response = await axios.post(`${API_BASE_URL}/cabinet-calculator/nesting`, 
+        { cuttingList },
+        { headers: getAuthHeader() }
+      );
+      return response.data;
     } catch (error) {
       console.error('Nesting optimization error:', error);
       return this.calculateNesting(cuttingList); // Fallback to simple algorithm
@@ -800,112 +823,214 @@ export class CabinetCalculatorService {
   }
 }
 
-// Local storage service for cabinet projects and configurations
+// Cabinet storage service using database API
 export class CabinetStorageService {
-  private static CONFIGS_KEY = 'cabinetConfigurations';
-  private static PROJECTS_KEY = 'cabinetProjects';
-  private static TEMPLATES_KEY = 'customCabinetTemplates';
-
-  // Save configuration to local storage
-  static saveConfiguration(config: CabinetConfiguration): void {
-    const configs = this.getConfigurations();
-    const existingIndex = configs.findIndex(c => c.id === config.id);
-    
-    if (existingIndex >= 0) {
-      configs[existingIndex] = config;
-    } else {
-      configs.push(config);
+  // Get all custom templates
+  static async getCustomTemplates(): Promise<CabinetTemplate[]> {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/cabinet-calculator/templates`, {
+        headers: getAuthHeader()
+      });
+      return response.data.filter((template: CabinetTemplate) => template.isCustom);
+    } catch (error) {
+      console.error('Failed to fetch custom templates:', error);
+      // Fallback to localStorage if API fails
+      const templates = localStorage.getItem('customCabinetTemplates');
+      return templates ? JSON.parse(templates) : [];
     }
-    
-    localStorage.setItem(this.CONFIGS_KEY, JSON.stringify(configs));
   }
 
-  // Get all saved configurations
-  static getConfigurations(): CabinetConfiguration[] {
-    const configs = localStorage.getItem(this.CONFIGS_KEY);
-    return configs ? JSON.parse(configs) : [];
-  }
-
-  // Delete configuration
-  static deleteConfiguration(configId: string): void {
-    const configs = this.getConfigurations();
-    const updatedConfigs = configs.filter(c => c.id !== configId);
-    localStorage.setItem(this.CONFIGS_KEY, JSON.stringify(updatedConfigs));
-    
-    // Also remove from any projects
-    const projects = this.getProjects();
-    const updatedProjects = projects.map(project => {
-      return {
-        ...project,
-        configurations: project.configurations.filter(c => c.id !== configId)
-      };
-    });
-    localStorage.setItem(this.PROJECTS_KEY, JSON.stringify(updatedProjects));
-  }
-
-  // Save project to local storage
-  static saveProject(project: CabinetProject): void {
-    const projects = this.getProjects();
-    const existingIndex = projects.findIndex(p => p.id === project.id);
-    
-    if (existingIndex >= 0) {
-      projects[existingIndex] = project;
-    } else {
-      projects.push(project);
+  // Save template to database
+  static async saveTemplate(template: CabinetTemplate): Promise<void> {
+    try {
+      if (template.id) {
+        // Update existing template
+        await axios.put(`${API_BASE_URL}/cabinet-calculator/templates/${template.id}`, 
+          template,
+          { headers: getAuthHeader() }
+        );
+      } else {
+        // Create new template
+        await axios.post(`${API_BASE_URL}/cabinet-calculator/templates`, 
+          template,
+          { headers: getAuthHeader() }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to save template:', error);
+      // Fallback to localStorage if API fails
+      const templates = localStorage.getItem('customCabinetTemplates');
+      const existingTemplates = templates ? JSON.parse(templates) : [];
+      const existingIndex = existingTemplates.findIndex((t: CabinetTemplate) => t.id === template.id);
+      
+      if (existingIndex >= 0) {
+        existingTemplates[existingIndex] = template;
+      } else {
+        existingTemplates.push(template);
+      }
+      
+      localStorage.setItem('customCabinetTemplates', JSON.stringify(existingTemplates));
     }
-    
-    localStorage.setItem(this.PROJECTS_KEY, JSON.stringify(projects));
   }
 
-  // Get all saved projects
-  static getProjects(): CabinetProject[] {
-    const projects = localStorage.getItem(this.PROJECTS_KEY);
-    return projects ? JSON.parse(projects) : [];
+  // Delete template from database
+  static async deleteTemplate(templateId: string): Promise<void> {
+    try {
+      await axios.delete(`${API_BASE_URL}/cabinet-calculator/templates/${templateId}`, {
+        headers: getAuthHeader()
+      });
+    } catch (error) {
+      console.error('Failed to delete template:', error);
+      // Fallback to localStorage if API fails
+      const templates = localStorage.getItem('customCabinetTemplates');
+      if (templates) {
+        const existingTemplates = JSON.parse(templates);
+        const updatedTemplates = existingTemplates.filter((t: CabinetTemplate) => t.id !== templateId);
+        localStorage.setItem('customCabinetTemplates', JSON.stringify(updatedTemplates));
+      }
+    }
   }
 
-  // Delete project
-  static deleteProject(projectId: string): void {
-    const projects = this.getProjects();
-    const updatedProjects = projects.filter(p => p.id !== projectId);
-    localStorage.setItem(this.PROJECTS_KEY, JSON.stringify(updatedProjects));
+  // Get all configurations
+  static async getConfigurations(): Promise<CabinetConfiguration[]> {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/cabinet-calculator/configurations`, {
+        headers: getAuthHeader()
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch configurations:', error);
+      // Fallback to localStorage if API fails
+      const configs = localStorage.getItem('cabinetConfigurations');
+      return configs ? JSON.parse(configs) : [];
+    }
+  }
+
+  // Save configuration to database
+  static async saveConfiguration(config: CabinetConfiguration): Promise<void> {
+    try {
+      if (config.id && config.id.startsWith('config-')) {
+        // Update existing configuration
+        await axios.put(`${API_BASE_URL}/cabinet-calculator/configurations/${config.id}`, 
+          config,
+          { headers: getAuthHeader() }
+        );
+      } else {
+        // Create new configuration
+        await axios.post(`${API_BASE_URL}/cabinet-calculator/configurations`, 
+          config,
+          { headers: getAuthHeader() }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to save configuration:', error);
+      // Fallback to localStorage if API fails
+      const configs = localStorage.getItem('cabinetConfigurations');
+      const existingConfigs = configs ? JSON.parse(configs) : [];
+      const existingIndex = existingConfigs.findIndex((c: CabinetConfiguration) => c.id === config.id);
+      
+      if (existingIndex >= 0) {
+        existingConfigs[existingIndex] = config;
+      } else {
+        existingConfigs.push(config);
+      }
+      
+      localStorage.setItem('cabinetConfigurations', JSON.stringify(existingConfigs));
+    }
+  }
+
+  // Delete configuration from database
+  static async deleteConfiguration(configId: string): Promise<void> {
+    try {
+      await axios.delete(`${API_BASE_URL}/cabinet-calculator/configurations/${configId}`, {
+        headers: getAuthHeader()
+      });
+    } catch (error) {
+      console.error('Failed to delete configuration:', error);
+      // Fallback to localStorage if API fails
+      const configs = localStorage.getItem('cabinetConfigurations');
+      if (configs) {
+        const existingConfigs = JSON.parse(configs);
+        const updatedConfigs = existingConfigs.filter((c: CabinetConfiguration) => c.id !== configId);
+        localStorage.setItem('cabinetConfigurations', JSON.stringify(updatedConfigs));
+      }
+    }
+  }
+
+  // Get all projects
+  static async getProjects(): Promise<CabinetProject[]> {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/cabinet-calculator/projects`, {
+        headers: getAuthHeader()
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
+      // Fallback to localStorage if API fails
+      const projects = localStorage.getItem('cabinetProjects');
+      return projects ? JSON.parse(projects) : [];
+    }
+  }
+
+  // Save project to database
+  static async saveProject(project: CabinetProject): Promise<void> {
+    try {
+      if (project.id && project.id.startsWith('project-')) {
+        // Update existing project
+        await axios.put(`${API_BASE_URL}/cabinet-calculator/projects/${project.id}`, 
+          project,
+          { headers: getAuthHeader() }
+        );
+      } else {
+        // Create new project
+        await axios.post(`${API_BASE_URL}/cabinet-calculator/projects`, 
+          project,
+          { headers: getAuthHeader() }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to save project:', error);
+      // Fallback to localStorage if API fails
+      const projects = localStorage.getItem('cabinetProjects');
+      const existingProjects = projects ? JSON.parse(projects) : [];
+      const existingIndex = existingProjects.findIndex((p: CabinetProject) => p.id === project.id);
+      
+      if (existingIndex >= 0) {
+        existingProjects[existingIndex] = project;
+      } else {
+        existingProjects.push(project);
+      }
+      
+      localStorage.setItem('cabinetProjects', JSON.stringify(existingProjects));
+    }
+  }
+
+  // Delete project from database
+  static async deleteProject(projectId: string): Promise<void> {
+    try {
+      await axios.delete(`${API_BASE_URL}/cabinet-calculator/projects/${projectId}`, {
+        headers: getAuthHeader()
+      });
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      // Fallback to localStorage if API fails
+      const projects = localStorage.getItem('cabinetProjects');
+      if (projects) {
+        const existingProjects = JSON.parse(projects);
+        const updatedProjects = existingProjects.filter((p: CabinetProject) => p.id !== projectId);
+        localStorage.setItem('cabinetProjects', JSON.stringify(updatedProjects));
+      }
+    }
   }
 
   // Get project by ID
-  static getProjectById(projectId: string): CabinetProject | null {
-    const projects = this.getProjects();
-    return projects.find(p => p.id === projectId) || null;
-  }
-
-  // Save custom template to local storage
-  static saveTemplate(template: CabinetTemplate): void {
-    const templates = this.getCustomTemplates();
-    const existingIndex = templates.findIndex(t => t.id === template.id);
-    
-    if (existingIndex >= 0) {
-      templates[existingIndex] = template;
-    } else {
-      templates.push(template);
+  static async getProjectById(projectId: string): Promise<CabinetProject | null> {
+    try {
+      const projects = await this.getProjects();
+      return projects.find(p => p.id === projectId) || null;
+    } catch (error) {
+      console.error('Failed to get project by ID:', error);
+      return null;
     }
-    
-    localStorage.setItem(this.TEMPLATES_KEY, JSON.stringify(templates));
-  }
-
-  // Get all custom templates
-  static getCustomTemplates(): CabinetTemplate[] {
-    const templates = localStorage.getItem(this.TEMPLATES_KEY);
-    return templates ? JSON.parse(templates) : [];
-  }
-
-  // Delete custom template
-  static deleteTemplate(templateId: string): void {
-    const templates = this.getCustomTemplates();
-    const updatedTemplates = templates.filter(t => t.id !== templateId);
-    localStorage.setItem(this.TEMPLATES_KEY, JSON.stringify(updatedTemplates));
-  }
-
-  // Get template by ID (checks both custom and default templates)
-  static getTemplateById(templateId: string): CabinetTemplate | null {
-    const customTemplates = this.getCustomTemplates();
-    return customTemplates.find(t => t.id === templateId) || null;
   }
 }

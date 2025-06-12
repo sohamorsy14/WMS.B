@@ -3,6 +3,7 @@ import { CabinetConfiguration, CabinetProject } from '../../types/cabinet';
 import { CabinetCalculatorService, CabinetStorageService } from '../../services/cabinetCalculator';
 import { Plus, Trash2, Edit, Save, Download, FileText, User, Phone, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 interface ProjectCreatorProps {
   savedConfigurations: CabinetConfiguration[];
@@ -26,14 +27,23 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
   const [notes, setNotes] = useState('');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [selectedProject, setSelectedProject] = useState<CabinetProject | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadProjects();
   }, []);
 
-  const loadProjects = () => {
-    const loadedProjects = CabinetStorageService.getProjects();
-    setProjects(loadedProjects);
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      const loadedProjects = await CabinetStorageService.getProjects();
+      setProjects(loadedProjects);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+      toast.error('Failed to load projects');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleToggleConfiguration = (configId: string) => {
@@ -44,7 +54,7 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
     }
   };
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     if (!projectName || !customerName || selectedConfigurations.length === 0) {
       toast.error('Please fill in all required fields and select at least one cabinet');
       return;
@@ -63,28 +73,38 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
       notes
     );
 
-    CabinetStorageService.saveProject(project);
-    loadProjects();
-    onCreateProject(project);
-    
-    // Reset form
-    setProjectName('');
-    setProjectDescription('');
-    setCustomerName('');
-    setCustomerContact('');
-    setNotes('');
-    setSelectedConfigurations([]);
-    setIsCreatingProject(false);
-    
-    toast.success('Project created successfully');
+    try {
+      await CabinetStorageService.saveProject(project);
+      await loadProjects();
+      onCreateProject(project);
+      
+      // Reset form
+      setProjectName('');
+      setProjectDescription('');
+      setCustomerName('');
+      setCustomerContact('');
+      setNotes('');
+      setSelectedConfigurations([]);
+      setIsCreatingProject(false);
+      
+      toast.success('Project created successfully');
+    } catch (error) {
+      console.error('Error saving project:', error);
+      toast.error('Failed to save project');
+    }
   };
 
-  const handleDeleteProject = (projectId: string) => {
+  const handleDeleteProject = async (projectId: string) => {
     if (!confirm('Are you sure you want to delete this project?')) return;
     
-    CabinetStorageService.deleteProject(projectId);
-    loadProjects();
-    toast.success('Project deleted successfully');
+    try {
+      await CabinetStorageService.deleteProject(projectId);
+      await loadProjects();
+      toast.success('Project deleted successfully');
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast.error('Failed to delete project');
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -105,6 +125,15 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
     };
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <LoadingSpinner />
+        <p className="mt-4 text-gray-600">Loading projects...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

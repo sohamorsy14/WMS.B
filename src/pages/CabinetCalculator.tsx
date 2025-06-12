@@ -11,6 +11,7 @@ import NestingViewer from '../components/CabinetCalculator/NestingViewer';
 import ProjectCreator from '../components/CabinetCalculator/ProjectCreator';
 import TemplateManager from '../components/CabinetCalculator/TemplateManager';
 import Modal from '../components/Common/Modal';
+import LoadingSpinner from '../components/Common/LoadingSpinner';
 import { exportCuttingListCSV, exportCuttingListPDF, exportBOMExcel, exportProjectPDF, exportNestingSVG, exportNestingDXF } from '../components/CabinetCalculator/ExportUtils';
 
 const CabinetCalculator: React.FC = () => {
@@ -25,19 +26,40 @@ const CabinetCalculator: React.FC = () => {
   const [exportType, setExportType] = useState<'cutting-list' | 'bom' | 'project'>('cutting-list');
   const [bomModalOpen, setBomModalOpen] = useState(false);
   const [allTemplates, setAllTemplates] = useState<CabinetTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // Load saved configurations from localStorage
-    const configs = CabinetStorageService.getConfigurations();
-    setSavedConfigurations(configs);
-    
-    // Load all templates (default + custom)
-    loadAllTemplates();
+    // Load saved configurations and templates
+    loadData();
   }, []);
   
-  const loadAllTemplates = () => {
-    const customTemplates = CabinetStorageService.getCustomTemplates();
-    setAllTemplates([...cabinetTemplates, ...customTemplates]);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Load saved configurations from database
+      const configs = await CabinetStorageService.getConfigurations();
+      setSavedConfigurations(configs);
+      
+      // Load all templates (default + custom)
+      await loadAllTemplates();
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Failed to load saved data');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const loadAllTemplates = async () => {
+    try {
+      const customTemplates = await CabinetStorageService.getCustomTemplates();
+      setAllTemplates([...cabinetTemplates, ...customTemplates]);
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      toast.error('Failed to load custom templates');
+      // Fallback to just default templates
+      setAllTemplates([...cabinetTemplates]);
+    }
   };
 
   const handleTemplateSelect = (template: CabinetTemplate) => {
@@ -49,11 +71,16 @@ const CabinetCalculator: React.FC = () => {
     setCurrentConfiguration(config);
   };
 
-  const handleSaveConfiguration = (config: CabinetConfiguration) => {
-    CabinetStorageService.saveConfiguration(config);
-    const updatedConfigs = CabinetStorageService.getConfigurations();
-    setSavedConfigurations(updatedConfigs);
-    toast.success('Configuration saved successfully');
+  const handleSaveConfiguration = async (config: CabinetConfiguration) => {
+    try {
+      await CabinetStorageService.saveConfiguration(config);
+      const updatedConfigs = await CabinetStorageService.getConfigurations();
+      setSavedConfigurations(updatedConfigs);
+      toast.success('Configuration saved successfully');
+    } catch (error) {
+      console.error('Error saving configuration:', error);
+      toast.error('Failed to save configuration');
+    }
   };
 
   const handleEditConfiguration = (config: CabinetConfiguration) => {
@@ -67,11 +94,16 @@ const CabinetCalculator: React.FC = () => {
     }
   };
 
-  const handleDeleteConfiguration = (configId: string) => {
-    CabinetStorageService.deleteConfiguration(configId);
-    const updatedConfigs = CabinetStorageService.getConfigurations();
-    setSavedConfigurations(updatedConfigs);
-    toast.success('Configuration deleted successfully');
+  const handleDeleteConfiguration = async (configId: string) => {
+    try {
+      await CabinetStorageService.deleteConfiguration(configId);
+      const updatedConfigs = await CabinetStorageService.getConfigurations();
+      setSavedConfigurations(updatedConfigs);
+      toast.success('Configuration deleted successfully');
+    } catch (error) {
+      console.error('Error deleting configuration:', error);
+      toast.error('Failed to delete configuration');
+    }
   };
 
   const handleOptimizeNesting = async () => {
@@ -82,9 +114,7 @@ const CabinetCalculator: React.FC = () => {
 
     setIsOptimizing(true);
     try {
-      // In a real implementation, this would call the deepnest.js library
-      // For now, we'll use our simple nesting algorithm with a delay to simulate processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call the backend API for nesting optimization
       const results = await CabinetCalculatorService.optimizeNesting(currentConfiguration.cuttingList);
       setNestingResults(results);
       setActiveTab('nesting');
@@ -127,14 +157,25 @@ const CabinetCalculator: React.FC = () => {
     }
   };
 
-  const handleCreateProject = (project: CabinetProject) => {
-    // Project is already saved in the ProjectCreator component
-    setActiveTab('projects');
+  const handleCreateProject = async (project: CabinetProject) => {
+    try {
+      // Project is saved in the ProjectCreator component
+      await CabinetStorageService.saveProject(project);
+      setActiveTab('projects');
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast.error('Failed to create project');
+    }
   };
   
-  const handleAddTemplate = (template: CabinetTemplate) => {
-    loadAllTemplates();
-    toast.success('Template added to catalog');
+  const handleAddTemplate = async (template: CabinetTemplate) => {
+    try {
+      await loadAllTemplates();
+      toast.success('Template added to catalog');
+    } catch (error) {
+      console.error('Error adding template:', error);
+      toast.error('Failed to add template');
+    }
   };
 
   const performExport = () => {
@@ -166,6 +207,10 @@ const CabinetCalculator: React.FC = () => {
     toast.success('BOM created successfully');
     setBomModalOpen(false);
   };
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
 
   if (!hasPermission('cabinet_calc.view')) {
     return (
