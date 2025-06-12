@@ -10,13 +10,14 @@ import CabinetConfigurator from '../components/CabinetCalculator/CabinetConfigur
 import NestingViewer from '../components/CabinetCalculator/NestingViewer';
 import ProjectCreator from '../components/CabinetCalculator/ProjectCreator';
 import TemplateManager from '../components/CabinetCalculator/TemplateManager';
+import PanelCalculator from '../components/CabinetCalculator/PanelCalculator';
 import Modal from '../components/Common/Modal';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import { exportCuttingListCSV, exportCuttingListPDF, exportBOMExcel, exportProjectPDF, exportNestingSVG, exportNestingDXF } from '../components/CabinetCalculator/ExportUtils';
 
 const CabinetCalculator: React.FC = () => {
   const { user, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<'catalog' | 'configure' | 'nesting' | 'projects' | 'templates'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'configure' | 'nesting' | 'projects' | 'templates' | 'calculator'>('catalog');
   const [selectedTemplate, setSelectedTemplate] = useState<CabinetTemplate | null>(null);
   const [currentConfiguration, setCurrentConfiguration] = useState<CabinetConfiguration | null>(null);
   const [savedConfigurations, setSavedConfigurations] = useState<CabinetConfiguration[]>([]);
@@ -269,6 +270,7 @@ const CabinetCalculator: React.FC = () => {
               { id: 'catalog', label: 'Cabinet Catalog', icon: Package },
               { id: 'configure', label: 'Configure', icon: Calculator, disabled: !selectedTemplate },
               { id: 'nesting',  label: 'Nesting Optimization', icon: BarChart3, disabled: !currentConfiguration },
+              { id: 'calculator', label: 'Panel Calculator', icon: Ruler, disabled: !selectedTemplate },
               { id: 'projects', label: 'Projects', icon: FileText },
               { id: 'templates', label: 'Template Management', icon: Grid }
             ].map((tab) => {
@@ -321,6 +323,10 @@ const CabinetCalculator: React.FC = () => {
               onExportNesting={handleExportNesting}
               isOptimizing={isOptimizing}
             />
+          )}
+
+          {activeTab === 'calculator' && selectedTemplate && (
+            <PanelCalculator template={selectedTemplate} />
           )}
 
           {activeTab === 'projects' && (
