@@ -1,21 +1,29 @@
 import React, { useState } from 'react';
 import { CabinetTemplate } from '../../types/cabinet';
-import { Ruler, Package, Settings, Eye } from 'lucide-react';
+import { Ruler, Package, Settings, Eye, Copy, Plus } from 'lucide-react';
+import { CabinetCalculatorService } from '../../services/cabinetCalculator';
+import toast from 'react-hot-toast';
+import Modal from '../Common/Modal';
 
 interface CabinetCatalogProps {
   templates: CabinetTemplate[];
   onSelectTemplate: (template: CabinetTemplate) => void;
+  onAddTemplate: (template: CabinetTemplate) => void;
   selectedTemplate?: CabinetTemplate;
 }
 
 const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
   templates,
   onSelectTemplate,
+  onAddTemplate,
   selectedTemplate
 }) => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [templateToCopy, setTemplateToCopy] = useState<CabinetTemplate | null>(null);
+  const [newTemplateName, setNewTemplateName] = useState('');
 
   const categories = [...new Set(templates.map(t => t.category))];
   const types = [...new Set(templates.map(t => t.type))];
@@ -39,6 +47,34 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
       specialty: 'bg-yellow-100 text-yellow-800'
     };
     return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  };
+
+  const handleCopyTemplate = (template: CabinetTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTemplateToCopy(template);
+    setNewTemplateName(`Copy of ${template.name}`);
+    setIsCopyModalOpen(true);
+  };
+
+  const handleCreateCopy = () => {
+    if (!templateToCopy) return;
+    
+    if (!newTemplateName.trim()) {
+      toast.error('Please enter a name for the new template');
+      return;
+    }
+
+    try {
+      const newTemplate = CabinetCalculatorService.copyTemplate(templateToCopy, newTemplateName);
+      onAddTemplate(newTemplate);
+      setIsCopyModalOpen(false);
+      setTemplateToCopy(null);
+      setNewTemplateName('');
+      toast.success('Template copied successfully');
+    } catch (error) {
+      console.error('Error copying template:', error);
+      toast.error('Failed to copy template');
+    }
   };
 
   return (
@@ -172,16 +208,26 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
                   Configure
                 </button>
                 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Handle view details
-                  }}
-                  className="flex items-center text-sm text-gray-600 hover:text-gray-800"
-                >
-                  <Eye className="w-4 h-4 mr-1" />
-                  Details
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={(e) => handleCopyTemplate(template, e)}
+                    className="flex items-center text-sm text-green-600 hover:text-green-800"
+                  >
+                    <Copy className="w-4 h-4 mr-1" />
+                    Copy
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Handle view details
+                    }}
+                    className="flex items-center text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Details
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -195,6 +241,74 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
           <p className="text-gray-600">Try adjusting your filters to see more options.</p>
         </div>
       )}
+
+      {/* Copy Template Modal */}
+      <Modal
+        isOpen={isCopyModalOpen}
+        onClose={() => {
+          setIsCopyModalOpen(false);
+          setTemplateToCopy(null);
+          setNewTemplateName('');
+        }}
+        title="Copy Cabinet Template"
+        size="md"
+      >
+        <div className="space-y-4">
+          {templateToCopy && (
+            <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg">
+              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                <img 
+                  src={templateToCopy.previewImage} 
+                  alt={templateToCopy.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div>
+                <h3 className="font-medium text-blue-900">{templateToCopy.name}</h3>
+                <p className="text-sm text-blue-700">{templateToCopy.type} - {templateToCopy.category}</p>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              New Template Name
+            </label>
+            <input
+              type="text"
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter name for the new template"
+            />
+          </div>
+
+          <p className="text-sm text-gray-600">
+            This will create a copy of the selected template with all its properties and settings.
+            You can modify the copy without affecting the original template.
+          </p>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={() => {
+                setIsCopyModalOpen(false);
+                setTemplateToCopy(null);
+                setNewTemplateName('');
+              }}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateCopy}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Copy
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

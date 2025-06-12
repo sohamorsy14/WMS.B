@@ -36,6 +36,7 @@ const CabinetConfigurator: React.FC<CabinetConfiguratorProps> = ({
   const doorStyles = ['Shaker', 'Flat Panel', 'Raised Panel', 'Glass', 'Louvered'];
   const finishes = ['White', 'Natural Wood', 'Espresso', 'Gray', 'Black', 'Custom'];
   const hardwareOptions = ['Chrome', 'Brushed Nickel', 'Black', 'Brass', 'Stainless Steel'];
+  const grainDirections = ['length', 'width', 'none'];
 
   useEffect(() => {
     generateConfiguration();
@@ -65,6 +66,25 @@ const CabinetConfigurator: React.FC<CabinetConfiguratorProps> = ({
 
   const handleCustomizationChange = (key: string, value: any) => {
     setCustomizations({ ...customizations, [key]: value });
+  };
+
+  const handleGrainDirectionChange = (itemId: string, grain: 'length' | 'width' | 'none') => {
+    if (!configuration) return;
+    
+    const updatedCuttingList = configuration.cuttingList.map(item => {
+      if (item.id === itemId) {
+        return { ...item, grain };
+      }
+      return item;
+    });
+    
+    const updatedConfig = {
+      ...configuration,
+      cuttingList: updatedCuttingList
+    };
+    
+    setConfiguration(updatedConfig);
+    onConfigurationChange(updatedConfig);
   };
 
   const formatCurrency = (amount: number) => {
@@ -379,6 +399,7 @@ const CabinetConfigurator: React.FC<CabinetConfiguratorProps> = ({
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Width</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Edge Banding</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grain Direction</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -395,6 +416,17 @@ const CabinetConfigurator: React.FC<CabinetConfiguratorProps> = ({
                           .filter(([_, value]) => value)
                           .map(([edge]) => edge)
                           .join(', ') || 'None'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={item.grain}
+                          onChange={(e) => handleGrainDirectionChange(item.id, e.target.value as 'length' | 'width' | 'none')}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="length">With Grain (Length)</option>
+                          <option value="width">With Grain (Width)</option>
+                          <option value="none">No Grain</option>
+                        </select>
                       </td>
                     </tr>
                   ))}

@@ -100,7 +100,7 @@ export interface CuttingListItem {
     left: boolean;
     right: boolean;
   };
-  grain: 'length' | 'width';
+  grain: 'length' | 'width' | 'none';
   priority: number;
 }
 
@@ -156,6 +156,7 @@ export interface NestingPart {
   rotation: number;
   length: number;
   width: number;
+  grain?: 'length' | 'width' | 'none';
 }
 
 export interface CabinetProject {

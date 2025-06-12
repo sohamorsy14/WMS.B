@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import db from '../config/database.js';
 import { authenticateToken, requirePermission } from '../middleware/auth.js';
 
@@ -244,8 +245,29 @@ router.post('/nesting', requirePermission('cabinet_calc.view'), async (req, res)
       // Process each item (and its quantity)
       items.forEach(item => {
         for (let q = 0; q < item.quantity; q++) {
+          // Consider grain direction for rotation
+          let canRotate = item.grain === 'none';
+          let shouldRotate = false;
+          let partLength = item.length;
+          let partWidth = item.width;
+          let rotation = 0;
+          
+          // If grain direction is specified, check if rotation is allowed
+          if (item.grain === 'width') {
+            // Grain runs along width, so we should rotate from default
+            shouldRotate = true;
+            canRotate = true;
+          }
+          
+          // Apply rotation if needed and allowed
+          if (shouldRotate && canRotate) {
+            partLength = item.width;
+            partWidth = item.length;
+            rotation = 90;
+          }
+          
           // Determine if the part fits in the current row
-          if (currentX + item.length > sheetLength) {
+          if (currentX + partLength > sheetLength) {
             // Move to next row
             currentX = 0;
             currentY += rowHeight + 10; // 10mm spacing between rows
@@ -253,7 +275,7 @@ router.post('/nesting', requirePermission('cabinet_calc.view'), async (req, res)
           }
           
           // Check if we need to start a new sheet (not implemented in this simple version)
-          if (currentY + item.width > sheetWidth) {
+          if (currentY + partWidth > sheetWidth) {
             // In a real implementation, we would start a new sheet here
             // For simplicity, we'll just continue on the same sheet
             currentY = 0;
@@ -267,14 +289,15 @@ router.post('/nesting', requirePermission('cabinet_calc.view'), async (req, res)
             partId: item.id,
             x: currentX,
             y: currentY,
-            rotation: 0, // No rotation in this simple implementation
-            length: item.length,
-            width: item.width
+            rotation: rotation,
+            length: partLength,
+            width: partWidth,
+            grain: item.grain
           });
           
           // Update position for next part
-          currentX += item.length + 10; // 10mm spacing between parts
-          rowHeight = Math.max(rowHeight, item.width);
+          currentX += partLength + 10; // 10mm spacing between parts
+          rowHeight = Math.max(rowHeight, partWidth);
           itemIndex++;
         }
       });

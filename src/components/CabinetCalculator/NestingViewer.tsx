@@ -188,10 +188,29 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                       const scaleX = 100 / result.sheetSize.length;
                       const scaleY = 100 / result.sheetSize.width;
                       
+                      // Determine color based on grain direction
+                      let bgColor = 'bg-blue-100';
+                      let borderColor = 'border-blue-500';
+                      let textColor = 'text-blue-800';
+                      
+                      if (part.grain === 'length') {
+                        bgColor = 'bg-green-100';
+                        borderColor = 'border-green-500';
+                        textColor = 'text-green-800';
+                      } else if (part.grain === 'width') {
+                        bgColor = 'bg-purple-100';
+                        borderColor = 'border-purple-500';
+                        textColor = 'text-purple-800';
+                      } else if (part.grain === 'none') {
+                        bgColor = 'bg-gray-100';
+                        borderColor = 'border-gray-500';
+                        textColor = 'text-gray-800';
+                      }
+                      
                       return (
                         <div
                           key={part.id}
-                          className="absolute border border-blue-500 bg-blue-100 bg-opacity-50 flex items-center justify-center text-xs font-medium text-blue-800"
+                          className={`absolute border ${borderColor} ${bgColor} bg-opacity-50 flex items-center justify-center text-xs font-medium ${textColor}`}
                           style={{
                             left: `${part.x * scaleX}%`,
                             top: `${part.y * scaleY}%`,
@@ -201,7 +220,7 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                             transformOrigin: 'center',
                             zIndex: index + 1
                           }}
-                          title={`Part ${index + 1}: ${part.length} × ${part.width}mm`}
+                          title={`Part ${index + 1}: ${part.length} × ${part.width}mm${part.grain ? `, Grain: ${part.grain}` : ''}`}
                         >
                           {index + 1}
                         </div>
@@ -212,6 +231,22 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                 
                 <div className="mt-2 text-sm text-gray-600 text-center">
                   Sheet Layout - {result.parts.length} parts
+                </div>
+                
+                {/* Grain direction legend */}
+                <div className="mt-2 flex justify-center space-x-4 text-xs">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-green-100 border border-green-500 mr-1"></div>
+                    <span>With Grain (Length)</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-purple-100 border border-purple-500 mr-1"></div>
+                    <span>With Grain (Width)</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-gray-100 border border-gray-500 mr-1"></div>
+                    <span>No Grain</span>
+                  </div>
                 </div>
               </div>
 
@@ -245,6 +280,7 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Dimensions</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Rotation</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grain</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -255,6 +291,11 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                             <td className="px-3 py-2 text-gray-900">{part.length} × {part.width}mm</td>
                             <td className="px-3 py-2 text-gray-900">{part.x}, {part.y}</td>
                             <td className="px-3 py-2 text-gray-900">{part.rotation}°</td>
+                            <td className="px-3 py-2 text-gray-900">
+                              {part.grain === 'length' ? 'With Grain (Length)' : 
+                               part.grain === 'width' ? 'With Grain (Width)' : 
+                               'No Grain'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

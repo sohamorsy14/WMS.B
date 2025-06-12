@@ -318,6 +318,7 @@ const CabinetCalculator: React.FC = () => {
             <CabinetCatalog 
               templates={allTemplates.filter(t => t.isActive)}
               onSelectTemplate={handleTemplateSelect}
+              onAddTemplate={handleAddTemplate}
               selectedTemplate={selectedTemplate}
             />
           )}
