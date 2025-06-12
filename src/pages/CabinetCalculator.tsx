@@ -107,7 +107,10 @@ const CabinetCalculator: React.FC = () => {
     }
   };
 
-  const handleOptimizeNesting = async () => {
+  const handleOptimizeNesting = async (
+    sheetSize?: { width: number; length: number },
+    materialType?: string
+  ) => {
     if (!currentConfiguration) {
       toast.error('Please configure a cabinet first');
       return;
@@ -115,8 +118,20 @@ const CabinetCalculator: React.FC = () => {
 
     setIsOptimizing(true);
     try {
-      // Call the backend API for nesting optimization
-      const results = await CabinetCalculatorService.optimizeNesting(currentConfiguration.cuttingList);
+      // Filter cutting list by material type if specified
+      let cuttingList = [...currentConfiguration.cuttingList];
+      if (materialType && materialType !== 'all') {
+        cuttingList = cuttingList.filter(item => 
+          item.materialType.toLowerCase() === materialType.toLowerCase()
+        );
+      }
+
+      // Call the backend API for nesting optimization with custom sheet size if provided
+      const results = await CabinetCalculatorService.optimizeNesting(
+        cuttingList,
+        sheetSize
+      );
+      
       setNestingResults(results);
       setActiveTab('nesting');
       toast.success('Nesting optimization completed');

@@ -38,7 +38,7 @@ export class CabinetCalculatorService {
       length: number,
       width: number,
       quantity: number,
-      edgeBanding: any = { length1: false, length2: false, width1: false, width2: false },
+      edgeBanding: any = { front: false, back: false, left: false, right: false },
       grain: 'length' | 'width' = 'length',
       priority: number = 1
     ) => {
@@ -71,7 +71,7 @@ export class CabinetCalculatorService {
           height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
           depth - (construction.hasBack !== false ? back : 0),
           2,
-          { length1: true, length2: true, width1: true, width2: false },
+          { front: true, back: false, left: true, right: true },
           'length',
           1
         );
@@ -85,7 +85,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             depth - (construction.hasBack !== false ? back : 0),
             1,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -100,7 +100,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             depth - (construction.hasBack !== false ? back : 0),
             1,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -115,7 +115,7 @@ export class CabinetCalculatorService {
             height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
             width - (side * 2),
             1,
-            { length1: false, length2: false, width1: false, width2: false },
+            { front: false, back: false, left: false, right: false },
             'length',
             2
           );
@@ -130,7 +130,7 @@ export class CabinetCalculatorService {
             height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
             width - (side * 2),
             1,
-            { length1: false, length2: false, width1: false, width2: false },
+            { front: false, back: false, left: false, right: false },
             'length',
             2
           );
@@ -145,7 +145,7 @@ export class CabinetCalculatorService {
             width - (side * 2) - 3, // 3mm clearance
             depth - (construction.hasBack !== false ? back : 0) - 20, // 20mm back clearance
             1,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             2
           );
@@ -160,7 +160,7 @@ export class CabinetCalculatorService {
             width - (side * 2) - 6, // 3mm clearance each side
             depth - (construction.hasBack !== false ? back : 0) - 50, // 50mm back clearance
             config.customizations.shelfCount,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             2
           );
@@ -175,7 +175,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             100, // Typical height for a fixed panel
             1,
-            { length1: true, length2: true, width1: true, width2: true },
+            { front: true, back: true, left: true, right: true },
             'length',
             3
           );
@@ -190,7 +190,7 @@ export class CabinetCalculatorService {
             height - 6, // 3mm gap top and bottom
             50, // Typical width for a filler panel
             1,
-            { length1: true, length2: true, width1: true, width2: true },
+            { front: true, back: true, left: true, right: true },
             'length',
             3
           );
@@ -205,7 +205,7 @@ export class CabinetCalculatorService {
             height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
             depth - (construction.hasBack !== false ? back : 0),
             1, // Typically one upright in the middle
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -224,7 +224,7 @@ export class CabinetCalculatorService {
             height - 6, // 3mm gap top and bottom
             doorWidth,
             config.customizations.doorCount,
-            { length1: true, length2: true, width1: true, width2: true },
+            { front: true, back: true, left: true, right: true },
             'length',
             3
           );
@@ -240,7 +240,7 @@ export class CabinetCalculatorService {
           height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
           depth - (construction.hasBack !== false ? back : 0),
           2,
-          { length1: true, length2: true, width1: true, width2: false },
+          { front: true, back: false, left: true, right: true },
           'length',
           1
         );
@@ -254,7 +254,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             depth - (construction.hasBack !== false ? back : 0),
             1,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -269,7 +269,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             depth - (construction.hasBack !== false ? back : 0),
             1,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -284,7 +284,7 @@ export class CabinetCalculatorService {
             height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
             width - (side * 2),
             1,
-            { length1: false, length2: false, width1: false, width2: false },
+            { front: false, back: false, left: false, right: false },
             'length',
             2
           );
@@ -302,7 +302,7 @@ export class CabinetCalculatorService {
             drawerHeight - 3, // 3mm gap
             width - 6, // 3mm gap each side
             1,
-            { length1: true, length2: true, width1: true, width2: true },
+            { front: true, back: true, left: true, right: true },
             'length',
             3
           );
@@ -315,7 +315,7 @@ export class CabinetCalculatorService {
             depth - 80, // Shorter than cabinet depth
             drawerHeight - 30, // Lower than front
             2,
-            { length1: true, length2: false, width1: true, width2: true },
+            { front: true, back: false, left: true, right: true },
             'length',
             2
           );
@@ -327,7 +327,7 @@ export class CabinetCalculatorService {
             width - 90, // Narrower than cabinet width
             drawerHeight - 30,
             1,
-            { length1: false, length2: false, width1: true, width2: true },
+            { front: false, back: false, left: true, right: true },
             'length',
             2
           );
@@ -339,7 +339,7 @@ export class CabinetCalculatorService {
             width - 90,
             depth - 80,
             1,
-            { length1: false, length2: false, width1: false, width2: false },
+            { front: false, back: false, left: false, right: false },
             'length',
             2
           );
@@ -357,7 +357,7 @@ export class CabinetCalculatorService {
             height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
             depth - (construction.hasBack !== false ? back : 0),
             2,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -371,7 +371,7 @@ export class CabinetCalculatorService {
               width,
               depth,
               1,
-              { length1: true, length2: true, width1: true, width2: true },
+              { front: true, back: true, left: true, right: true },
               'length',
               1
             );
@@ -385,7 +385,7 @@ export class CabinetCalculatorService {
               width,
               depth,
               1,
-              { length1: true, length2: true, width1: true, width2: true },
+              { front: true, back: true, left: true, right: true },
               'length',
               1
             );
@@ -400,7 +400,7 @@ export class CabinetCalculatorService {
               height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
               width - side,
               2, // Two back panels for corner cabinet
-              { length1: false, length2: false, width1: false, width2: false },
+              { front: false, back: false, left: false, right: false },
               'length',
               2
             );
@@ -415,7 +415,7 @@ export class CabinetCalculatorService {
               height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
               100, // Typical width for a fixed panel
               1,
-              { length1: true, length2: true, width1: true, width2: true },
+              { front: true, back: true, left: true, right: true },
               'length',
               3
             );
@@ -430,7 +430,7 @@ export class CabinetCalculatorService {
               width - 100, // Circular or L-shaped shelf
               width - 100,
               config.customizations.shelfCount,
-              { length1: true, length2: true, width1: true, width2: true },
+              { front: true, back: true, left: true, right: true },
               'length',
               2
             );
@@ -445,7 +445,7 @@ export class CabinetCalculatorService {
               height - 6,
               width / 2 - 3,
               config.customizations.doorCount,
-              { length1: true, length2: true, width1: true, width2: true },
+              { front: true, back: true, left: true, right: true },
               'length',
               3
             );
@@ -463,7 +463,7 @@ export class CabinetCalculatorService {
           height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
           depth - (construction.hasBack !== false ? back : 0),
           2,
-          { length1: true, length2: true, width1: true, width2: false },
+          { front: true, back: false, left: true, right: true },
           'length',
           1
         );
@@ -477,7 +477,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             depth - (construction.hasBack !== false ? back : 0),
             1,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -492,7 +492,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             depth - (construction.hasBack !== false ? back : 0),
             1,
-            { length1: true, length2: true, width1: true, width2: false },
+            { front: true, back: false, left: true, right: true },
             'length',
             1
           );
@@ -507,7 +507,7 @@ export class CabinetCalculatorService {
             height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
             width - (side * 2),
             1,
-            { length1: false, length2: false, width1: false, width2: false },
+            { front: false, back: false, left: false, right: false },
             'length',
             2
           );
@@ -522,7 +522,7 @@ export class CabinetCalculatorService {
             width - (side * 2),
             100, // 100mm wide support
             2,
-            { length1: true, length2: true, width1: false, width2: false },
+            { front: true, back: false, left: false, right: false },
             'length',
             1
           );
@@ -541,7 +541,7 @@ export class CabinetCalculatorService {
             height - 6,
             doorWidth,
             config.customizations.doorCount,
-            { length1: true, length2: true, width1: true, width2: true },
+            { front: true, back: true, left: true, right: true },
             'length',
             3
           );
@@ -709,9 +709,11 @@ export class CabinetCalculatorService {
     const edgeBandingRate = laborRates.find(r => r.id === 'edgebanding');
     if (edgeBandingRate && config.cuttingList) {
       const totalEdgeBanding = config.cuttingList.reduce((sum, item) => {
-        const perimeter = (item.length + item.width) * 2 / 1000; // Convert to meters
+        // Count edges that need banding
         const edgeCount = Object.values(item.edgeBanding).filter(Boolean).length;
-        return sum + (perimeter * edgeCount * item.quantity);
+        // Calculate perimeter (only for edges that need banding)
+        const perimeter = ((item.length + item.width) * 2 * edgeCount) / 4 / 1000; // Convert to meters
+        return sum + (perimeter * item.quantity);
       }, 0);
       
       totalLaborCost += edgeBandingRate.ratePerHour * edgeBandingRate.timePerUnit * totalEdgeBanding;
@@ -776,12 +778,21 @@ export class CabinetCalculatorService {
   }
 
   // Simple nesting algorithm (placeholder for deepnest.js integration)
-  static calculateNesting(cuttingList: CuttingListItem[]): NestingResult[] {
+  static calculateNesting(
+    cuttingList: CuttingListItem[],
+    customSheetSize?: { width: number; length: number },
+    materialTypeFilter?: string
+  ): NestingResult[] {
     const results: NestingResult[] = [];
     const materialGroups = new Map<string, CuttingListItem[]>();
 
+    // Filter by material type if specified
+    const filteredList = materialTypeFilter && materialTypeFilter !== 'all'
+      ? cuttingList.filter(item => item.materialType.toLowerCase() === materialTypeFilter.toLowerCase())
+      : cuttingList;
+
     // Group by material type and thickness
-    cuttingList.forEach(item => {
+    filteredList.forEach(item => {
       const key = `${item.materialType}-${item.thickness}`;
       if (!materialGroups.has(key)) {
         materialGroups.set(key, []);
@@ -792,43 +803,94 @@ export class CabinetCalculatorService {
     // Simple bin packing for each material group
     materialGroups.forEach((items, key) => {
       const [materialType, thickness] = key.split('-');
-      const sheet = materialSheets.find(s => 
-        s.type === materialType && s.thickness === parseInt(thickness)
-      );
+      
+      // Use custom sheet size if provided, otherwise find matching sheet
+      let sheetWidth = customSheetSize?.width;
+      let sheetLength = customSheetSize?.length;
+      
+      if (!sheetWidth || !sheetLength) {
+        const sheet = materialSheets.find(s => 
+          s.type === materialType && s.thickness === parseInt(thickness)
+        );
+        
+        if (sheet) {
+          sheetWidth = sheet.width;
+          sheetLength = sheet.length;
+        } else {
+          // Default sheet size if no match found
+          sheetWidth = 1220;
+          sheetLength = 2440;
+        }
+      }
 
-      if (sheet) {
-        // Simple area-based calculation (replace with actual nesting algorithm)
-        const totalArea = items.reduce((sum, item) => {
-          return sum + (item.length * item.width * item.quantity);
-        }, 0);
+      // Simple area-based calculation (replace with actual nesting algorithm)
+      const totalArea = items.reduce((sum, item) => {
+        return sum + (item.length * item.width * item.quantity);
+      }, 0);
 
-        const sheetArea = sheet.length * sheet.width;
-        const efficiency = Math.min(0.85, totalArea / sheetArea); // Max 85% efficiency
-        const sheetsNeeded = Math.ceil(totalArea / (sheetArea * efficiency));
+      const sheetArea = sheetLength * sheetWidth;
+      const efficiency = Math.min(0.85, totalArea / sheetArea); // Max 85% efficiency
+      const sheetsNeeded = Math.ceil(totalArea / (sheetArea * efficiency));
 
-        results.push({
-          id: `nesting-${key}-${Date.now()}`,
-          sheetSize: {
-            length: sheet.length,
-            width: sheet.width
-          },
-          materialType,
-          thickness: parseInt(thickness),
-          parts: items.map((item, index) => ({
-            id: `part-${index}-${Date.now()}`,
+      // Create a more realistic layout with no overlapping parts
+      const parts: NestingPart[] = [];
+      let currentX = 0;
+      let currentY = 0;
+      let rowHeight = 0;
+      let itemIndex = 0;
+      
+      // Process each item (and its quantity)
+      items.forEach(item => {
+        for (let q = 0; q < item.quantity; q++) {
+          // Determine if the part fits in the current row
+          if (currentX + item.length > sheetLength) {
+            // Move to next row
+            currentX = 0;
+            currentY += rowHeight + 10; // 10mm spacing between rows
+            rowHeight = 0;
+          }
+          
+          // Check if we need to start a new sheet (not implemented in this simple version)
+          if (currentY + item.width > sheetWidth) {
+            // In a real implementation, we would start a new sheet here
+            // For simplicity, we'll just continue on the same sheet
+            currentY = 0;
+            currentX = 0;
+            rowHeight = 0;
+          }
+          
+          // Add the part to the layout
+          parts.push({
+            id: `part-${itemIndex}-${Date.now()}`,
             partId: item.id,
-            x: (index % 3) * 400, // Simple grid layout
-            y: Math.floor(index / 3) * 300,
-            rotation: 0,
+            x: currentX,
+            y: currentY,
+            rotation: 0, // No rotation in this simple implementation
             length: item.length,
             width: item.width
-          })),
-          efficiency: efficiency * 100,
-          wasteArea: sheetArea * sheetsNeeded - totalArea,
-          totalArea: sheetArea * sheetsNeeded,
-          sheetCount: sheetsNeeded
-        });
-      }
+          });
+          
+          // Update position for next part
+          currentX += item.length + 10; // 10mm spacing between parts
+          rowHeight = Math.max(rowHeight, item.width);
+          itemIndex++;
+        }
+      });
+
+      results.push({
+        id: `nesting-${key}-${Date.now()}`,
+        sheetSize: {
+          length: sheetLength,
+          width: sheetWidth
+        },
+        materialType,
+        thickness: parseInt(thickness),
+        parts,
+        efficiency: efficiency * 100,
+        wasteArea: sheetArea * sheetsNeeded - totalArea,
+        totalArea: sheetArea * sheetsNeeded,
+        sheetCount: sheetsNeeded
+      });
     });
 
     return results;
@@ -945,17 +1007,26 @@ export class CabinetCalculatorService {
   }
 
   // Integrate with deepnest.js (placeholder)
-  static async optimizeNesting(cuttingList: CuttingListItem[]): Promise<NestingResult[]> {
+  static async optimizeNesting(
+    cuttingList: CuttingListItem[],
+    customSheetSize?: { width: number; length: number },
+    materialType?: string
+  ): Promise<NestingResult[]> {
     try {
       // Call the backend API for nesting optimization
       const response = await axios.post(`${API_BASE_URL}/cabinet-calculator/nesting`, 
-        { cuttingList },
+        { 
+          cuttingList,
+          sheetSize: customSheetSize,
+          materialType
+        },
         { headers: getAuthHeader() }
       );
       return response.data;
     } catch (error) {
       console.error('Nesting optimization error:', error);
-      return this.calculateNesting(cuttingList); // Fallback to simple algorithm
+      // Fallback to simple algorithm
+      return this.calculateNesting(cuttingList, customSheetSize, materialType);
     }
   }
 }
