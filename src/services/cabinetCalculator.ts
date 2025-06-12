@@ -804,6 +804,7 @@ export class CabinetCalculatorService {
 export class CabinetStorageService {
   private static CONFIGS_KEY = 'cabinetConfigurations';
   private static PROJECTS_KEY = 'cabinetProjects';
+  private static TEMPLATES_KEY = 'customCabinetTemplates';
 
   // Save configuration to local storage
   static saveConfiguration(config: CabinetConfiguration): void {
@@ -873,5 +874,38 @@ export class CabinetStorageService {
   static getProjectById(projectId: string): CabinetProject | null {
     const projects = this.getProjects();
     return projects.find(p => p.id === projectId) || null;
+  }
+
+  // Save custom template to local storage
+  static saveTemplate(template: CabinetTemplate): void {
+    const templates = this.getCustomTemplates();
+    const existingIndex = templates.findIndex(t => t.id === template.id);
+    
+    if (existingIndex >= 0) {
+      templates[existingIndex] = template;
+    } else {
+      templates.push(template);
+    }
+    
+    localStorage.setItem(this.TEMPLATES_KEY, JSON.stringify(templates));
+  }
+
+  // Get all custom templates
+  static getCustomTemplates(): CabinetTemplate[] {
+    const templates = localStorage.getItem(this.TEMPLATES_KEY);
+    return templates ? JSON.parse(templates) : [];
+  }
+
+  // Delete custom template
+  static deleteTemplate(templateId: string): void {
+    const templates = this.getCustomTemplates();
+    const updatedTemplates = templates.filter(t => t.id !== templateId);
+    localStorage.setItem(this.TEMPLATES_KEY, JSON.stringify(updatedTemplates));
+  }
+
+  // Get template by ID (checks both custom and default templates)
+  static getTemplateById(templateId: string): CabinetTemplate | null {
+    const customTemplates = this.getCustomTemplates();
+    return customTemplates.find(t => t.id === templateId) || null;
   }
 }
