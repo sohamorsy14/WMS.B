@@ -5,6 +5,7 @@ import { CabinetStorageService } from '../../services/cabinetCalculator';
 import TemplateCreator from './TemplateCreator';
 import Modal from '../Common/Modal';
 import toast from 'react-hot-toast';
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 interface TemplateManagerProps {
   defaultTemplates: CabinetTemplate[];
@@ -118,6 +119,15 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
     return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <LoadingSpinner />
+        <p className="mt-4 text-gray-600">Loading templates...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -189,138 +199,129 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
         </div>
       </div>
       
-      {loading ? (
-        <div className="text-center py-12">
-          <LoadingSpinner />
-          <p className="mt-4 text-gray-600">Loading templates...</p>
-        </div>
-      ) : (
-        <>
-          {/* Templates Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredTemplates.map((template) => (
-              <div
-                key={template.id}
-                className={`bg-white rounded-lg shadow-sm border-2 transition-all ${
-                  template.isCustom ? 'border-blue-300' : 'border-gray-200'
-                } hover:shadow-md`}
-              >
-                {/* Preview Image */}
-                <div className="aspect-w-4 aspect-h-3 rounded-t-lg overflow-hidden">
-                  <img
-                    src={template.previewImage}
-                    alt={template.name}
-                    className="w-full h-48 object-cover"
-                  />
+      {/* Templates Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {filteredTemplates.map((template) => (
+          <div
+            key={template.id}
+            className={`bg-white rounded-lg shadow-sm border-2 transition-all ${
+              template.isCustom ? 'border-blue-300' : 'border-gray-200'
+            } hover:shadow-md`}
+          >
+            {/* Preview Image */}
+            <div className="aspect-w-4 aspect-h-3 rounded-t-lg overflow-hidden">
+              <img
+                src={template.previewImage}
+                alt={template.name}
+                className="w-full h-48 object-cover"
+              />
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                  {template.name}
+                </h3>
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(template.type)}`}>
+                  {template.type}
+                </span>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                {template.description}
+              </p>
+
+              {/* Default Dimensions */}
+              <div className="flex items-center text-sm text-gray-500 mb-3">
+                <Ruler className="w-4 h-4 mr-1" />
+                <span>
+                  {template.defaultDimensions.width} × {template.defaultDimensions.height} × {template.defaultDimensions.depth}mm
+                </span>
+              </div>
+
+              {/* Features */}
+              <div className="space-y-2">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Package className="w-4 h-4 mr-2" />
+                  <span>{template.features.length} features</span>
                 </div>
-
-                {/* Content */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
-                      {template.name}
-                    </h3>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(template.type)}`}>
-                      {template.type}
-                    </span>
-                  </div>
-
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                    {template.description}
-                  </p>
-
-                  {/* Default Dimensions */}
-                  <div className="flex items-center text-sm text-gray-500 mb-3">
-                    <Ruler className="w-4 h-4 mr-1" />
-                    <span>
-                      {template.defaultDimensions.width} × {template.defaultDimensions.height} × {template.defaultDimensions.depth}mm
-                    </span>
-                  </div>
-
-                  {/* Features */}
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Package className="w-4 h-4 mr-2" />
-                      <span>{template.features.length} features</span>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-1">
-                      {template.features.slice(0, 2).map((feature, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
-                        >
-                          {feature}
-                        </span>
-                      ))}
-                      {template.features.length > 2 && (
-                        <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                          +{template.features.length - 2} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => onSelectTemplate(template)}
-                      className="flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                
+                <div className="flex flex-wrap gap-1">
+                  {template.features.slice(0, 2).map((feature, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
                     >
-                      <Settings className="w-4 h-4 mr-1" />
-                      Configure
-                    </button>
-                    
-                    <div className="flex space-x-2">
-                      {template.isCustom && (
-                        <>
-                          <button
-                            onClick={() => {
-                              setSelectedTemplate(template);
-                              setIsEditModalOpen(true);
-                            }}
-                            className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50"
-                            title="Edit Template"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTemplate(template.id)}
-                            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
-                            title="Delete Template"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={() => onSelectTemplate(template)}
-                        className="text-gray-600 hover:text-gray-800 p-1 rounded hover:bg-gray-50"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
+                      {feature}
+                    </span>
+                  ))}
+                  {template.features.length > 2 && (
+                    <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
+                      +{template.features.length - 2} more
+                    </span>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-          
-          {filteredTemplates.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
-              <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters or create a new template.</p>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Create New Template
-              </button>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => onSelectTemplate(template)}
+                  className="flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <Settings className="w-4 h-4 mr-1" />
+                  Configure
+                </button>
+                
+                <div className="flex space-x-2">
+                  {template.isCustom && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setSelectedTemplate(template);
+                          setIsEditModalOpen(true);
+                        }}
+                        className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50"
+                        title="Edit Template"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                        title="Delete Template"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => onSelectTemplate(template)}
+                    className="text-gray-600 hover:text-gray-800 p-1 rounded hover:bg-gray-50"
+                    title="View Details"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
-        </>
+          </div>
+        ))}
+      </div>
+      
+      {filteredTemplates.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
+          <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
+          <p className="text-gray-600 mb-6">Try adjusting your filters or create a new template.</p>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Create New Template
+          </button>
+        </div>
       )}
       
       {/* Create Template Modal */}
