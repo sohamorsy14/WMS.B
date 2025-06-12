@@ -1028,6 +1028,12 @@ export class CabinetCalculatorService {
         requestData.materialType = materialType;
       }
       
+      console.log('Sending nesting optimization request with:', {
+        sheetSize,
+        materialType,
+        cuttingListCount: cuttingList.length
+      });
+      
       // Call the backend API for nesting optimization
       const response = await axios.post(`${API_BASE_URL}/cabinet-calculator/nesting`, 
         requestData,

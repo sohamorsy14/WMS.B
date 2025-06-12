@@ -184,7 +184,7 @@ router.post('/nesting', requirePermission('cabinet_calc.view'), async (req, res)
     const { cuttingList, sheetSize, materialType } = req.body;
     
     // Filter by material type if specified
-    const filteredList = materialType 
+    const filteredList = materialType && materialType !== 'all'
       ? cuttingList.filter(item => item.materialType.toLowerCase() === materialType.toLowerCase())
       : cuttingList;
     
@@ -203,9 +203,27 @@ router.post('/nesting', requirePermission('cabinet_calc.view'), async (req, res)
     materialGroups.forEach((items, key) => {
       const [materialType, thickness] = key.split('-');
       
-      // Use custom sheet size if provided
-      const sheetWidth = sheetSize?.width || 1220;  // Default 4x8 sheet width
-      const sheetLength = sheetSize?.length || 2440; // Default 4x8 sheet length
+      // Parse sheet size from the provided parameter or use default
+      let sheetWidth = 1220;  // Default 4x8 sheet width
+      let sheetLength = 2440; // Default 4x8 sheet length
+      
+      if (sheetSize) {
+        // If sheetSize is an object with length and width properties
+        if (typeof sheetSize === 'object' && sheetSize.length && sheetSize.width) {
+          sheetLength = sheetSize.length;
+          sheetWidth = sheetSize.width;
+        } 
+        // If sheetSize is a string like "2100x2800"
+        else if (typeof sheetSize === 'string') {
+          const [length, width] = sheetSize.split('x').map(Number);
+          if (!isNaN(length) && !isNaN(width)) {
+            sheetLength = length;
+            sheetWidth = width;
+          }
+        }
+      }
+      
+      console.log(`Using sheet size: ${sheetLength} × ${sheetWidth}mm for ${materialType}-${thickness}mm`);
       
       // Simple area-based calculation
       const totalArea = items.reduce((sum, item) => {
