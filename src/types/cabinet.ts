@@ -1,5 +1,3 @@
-import { CabinetTemplate, MaterialSheet, LaborRate } from '../types/cabinet';
-
 export interface CabinetTemplate {
   id: string;
   name: string;
@@ -23,18 +21,46 @@ export interface CabinetTemplate {
   previewImage: string;
   description: string;
   features: string[];
+  construction: {
+    hasTop: boolean;
+    hasBottom: boolean;
+    hasBack: boolean;
+    hasDoubleBack: boolean;
+    hasToe: boolean;
+    hasFixedShelf: boolean;
+    isCorner: boolean;
+    hasFrontPanel: boolean;
+    hasFillerPanel: boolean;
+  };
+  materialOptions: {
+    body: string[];
+    doors: string[];
+    drawers: string[];
+    shelves: string[];
+  };
   materialThickness: {
     side: number;
     topBottom: number;
     back: number;
     shelf: number;
     door: number;
+    drawer: number;
+    fixedPanel: number;
   };
   hardware: {
     hinges: number;
     slides: number;
     handles: number;
     shelves: number;
+    shelfPins: number;
+    drawerBoxType: 'standard' | 'dovetail' | 'metal';
+  };
+  edgeBanding: {
+    bodyVisible: boolean;
+    bodyHidden: boolean;
+    shelfFront: boolean;
+    shelfSides: boolean;
+    doorAll: boolean;
   };
   isActive: boolean;
   isCustom?: boolean;
@@ -57,6 +83,15 @@ export interface CabinetConfiguration {
     doorStyle: string;
     finish: string;
     hardware: string;
+    bodyMaterial: string;
+    doorMaterial: string;
+    drawerMaterial: string;
+    shelfMaterial: string;
+    hasFillerPanel: boolean;
+    fillerWidth: number;
+    cornerType?: 'standard' | 'lazy_susan' | 'diagonal';
+    toekickHeight?: number;
+    backPanelType?: 'standard' | 'double' | 'none';
   };
   materials: CabinetMaterial[];
   hardware: CabinetHardware[];
@@ -65,6 +100,28 @@ export interface CabinetConfiguration {
   laborCost: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CuttingListItem {
+  id: string;
+  partName: string;
+  cabinetId: string;
+  cabinetName: string;
+  materialType: string;
+  thickness: number;
+  length: number;
+  width: number;
+  quantity: number;
+  edgeBanding: {
+    length1: boolean;
+    length2: boolean;
+    width1: boolean;
+    width2: boolean;
+  };
+  grain: 'length' | 'width';
+  priority: number;
+  partType: 'side' | 'top' | 'bottom' | 'back' | 'shelf' | 'door' | 'drawer_front' | 'drawer_side' | 'drawer_back' | 'drawer_bottom' | 'filler' | 'fixed_panel';
+  notes?: string;
 }
 
 export interface CabinetMaterial {
@@ -88,33 +145,12 @@ export interface CabinetHardware {
   id: string;
   hardwareId: string;
   hardwareName: string;
-  type: 'hinge' | 'slide' | 'handle' | 'knob' | 'shelf_pin' | 'cam_lock';
+  type: 'hinge' | 'slide' | 'handle' | 'knob' | 'shelf_pin' | 'cam_lock' | 'corner_bracket' | 'lazy_susan';
   quantity: number;
   unitCost: number;
   totalCost: number;
   supplier: string;
   specifications?: string;
-}
-
-export interface CuttingListItem {
-  id: string;
-  partName: string;
-  cabinetId: string;
-  cabinetName: string;
-  materialType: string;
-  thickness: number;
-  length: number;
-  width: number;
-  quantity: number;
-  edgeBanding: {
-    length1: boolean;
-    length2: boolean;
-    width1: boolean;
-    width2: boolean;
-  };
-  grain: 'length' | 'width';
-  priority: number;
-  notes?: string;
 }
 
 export interface NestingResult {
@@ -182,4 +218,18 @@ export interface LaborRate {
   timePerUnit: number;
   unit: string;
   description: string;
+}
+
+export interface Material {
+  id: string;
+  name: string;
+  type: 'plywood' | 'mdf' | 'melamine' | 'solid_wood' | 'veneer' | 'laminate';
+  thickness: number;
+  costPerSheet: number;
+  sheetDimensions: {
+    length: number;
+    width: number;
+  };
+  supplier: string;
+  isActive: boolean;
 }
