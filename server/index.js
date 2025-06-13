@@ -215,6 +215,101 @@ const mockPurchaseOrders = [
   }
 ];
 
+// Mock cabinet calculator data
+const mockCabinetTemplates = [
+  {
+    id: '1',
+    name: 'Standard Base Cabinet',
+    type: 'base',
+    width: 600,
+    height: 720,
+    depth: 560,
+    materials: {
+      body: 'PLY-18-4X8',
+      door: 'MDF-18-4X8',
+      shelf: 'PLY-18-4X8'
+    },
+    hardware: ['HNG-CONC-35'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    name: 'Standard Wall Cabinet',
+    type: 'wall',
+    width: 600,
+    height: 720,
+    depth: 320,
+    materials: {
+      body: 'PLY-18-4X8',
+      door: 'MDF-18-4X8',
+      shelf: 'PLY-18-4X8'
+    },
+    hardware: ['HNG-CONC-35'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+const mockCabinetConfigurations = [
+  {
+    id: '1',
+    name: 'Kitchen Project A',
+    cabinets: [
+      { templateId: '1', quantity: 4, customizations: {} },
+      { templateId: '2', quantity: 6, customizations: {} }
+    ],
+    totalCost: 2500.00,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+const mockCabinetProjects = [
+  {
+    id: '1',
+    name: 'Modern Kitchen Renovation',
+    description: 'Complete kitchen cabinet set for residential project',
+    status: 'active',
+    configurations: ['1'],
+    totalCost: 2500.00,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+const mockBOMs = [
+  {
+    id: '1',
+    name: 'Kitchen Cabinet BOM',
+    projectId: '1',
+    items: [
+      { itemId: 'PLY-18-4X8', quantity: 10, unitCost: 52.75 },
+      { itemId: 'MDF-18-4X8', quantity: 8, unitCost: 38.90 },
+      { itemId: 'HNG-CONC-35', quantity: 20, unitCost: 3.25 }
+    ],
+    totalCost: 1000.00,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+const mockPrototypes = [
+  {
+    id: '1',
+    name: 'Prototype Cabinet A',
+    description: 'Test design for new cabinet style',
+    status: 'testing',
+    specifications: {
+      width: 600,
+      height: 720,
+      depth: 560
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
 // Authentication routes
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
@@ -410,6 +505,271 @@ app.patch('/api/purchase-orders/:id/approve', (req, res) => {
     res.json(mockPurchaseOrders[index]);
   } else {
     res.status(404).json({ error: 'Purchase order not found' });
+  }
+});
+
+// Cabinet Calculator routes
+app.get('/api/cabinet-calculator/templates', (req, res) => {
+  res.json(mockCabinetTemplates);
+});
+
+app.get('/api/cabinet-calculator/templates/:id', (req, res) => {
+  const template = mockCabinetTemplates.find(t => t.id === req.params.id);
+  if (template) {
+    res.json(template);
+  } else {
+    res.status(404).json({ error: 'Template not found' });
+  }
+});
+
+app.post('/api/cabinet-calculator/templates', (req, res) => {
+  const newTemplate = {
+    id: Date.now().toString(),
+    ...req.body,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockCabinetTemplates.push(newTemplate);
+  res.json(newTemplate);
+});
+
+app.put('/api/cabinet-calculator/templates/:id', (req, res) => {
+  const index = mockCabinetTemplates.findIndex(t => t.id === req.params.id);
+  if (index !== -1) {
+    mockCabinetTemplates[index] = {
+      ...mockCabinetTemplates[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockCabinetTemplates[index]);
+  } else {
+    res.status(404).json({ error: 'Template not found' });
+  }
+});
+
+app.delete('/api/cabinet-calculator/templates/:id', (req, res) => {
+  const index = mockCabinetTemplates.findIndex(t => t.id === req.params.id);
+  if (index !== -1) {
+    mockCabinetTemplates.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Template not found' });
+  }
+});
+
+app.get('/api/cabinet-calculator/configurations', (req, res) => {
+  res.json(mockCabinetConfigurations);
+});
+
+app.get('/api/cabinet-calculator/configurations/:id', (req, res) => {
+  const config = mockCabinetConfigurations.find(c => c.id === req.params.id);
+  if (config) {
+    res.json(config);
+  } else {
+    res.status(404).json({ error: 'Configuration not found' });
+  }
+});
+
+app.post('/api/cabinet-calculator/configurations', (req, res) => {
+  const newConfig = {
+    id: Date.now().toString(),
+    ...req.body,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockCabinetConfigurations.push(newConfig);
+  res.json(newConfig);
+});
+
+app.put('/api/cabinet-calculator/configurations/:id', (req, res) => {
+  const index = mockCabinetConfigurations.findIndex(c => c.id === req.params.id);
+  if (index !== -1) {
+    mockCabinetConfigurations[index] = {
+      ...mockCabinetConfigurations[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockCabinetConfigurations[index]);
+  } else {
+    res.status(404).json({ error: 'Configuration not found' });
+  }
+});
+
+app.delete('/api/cabinet-calculator/configurations/:id', (req, res) => {
+  const index = mockCabinetConfigurations.findIndex(c => c.id === req.params.id);
+  if (index !== -1) {
+    mockCabinetConfigurations.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Configuration not found' });
+  }
+});
+
+app.get('/api/cabinet-calculator/projects', (req, res) => {
+  res.json(mockCabinetProjects);
+});
+
+app.get('/api/cabinet-calculator/projects/:id', (req, res) => {
+  const project = mockCabinetProjects.find(p => p.id === req.params.id);
+  if (project) {
+    res.json(project);
+  } else {
+    res.status(404).json({ error: 'Project not found' });
+  }
+});
+
+app.post('/api/cabinet-calculator/projects', (req, res) => {
+  const newProject = {
+    id: Date.now().toString(),
+    ...req.body,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockCabinetProjects.push(newProject);
+  res.json(newProject);
+});
+
+app.put('/api/cabinet-calculator/projects/:id', (req, res) => {
+  const index = mockCabinetProjects.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockCabinetProjects[index] = {
+      ...mockCabinetProjects[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockCabinetProjects[index]);
+  } else {
+    res.status(404).json({ error: 'Project not found' });
+  }
+});
+
+app.delete('/api/cabinet-calculator/projects/:id', (req, res) => {
+  const index = mockCabinetProjects.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockCabinetProjects.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Project not found' });
+  }
+});
+
+app.post('/api/cabinet-calculator/nesting', (req, res) => {
+  // Mock nesting optimization response
+  const { panels } = req.body;
+  const mockNestingResult = {
+    sheets: [
+      {
+        id: 1,
+        material: 'PLY-18-4X8',
+        width: 2440,
+        height: 1220,
+        thickness: 18,
+        panels: panels?.slice(0, Math.ceil(panels.length / 2)) || [],
+        efficiency: 85.5
+      }
+    ],
+    totalSheets: 1,
+    totalEfficiency: 85.5,
+    wastePercentage: 14.5
+  };
+  res.json(mockNestingResult);
+});
+
+// BOM Management routes
+app.get('/api/boms', (req, res) => {
+  res.json(mockBOMs);
+});
+
+app.get('/api/boms/:id', (req, res) => {
+  const bom = mockBOMs.find(b => b.id === req.params.id);
+  if (bom) {
+    res.json(bom);
+  } else {
+    res.status(404).json({ error: 'BOM not found' });
+  }
+});
+
+app.post('/api/boms', (req, res) => {
+  const newBOM = {
+    id: Date.now().toString(),
+    ...req.body,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockBOMs.push(newBOM);
+  res.json(newBOM);
+});
+
+app.put('/api/boms/:id', (req, res) => {
+  const index = mockBOMs.findIndex(b => b.id === req.params.id);
+  if (index !== -1) {
+    mockBOMs[index] = {
+      ...mockBOMs[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockBOMs[index]);
+  } else {
+    res.status(404).json({ error: 'BOM not found' });
+  }
+});
+
+app.delete('/api/boms/:id', (req, res) => {
+  const index = mockBOMs.findIndex(b => b.id === req.params.id);
+  if (index !== -1) {
+    mockBOMs.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'BOM not found' });
+  }
+});
+
+// Prototype Management routes
+app.get('/api/prototypes', (req, res) => {
+  res.json(mockPrototypes);
+});
+
+app.get('/api/prototypes/:id', (req, res) => {
+  const prototype = mockPrototypes.find(p => p.id === req.params.id);
+  if (prototype) {
+    res.json(prototype);
+  } else {
+    res.status(404).json({ error: 'Prototype not found' });
+  }
+});
+
+app.post('/api/prototypes', (req, res) => {
+  const newPrototype = {
+    id: Date.now().toString(),
+    ...req.body,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockPrototypes.push(newPrototype);
+  res.json(newPrototype);
+});
+
+app.put('/api/prototypes/:id', (req, res) => {
+  const index = mockPrototypes.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockPrototypes[index] = {
+      ...mockPrototypes[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockPrototypes[index]);
+  } else {
+    res.status(404).json({ error: 'Prototype not found' });
+  }
+});
+
+app.delete('/api/prototypes/:id', (req, res) => {
+  const index = mockPrototypes.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockPrototypes.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Prototype not found' });
   }
 });
 
