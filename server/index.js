@@ -7,7 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import database initialization and connection
-import { initDatabase, db } from './config/database.js';
+import { initDatabase }, db from './config/database.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';

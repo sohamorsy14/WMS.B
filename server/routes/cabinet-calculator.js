@@ -11,18 +11,13 @@ router.use(authenticateToken);
 // Get all custom templates
 router.get('/templates', requirePermission('cabinet_calc.view'), async (req, res) => {
   try {
-    const templates = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT id, name, description, category, default_dimensions, min_dimensions, max_dimensions, 
-               panels, hardware, materials, construction, created_by, created_at, updated_at
-        FROM cabinet_templates 
-        WHERE is_custom = 1
-        ORDER BY name ASC
-      `, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+    const templates = await db.all(`
+      SELECT id, name, description, category, default_dimensions, min_dimensions, max_dimensions, 
+             panels, hardware, materials, construction, created_by, created_at, updated_at
+      FROM cabinet_templates 
+      WHERE is_custom = 1
+      ORDER BY name ASC
+    `);
 
     // Parse JSON fields
     const parsedTemplates = templates.map(template => ({
@@ -48,17 +43,12 @@ router.get('/templates/:id', requirePermission('cabinet_calc.view'), async (req,
   try {
     const { id } = req.params;
     
-    const template = await new Promise((resolve, reject) => {
-      db.get(`
-        SELECT id, name, description, category, default_dimensions, min_dimensions, max_dimensions,
-               panels, hardware, materials, construction, created_by, created_at, updated_at
-        FROM cabinet_templates 
-        WHERE id = ? AND is_custom = 1
-      `, [id], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const template = await db.get(`
+      SELECT id, name, description, category, default_dimensions, min_dimensions, max_dimensions,
+             panels, hardware, materials, construction, created_by, created_at, updated_at
+      FROM cabinet_templates 
+      WHERE id = ? AND is_custom = 1
+    `, [id]);
 
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
@@ -89,31 +79,26 @@ router.post('/templates', requirePermission('cabinet_calc.edit'), async (req, re
     const { name, description, category, default_dimensions, min_dimensions, max_dimensions, panels, hardware, materials, construction } = req.body;
     const userId = req.user.id;
 
-    const result = await new Promise((resolve, reject) => {
-      db.run(`
-        INSERT INTO cabinet_templates (
-          name, description, category, default_dimensions, min_dimensions, max_dimensions,
-          panels, hardware, materials, construction, is_custom, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))
-      `, [
-        name,
-        description,
-        category,
-        JSON.stringify(default_dimensions || {}),
-        JSON.stringify(min_dimensions || {}),
-        JSON.stringify(max_dimensions || {}),
-        JSON.stringify(panels || []),
-        JSON.stringify(hardware || []),
-        JSON.stringify(materials || []),
-        JSON.stringify(construction || {}),
-        userId
-      ], function(err) {
-        if (err) reject(err);
-        else resolve({ id: this.lastID });
-      });
-    });
+    const result = await db.run(`
+      INSERT INTO cabinet_templates (
+        name, description, category, default_dimensions, min_dimensions, max_dimensions,
+        panels, hardware, materials, construction, is_custom, created_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))
+    `, [
+      name,
+      description,
+      category,
+      JSON.stringify(default_dimensions || {}),
+      JSON.stringify(min_dimensions || {}),
+      JSON.stringify(max_dimensions || {}),
+      JSON.stringify(panels || []),
+      JSON.stringify(hardware || []),
+      JSON.stringify(materials || []),
+      JSON.stringify(construction || {}),
+      userId
+    ]);
 
-    res.status(201).json({ id: result.id, message: 'Template created successfully' });
+    res.status(201).json({ id: result.lastID, message: 'Template created successfully' });
   } catch (error) {
     console.error('Error creating template:', error);
     res.status(500).json({ error: 'Failed to create template' });
@@ -126,29 +111,24 @@ router.put('/templates/:id', requirePermission('cabinet_calc.edit'), async (req,
     const { id } = req.params;
     const { name, description, category, default_dimensions, min_dimensions, max_dimensions, panels, hardware, materials, construction } = req.body;
 
-    const result = await new Promise((resolve, reject) => {
-      db.run(`
-        UPDATE cabinet_templates 
-        SET name = ?, description = ?, category = ?, default_dimensions = ?, min_dimensions = ?, max_dimensions = ?,
-            panels = ?, hardware = ?, materials = ?, construction = ?, updated_at = datetime('now')
-        WHERE id = ? AND is_custom = 1
-      `, [
-        name,
-        description,
-        category,
-        JSON.stringify(default_dimensions || {}),
-        JSON.stringify(min_dimensions || {}),
-        JSON.stringify(max_dimensions || {}),
-        JSON.stringify(panels || []),
-        JSON.stringify(hardware || []),
-        JSON.stringify(materials || []),
-        JSON.stringify(construction || {}),
-        id
-      ], function(err) {
-        if (err) reject(err);
-        else resolve({ changes: this.changes });
-      });
-    });
+    const result = await db.run(`
+      UPDATE cabinet_templates 
+      SET name = ?, description = ?, category = ?, default_dimensions = ?, min_dimensions = ?, max_dimensions = ?,
+          panels = ?, hardware = ?, materials = ?, construction = ?, updated_at = datetime('now')
+      WHERE id = ? AND is_custom = 1
+    `, [
+      name,
+      description,
+      category,
+      JSON.stringify(default_dimensions || {}),
+      JSON.stringify(min_dimensions || {}),
+      JSON.stringify(max_dimensions || {}),
+      JSON.stringify(panels || []),
+      JSON.stringify(hardware || []),
+      JSON.stringify(materials || []),
+      JSON.stringify(construction || {}),
+      id
+    ]);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Template not found' });
@@ -166,15 +146,10 @@ router.delete('/templates/:id', requirePermission('cabinet_calc.edit'), async (r
   try {
     const { id } = req.params;
 
-    const result = await new Promise((resolve, reject) => {
-      db.run(`
-        DELETE FROM cabinet_templates 
-        WHERE id = ? AND is_custom = 1
-      `, [id], function(err) {
-        if (err) reject(err);
-        else resolve({ changes: this.changes });
-      });
-    });
+    const result = await db.run(`
+      DELETE FROM cabinet_templates 
+      WHERE id = ? AND is_custom = 1
+    `, [id]);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Template not found' });
@@ -190,17 +165,12 @@ router.delete('/templates/:id', requirePermission('cabinet_calc.edit'), async (r
 // Get all configurations
 router.get('/configurations', requirePermission('cabinet_calc.view'), async (req, res) => {
   try {
-    const configurations = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT id, name, template_id, dimensions, customizations, materials, 
-               hardware, cutting_list, created_by, created_at, updated_at
-        FROM cabinet_configurations 
-        ORDER BY name ASC
-      `, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+    const configurations = await db.all(`
+      SELECT id, name, template_id, dimensions, customizations, materials, 
+             hardware, cutting_list, created_by, created_at, updated_at
+      FROM cabinet_configurations 
+      ORDER BY name ASC
+    `);
 
     // Parse JSON fields
     const parsedConfigurations = configurations.map(config => ({
@@ -224,17 +194,12 @@ router.get('/configurations/:id', requirePermission('cabinet_calc.view'), async 
   try {
     const { id } = req.params;
     
-    const configuration = await new Promise((resolve, reject) => {
-      db.get(`
-        SELECT id, name, template_id, dimensions, customizations, materials, 
-               hardware, cutting_list, created_by, created_at, updated_at
-        FROM cabinet_configurations 
-        WHERE id = ?
-      `, [id], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const configuration = await db.get(`
+      SELECT id, name, template_id, dimensions, customizations, materials, 
+             hardware, cutting_list, created_by, created_at, updated_at
+      FROM cabinet_configurations 
+      WHERE id = ?
+    `, [id]);
 
     if (!configuration) {
       return res.status(404).json({ error: 'Configuration not found' });
@@ -263,28 +228,23 @@ router.post('/configurations', requirePermission('cabinet_calc.edit'), async (re
     const { name, template_id, dimensions, customizations, materials, hardware, cutting_list } = req.body;
     const userId = req.user.id;
 
-    const result = await new Promise((resolve, reject) => {
-      db.run(`
-        INSERT INTO cabinet_configurations (
-          name, template_id, dimensions, customizations, materials, hardware, 
-          cutting_list, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-      `, [
-        name,
-        template_id,
-        JSON.stringify(dimensions || {}),
-        JSON.stringify(customizations || {}),
-        JSON.stringify(materials || []),
-        JSON.stringify(hardware || []),
-        JSON.stringify(cutting_list || []),
-        userId
-      ], function(err) {
-        if (err) reject(err);
-        else resolve({ id: this.lastID });
-      });
-    });
+    const result = await db.run(`
+      INSERT INTO cabinet_configurations (
+        name, template_id, dimensions, customizations, materials, hardware, 
+        cutting_list, created_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `, [
+      name,
+      template_id,
+      JSON.stringify(dimensions || {}),
+      JSON.stringify(customizations || {}),
+      JSON.stringify(materials || []),
+      JSON.stringify(hardware || []),
+      JSON.stringify(cutting_list || []),
+      userId
+    ]);
 
-    res.status(201).json({ id: result.id, message: 'Configuration created successfully' });
+    res.status(201).json({ id: result.lastID, message: 'Configuration created successfully' });
   } catch (error) {
     console.error('Error creating configuration:', error);
     res.status(500).json({ error: 'Failed to create configuration' });
@@ -297,26 +257,21 @@ router.put('/configurations/:id', requirePermission('cabinet_calc.edit'), async 
     const { id } = req.params;
     const { name, template_id, dimensions, customizations, materials, hardware, cutting_list } = req.body;
 
-    const result = await new Promise((resolve, reject) => {
-      db.run(`
-        UPDATE cabinet_configurations 
-        SET name = ?, template_id = ?, dimensions = ?, customizations = ?, materials = ?, 
-            hardware = ?, cutting_list = ?, updated_at = datetime('now')
-        WHERE id = ?
-      `, [
-        name,
-        template_id,
-        JSON.stringify(dimensions || {}),
-        JSON.stringify(customizations || {}),
-        JSON.stringify(materials || []),
-        JSON.stringify(hardware || []),
-        JSON.stringify(cutting_list || []),
-        id
-      ], function(err) {
-        if (err) reject(err);
-        else resolve({ changes: this.changes });
-      });
-    });
+    const result = await db.run(`
+      UPDATE cabinet_configurations 
+      SET name = ?, template_id = ?, dimensions = ?, customizations = ?, materials = ?, 
+          hardware = ?, cutting_list = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `, [
+      name,
+      template_id,
+      JSON.stringify(dimensions || {}),
+      JSON.stringify(customizations || {}),
+      JSON.stringify(materials || []),
+      JSON.stringify(hardware || []),
+      JSON.stringify(cutting_list || []),
+      id
+    ]);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Configuration not found' });
@@ -334,15 +289,10 @@ router.delete('/configurations/:id', requirePermission('cabinet_calc.edit'), asy
   try {
     const { id } = req.params;
 
-    const result = await new Promise((resolve, reject) => {
-      db.run(`
-        DELETE FROM cabinet_configurations 
-        WHERE id = ?
-      `, [id], function(err) {
-        if (err) reject(err);
-        else resolve({ changes: this.changes });
-      });
-    });
+    const result = await db.run(`
+      DELETE FROM cabinet_configurations 
+      WHERE id = ?
+    `, [id]);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Configuration not found' });
