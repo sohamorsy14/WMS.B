@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Info, AlertCircle, Check, FileText } from 'lucide-react';
+import { Info, AlertCircle, Check, FileText, Search, Sliders } from 'lucide-react';
 import { CuttingListItem } from '../../types/cabinet';
 
 interface PDFAnalyzerProps {
@@ -11,6 +11,7 @@ interface PDFAnalyzerProps {
 const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnalyze }) => {
   const [showFullText, setShowFullText] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Analyze the PDF text to find patterns
   const analyzeText = () => {
@@ -23,38 +24,79 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
   const numberPatterns = pdfText.match(/\b\d+(?:\.\d+)?\s*(?:mm|cm|m)?\b/g) || [];
   const materialPatterns = pdfText.match(/\b(?:plywood|mdf|melamine|particleboard|solid\s*wood|veneer|oak|maple|birch|pine|cherry|walnut)\b/gi) || [];
   const grainPatterns = pdfText.match(/\bgrain\s*(?:direction)?\s*(?:length|width|long|cross)\b/gi) || [];
+  
+  // Filter text by search term
+  const filteredText = searchTerm 
+    ? pdfText.split('\n')
+        .filter(line => line.toLowerCase().includes(searchTerm.toLowerCase()))
+        .join('\n')
+    : pdfText;
 
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">PDF Content Analysis</h3>
-          <button
-            onClick={() => setShowFullText(!showFullText)}
-            className="text-blue-600 hover:text-blue-800 text-sm"
-          >
-            {showFullText ? 'Show Less' : 'Show Full Text'}
-          </button>
+          <div className="flex space-x-2">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search in PDF text..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 pr-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+            <button
+              onClick={() => setShowFullText(!showFullText)}
+              className="text-blue-600 hover:text-blue-800 text-sm"
+            >
+              {showFullText ? 'Show Less' : 'Show Full Text'}
+            </button>
+          </div>
         </div>
 
         {showFullText ? (
           <div className="bg-gray-50 p-4 rounded-lg max-h-60 overflow-y-auto font-mono text-xs whitespace-pre-wrap">
-            {pdfText}
+            {searchTerm ? (
+              <div>
+                <div className="text-xs text-gray-500 mb-2">
+                  Showing lines containing: "{searchTerm}"
+                </div>
+                {filteredText || "No matches found"}
+              </div>
+            ) : (
+              pdfText
+            )}
           </div>
         ) : (
           <div className="bg-gray-50 p-4 rounded-lg max-h-40 overflow-y-auto font-mono text-xs">
-            {pdfText.substring(0, 500)}...
-            <div className="text-center mt-2 text-gray-500">
-              (Click "Show Full Text" to see all content)
-            </div>
+            {searchTerm ? (
+              <div>
+                <div className="text-xs text-gray-500 mb-2">
+                  Showing lines containing: "{searchTerm}"
+                </div>
+                {filteredText.substring(0, 500) || "No matches found"}
+                {filteredText.length > 500 && "..."}
+              </div>
+            ) : (
+              <>
+                {pdfText.substring(0, 500)}...
+                <div className="text-center mt-2 text-gray-500">
+                  (Click "Show Full Text" to see all content)
+                </div>
+              </>
+            )}
           </div>
         )}
 
         <div className="mt-4">
           <button
             onClick={analyzeText}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
           >
+            <Sliders className="w-4 h-4 mr-2" />
             Analyze PDF Content
           </button>
         </div>
@@ -181,6 +223,9 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
                   <li>The text is embedded as images rather than actual text</li>
                   <li>The dimensions are in an unusual format</li>
                 </ul>
+                <p className="text-red-700 mt-3">
+                  Try using the advanced settings to adjust the extraction parameters or search for specific text in the PDF.
+                </p>
               </div>
             )}
           </div>
@@ -192,7 +237,7 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
               <li>Ensure your PDF has text (not just images)</li>
               <li>Make sure dimensions are clearly formatted (e.g., 800×600×18 or 800mm × 600mm × 18mm)</li>
               <li>Include material types and grain directions in your cutting list</li>
-              <li>If extraction fails, you can manually enter the data using our Excel template</li>
+              <li>If extraction fails, try adjusting the advanced settings or use the Excel template directly</li>
             </ul>
           </div>
         </div>

@@ -1,9 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Upload, File, FileText, AlertCircle, Check, X, Info, FileType, Download } from 'lucide-react';
+import { Upload, File, FileText, AlertCircle, Check, X, Info, FileType, Download, Settings, Eye, Sliders } from 'lucide-react';
 import { CuttingListItem } from '../../types/cabinet';
 import toast from 'react-hot-toast';
 import * as pdfjs from 'pdfjs-dist';
 import ExcelTemplateGenerator from './ExcelTemplateGenerator';
+import PDFAnalyzer from './PDFAnalyzer';
+import PDFInstructionGuide from './PDFInstructionGuide';
+import PDFExtractorHelp from './PDFExtractorHelp';
 
 // Set the worker source
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -21,6 +24,19 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
   const [pdfText, setPdfText] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [extractionSettings, setExtractionSettings] = useState({
+    defaultThickness: 18,
+    defaultMaterial: 'Plywood',
+    defaultGrain: 'none' as 'length' | 'width' | 'none',
+    dimensionPattern: '\\d+\\s*(?:x|×|X|\\*)\\s*\\d+\\s*(?:x|×|X|\\*)\\s*\\d+',
+    numberPattern: '\\b(\\d+(?:\\.\\d+)?)\\s*(?:mm|cm|m)?\\b',
+    materialPatterns: ['plywood', 'mdf', 'melamine', 'particleboard', 'solid\\s*wood', 'veneer', 'oak', 'maple', 'birch', 'pine', 'cherry', 'walnut'],
+    grainPatterns: ['grain.*length', 'grain.*width', 'grain.*long', 'grain.*cross'],
+    quantityPatterns: ['qty.*\\d+', 'quantity.*\\d+', 'count.*\\d+', '\\d+\\s*pcs', '\\d+\\s*pieces']
+  });
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -96,7 +112,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [extractionSettings]);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -128,8 +144,8 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
     
     // Try to identify table structure or patterns in the PDF
     // Look for lines that contain dimensions (numbers followed by mm)
-    const dimensionPattern = /(\d+(?:\.\d+)?)\s*(?:x|×|X|\*)\s*(\d+(?:\.\d+)?)\s*(?:x|×|X|\*)\s*(\d+(?:\.\d+)?)/;
-    const numberPattern = /\b(\d+(?:\.\d+)?)\s*(?:mm|cm|m)?\b/g;
+    const dimensionPattern = new RegExp(extractionSettings.dimensionPattern);
+    const numberPattern = new RegExp(extractionSettings.numberPattern, 'g');
     
     // Try to identify part names and dimensions
     for (let i = 0; i < lines.length; i++) {
@@ -141,18 +157,24 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       // Try to extract dimensions using pattern matching
       let length = 0;
       let width = 0;
-      let thickness = 18; // Default thickness
+      let thickness = extractionSettings.defaultThickness; // Default thickness
       let partName = '';
       let quantity = 1;
-      let materialType = 'Plywood';
-      let grain = 'none' as 'length' | 'width' | 'none';
+      let materialType = extractionSettings.defaultMaterial;
+      let grain = extractionSettings.defaultGrain;
       
       // First try to match a dimension pattern like 800x600x18
       const dimensionMatch = line.match(dimensionPattern);
       if (dimensionMatch) {
-        length = parseFloat(dimensionMatch[1]);
-        width = parseFloat(dimensionMatch[2]);
-        thickness = parseFloat(dimensionMatch[3]);
+        const dimensions = dimensionMatch[0].split(/\s*(?:x|×|X|\*)\s*/);
+        if (dimensions.length >= 3) {
+          length = parseFloat(dimensions[0]);
+          width = parseFloat(dimensions[1]);
+          thickness = parseFloat(dimensions[2]);
+        } else if (dimensions.length >= 2) {
+          length = parseFloat(dimensions[0]);
+          width = parseFloat(dimensions[1]);
+        }
         
         // Try to extract part name from before the dimensions
         const beforeDimensions = line.split(dimensionMatch[0])[0].trim();
@@ -190,19 +212,20 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       }
       
       // Try to extract quantity if it exists
-      const qtyMatch = line.match(/\b(?:qty|quantity|count)?\s*(?::|=|-)?\s*(\d+)\b/i);
-      if (qtyMatch) {
-        quantity = parseInt(qtyMatch[1]);
+      for (const pattern of extractionSettings.quantityPatterns) {
+        const qtyMatch = line.match(new RegExp(pattern, 'i'));
+        if (qtyMatch) {
+          const qtyNumber = qtyMatch[0].match(/\d+/);
+          if (qtyNumber) {
+            quantity = parseInt(qtyNumber[0]);
+            break;
+          }
+        }
       }
       
       // Try to extract material type
-      const materialPatterns = [
-        /\b(plywood|mdf|melamine|particleboard|solid\s*wood|veneer)\b/i,
-        /\b(oak|maple|birch|pine|cherry|walnut)\b/i
-      ];
-      
-      for (const pattern of materialPatterns) {
-        const materialMatch = line.match(pattern);
+      for (const pattern of extractionSettings.materialPatterns) {
+        const materialMatch = line.match(new RegExp(`\\b(${pattern})\\b`, 'i'));
         if (materialMatch) {
           materialType = materialMatch[1];
           break;
@@ -210,11 +233,14 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       }
       
       // Try to extract grain direction
-      if (line.toLowerCase().includes('grain')) {
-        if (line.toLowerCase().includes('length') || line.toLowerCase().includes('long')) {
-          grain = 'length';
-        } else if (line.toLowerCase().includes('width') || line.toLowerCase().includes('cross')) {
-          grain = 'width';
+      for (const pattern of extractionSettings.grainPatterns) {
+        if (line.match(new RegExp(pattern, 'i'))) {
+          if (pattern.includes('length') || pattern.includes('long')) {
+            grain = 'length';
+          } else if (pattern.includes('width') || pattern.includes('cross')) {
+            grain = 'width';
+          }
+          break;
         }
       }
       
@@ -331,8 +357,8 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         partName: values[nameIndex] || `Part ${i}`,
         cabinetId: 'imported',
         cabinetName: 'Imported Cabinet',
-        materialType: values[materialIndex] || 'Plywood',
-        thickness: parseFloat(values[thicknessIndex]) || 18,
+        materialType: values[materialIndex] || extractionSettings.defaultMaterial,
+        thickness: parseFloat(values[thicknessIndex]) || extractionSettings.defaultThickness,
         length: parseFloat(values[lengthIndex]) || 0,
         width: parseFloat(values[widthIndex]) || 0,
         quantity: parseInt(values[quantityIndex]) || 1,
@@ -389,15 +415,15 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         };
         
         const grain = getValue('Grain')?.toLowerCase()?.includes('length') ? 'length' : 
-                      getValue('Grain')?.toLowerCase()?.includes('width') ? 'width' : 'none';
+                      getValue('Grain')?.toLowerCase()?.includes('width') ? 'width' : extractionSettings.defaultGrain;
         
         const item: CuttingListItem = {
           id: `imported-${index}-${Date.now()}`,
           partName: getValue('Name') || getValue('Description') || `Part ${index + 1}`,
           cabinetId: 'imported',
           cabinetName: 'Imported Cabinet',
-          materialType: getValue('Material') || getValue('Type') || 'Plywood',
-          thickness: parseFloat(getValue('Thickness')) || 18,
+          materialType: getValue('Material') || getValue('Type') || extractionSettings.defaultMaterial,
+          thickness: parseFloat(getValue('Thickness')) || extractionSettings.defaultThickness,
           length: parseFloat(getValue('Length')) || 0,
           width: parseFloat(getValue('Width')) || 0,
           quantity: parseInt(getValue('Quantity')) || parseInt(getValue('Count')) || 1,
@@ -407,7 +433,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
             left: getValue('EdgeLeft')?.toLowerCase() === 'true', 
             right: getValue('EdgeRight')?.toLowerCase() === 'true' 
           },
-          grain: grain as 'length' | 'width' | 'none',
+          grain,
           priority: parseInt(getValue('Priority')) || 1
         };
         
@@ -494,11 +520,11 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         }
         
         // Determine grain direction
-        let grain: 'length' | 'width' | 'none' = 'none';
+        let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
         if (normalizedItem.grain) {
           const grainValue = normalizedItem.grain.toString().toLowerCase();
           grain = grainValue.includes('length') ? 'length' : 
-                 grainValue.includes('width') ? 'width' : 'none';
+                 grainValue.includes('width') ? 'width' : extractionSettings.defaultGrain;
         }
         
         return {
@@ -506,8 +532,8 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           partName: normalizedItem.name || normalizedItem.partname || normalizedItem.description || `Part ${index + 1}`,
           cabinetId: 'imported',
           cabinetName: 'Imported Cabinet',
-          materialType: normalizedItem.material || normalizedItem.materialtype || normalizedItem.type || 'Plywood',
-          thickness: parseFloat(normalizedItem.thickness) || 18,
+          materialType: normalizedItem.material || normalizedItem.materialtype || normalizedItem.type || extractionSettings.defaultMaterial,
+          thickness: parseFloat(normalizedItem.thickness) || extractionSettings.defaultThickness,
           length: parseFloat(normalizedItem.length) || 0,
           width: parseFloat(normalizedItem.width) || 0,
           quantity: parseInt(normalizedItem.quantity) || parseInt(normalizedItem.count) || 1,
@@ -549,8 +575,10 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         if (items.length > 0) {
           setParsedItems(items);
           setError(null);
+          toast.success(`Found ${items.length} items in the PDF`);
         } else {
           setError('Could not extract cutting list items from the PDF text');
+          toast.error('No items found. Try adjusting extraction settings.');
         }
       } catch (err) {
         console.error('Error parsing PDF text:', err);
@@ -559,13 +587,111 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
     }
   };
 
+  const handleSettingChange = (key: string, value: any) => {
+    setExtractionSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Import PDF Cutting List</h3>
-          <ExcelTemplateGenerator />
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+            >
+              <Settings className="w-4 h-4 mr-1" />
+              {showAdvanced ? 'Hide Settings' : 'Advanced Settings'}
+            </button>
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+            >
+              <Info className="w-4 h-4 mr-1" />
+              {showHelp ? 'Hide Help' : 'Show Help'}
+            </button>
+            <ExcelTemplateGenerator />
+          </div>
         </div>
+        
+        {showAdvanced && (
+          <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-800 mb-3 flex items-center">
+              <Sliders className="w-4 h-4 mr-2 text-gray-600" />
+              PDF Extraction Settings
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Default Thickness (mm)
+                </label>
+                <input
+                  type="number"
+                  value={extractionSettings.defaultThickness}
+                  onChange={(e) => handleSettingChange('defaultThickness', parseFloat(e.target.value) || 18)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">Used when thickness is not found in the PDF</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Default Material
+                </label>
+                <input
+                  type="text"
+                  value={extractionSettings.defaultMaterial}
+                  onChange={(e) => handleSettingChange('defaultMaterial', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">Used when material is not found in the PDF</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Default Grain Direction
+                </label>
+                <select
+                  value={extractionSettings.defaultGrain}
+                  onChange={(e) => handleSettingChange('defaultGrain', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="none">None</option>
+                  <option value="length">Length</option>
+                  <option value="width">Width</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Used when grain direction is not found</p>
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Material Types to Detect (comma separated)
+                </label>
+                <input
+                  type="text"
+                  value={extractionSettings.materialPatterns.join(', ')}
+                  onChange={(e) => handleSettingChange('materialPatterns', e.target.value.split(',').map(s => s.trim()))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">The system will look for these material types in the PDF</p>
+              </div>
+            </div>
+            
+            <div className="mt-4 text-right">
+              <button
+                onClick={handleManualExtract}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Apply Settings & Re-Extract
+              </button>
+            </div>
+          </div>
+        )}
         
         {!file ? (
           <div 
@@ -642,7 +768,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                       Try Alternative Extraction Method
                     </button>
                     <p className="mt-2 text-sm text-red-600">
-                      PDF extraction can be challenging. You can also try using the Excel template for better results.
+                      PDF extraction can be challenging. Try adjusting the extraction settings or use the Excel template for better results.
                     </p>
                   </div>
                 )}
@@ -665,14 +791,21 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                 </div>
                 <p className="text-yellow-700 mb-2">
                   Text was extracted from the PDF, but no cutting list items were identified. 
-                  The system looks for patterns like dimensions and part names.
+                  Try using the advanced settings to adjust the extraction parameters.
                 </p>
                 <div className="mt-3">
+                  <button
+                    onClick={() => setShowAdvanced(true)}
+                    className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors text-sm mr-2"
+                  >
+                    <Settings className="w-3 h-3 inline-block mr-1" />
+                    Show Advanced Settings
+                  </button>
                   <button
                     onClick={handleManualExtract}
                     className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors text-sm"
                   >
-                    Try Alternative Extraction Method
+                    Try Alternative Extraction
                   </button>
                 </div>
               </div>
@@ -720,6 +853,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Width</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grain</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Edge Banding</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -732,11 +866,17 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                     <td className="px-3 py-2 text-gray-900">{item.width}mm</td>
                     <td className="px-3 py-2 text-gray-900">{item.quantity}</td>
                     <td className="px-3 py-2 text-gray-900 capitalize">{item.grain}</td>
+                    <td className="px-3 py-2 text-gray-900">
+                      {Object.entries(item.edgeBanding)
+                        .filter(([_, value]) => value)
+                        .map(([edge]) => edge)
+                        .join(', ') || 'None'}
+                    </td>
                   </tr>
                 ))}
                 {parsedItems.length > 10 && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-2 text-center text-gray-500">
+                    <td colSpan={8} className="px-3 py-2 text-center text-gray-500">
                       ... and {parsedItems.length - 10} more items
                     </td>
                   </tr>
@@ -783,6 +923,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
               This is the raw text extracted from the PDF. If automatic extraction failed, you can:
             </p>
             <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>Try adjusting the extraction settings above</li>
               <li>Use the Excel template provided above</li>
               <li>Copy this text and format it as CSV in a text editor</li>
               <li>Try a different PDF with clearer formatting</li>
@@ -791,40 +932,82 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         </div>
       )}
       
+      {file?.type === 'application/pdf' && pdfText && (
+        <PDFAnalyzer 
+          pdfText={pdfText} 
+          parsedItems={parsedItems} 
+          onAnalyze={handleManualExtract} 
+        />
+      )}
+      
+      {showHelp && (
+        <>
+          <PDFInstructionGuide />
+          <PDFExtractorHelp />
+        </>
+      )}
+      
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-900 mb-4">Understanding Cabinet PDF Format</h3>
+        <h3 className="text-lg font-semibold text-blue-900 mb-4">Excel Template Format</h3>
         <p className="text-blue-800 mb-4">
-          When importing from PDF, the system looks for specific patterns to identify cutting list items:
+          For best results, use the Excel template provided above. The template includes the following columns:
         </p>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium text-blue-800 mb-2">Dimension Patterns</h4>
-            <ul className="text-blue-700 space-y-1 list-disc pl-5">
-              <li>Dimensions in format: <code className="bg-blue-100 px-1 rounded">800×600×18</code> (length × width × thickness)</li>
-              <li>Numbers followed by units: <code className="bg-blue-100 px-1 rounded">800mm 600mm 18mm</code></li>
-              <li>Part names typically appear before or after dimensions</li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-medium text-blue-800 mb-2">Material & Grain Information</h4>
-            <ul className="text-blue-700 space-y-1 list-disc pl-5">
-              <li>Material types like "Plywood", "MDF", "Melamine"</li>
-              <li>Grain direction indicated by "grain length" or "grain width"</li>
-              <li>Quantity indicated by "Qty: 2" or similar patterns</li>
-            </ul>
-          </div>
-        </div>
-        
-        <div className="mt-4">
-          <h4 className="font-medium text-blue-800 mb-2">Tips for Better Results</h4>
-          <ul className="text-blue-700 space-y-1 list-disc pl-5">
-            <li>Use PDFs with clear tabular data</li>
-            <li>For best results, use the Excel template and save as PDF</li>
-            <li>If automatic extraction fails, try the alternative extraction method</li>
-            <li>You can always manually copy data from the PDF into the Excel template</li>
-          </ul>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-blue-100">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-blue-800 uppercase">Column</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-blue-800 uppercase">Description</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-blue-800 uppercase">Required</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-blue-800 uppercase">Example</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-blue-100">
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Part Name</td>
+                <td className="px-3 py-2">Name or description of the part</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">Side Panel</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Length (mm)</td>
+                <td className="px-3 py-2">Length of the part in millimeters</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">720</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Width (mm)</td>
+                <td className="px-3 py-2">Width of the part in millimeters</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">560</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Thickness (mm)</td>
+                <td className="px-3 py-2">Thickness of the part in millimeters</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">18</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Quantity</td>
+                <td className="px-3 py-2">Number of identical parts needed</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">2</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Material Type</td>
+                <td className="px-3 py-2">Type of material for the part</td>
+                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">Plywood</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Grain Direction</td>
+                <td className="px-3 py-2">Direction of wood grain</td>
+                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">length</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
