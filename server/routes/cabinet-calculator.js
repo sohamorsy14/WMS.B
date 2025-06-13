@@ -162,6 +162,129 @@ router.delete('/templates/:id', requirePermission('cabinet_calc.edit'), async (r
   }
 });
 
+// Get all projects
+router.get('/projects', requirePermission('cabinet_calc.view'), async (req, res) => {
+  try {
+    const projects = await db.all(`
+      SELECT id, name, description, configurations, created_by, created_at, updated_at
+      FROM cabinet_projects 
+      ORDER BY name ASC
+    `);
+
+    // Parse JSON fields
+    const parsedProjects = projects.map(project => ({
+      ...project,
+      configurations: JSON.parse(project.configurations || '[]')
+    }));
+
+    res.json(parsedProjects);
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    res.status(500).json({ error: 'Failed to fetch projects' });
+  }
+});
+
+// Get a specific project by ID
+router.get('/projects/:id', requirePermission('cabinet_calc.view'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const project = await db.get(`
+      SELECT id, name, description, configurations, created_by, created_at, updated_at
+      FROM cabinet_projects 
+      WHERE id = ?
+    `, [id]);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Parse JSON fields
+    const parsedProject = {
+      ...project,
+      configurations: JSON.parse(project.configurations || '[]')
+    };
+
+    res.json(parsedProject);
+  } catch (error) {
+    console.error('Error fetching project:', error);
+    res.status(500).json({ error: 'Failed to fetch project' });
+  }
+});
+
+// Create a new project
+router.post('/projects', requirePermission('cabinet_calc.edit'), async (req, res) => {
+  try {
+    const { name, description, configurations } = req.body;
+    const userId = req.user.id;
+
+    const result = await db.run(`
+      INSERT INTO cabinet_projects (
+        name, description, configurations, created_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+    `, [
+      name,
+      description,
+      JSON.stringify(configurations || []),
+      userId
+    ]);
+
+    res.status(201).json({ id: result.lastID, message: 'Project created successfully' });
+  } catch (error) {
+    console.error('Error creating project:', error);
+    res.status(500).json({ error: 'Failed to create project' });
+  }
+});
+
+// Update an existing project
+router.put('/projects/:id', requirePermission('cabinet_calc.edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, configurations } = req.body;
+
+    const result = await db.run(`
+      UPDATE cabinet_projects 
+      SET name = ?, description = ?, configurations = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `, [
+      name,
+      description,
+      JSON.stringify(configurations || []),
+      id
+    ]);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    res.json({ message: 'Project updated successfully' });
+  } catch (error) {
+    console.error('Error updating project:', error);
+    res.status(500).json({ error: 'Failed to update project' });
+  }
+});
+
+// Delete a project
+router.delete('/projects/:id', requirePermission('cabinet_calc.edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.run(`
+      DELETE FROM cabinet_projects 
+      WHERE id = ?
+    `, [id]);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    res.json({ message: 'Project deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
+
 // Get all configurations
 router.get('/configurations', requirePermission('cabinet_calc.view'), async (req, res) => {
   try {

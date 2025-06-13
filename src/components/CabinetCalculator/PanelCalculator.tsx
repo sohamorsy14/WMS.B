@@ -35,14 +35,14 @@ const PanelCalculator: React.FC<PanelCalculatorProps> = ({ template }) => {
     calculatePanels();
   }, [customDimensions, template]);
 
-  const calculateDimension = (formula: string): number => {
+  const calculateDimension = (formula: string, materialThickness: any, construction: any): number => {
     try {
       // Create a safe evaluation context with cabinet dimensions and material thicknesses
       const { width, height, depth } = customDimensions;
       const { side, topBottom, back, shelf, door, drawer, fixedPanel, drawerBottom, uprights, doubleBack } = 
-        template.materialThickness;
+        materialThickness;
       const { hasTop, hasBottom, hasBack, hasDoubleBack, hasToe, hasFixedShelf, isCorner, hasFrontPanel, hasFillerPanel, hasUprights } = 
-        template.construction || {};
+        construction || {};
       
       // Use Function constructor to create a safe evaluation function
       const evalFunc = new Function(
@@ -174,8 +174,8 @@ const PanelCalculator: React.FC<PanelCalculatorProps> = ({ template }) => {
 
     // Calculate dimensions for each panel
     const panels = panelDefinitions.map(panel => {
-      const width = calculateDimension(panel.widthFormula);
-      const height = calculateDimension(panel.heightFormula);
+      const width = calculateDimension(panel.widthFormula, template.materialThickness, template.construction);
+      const height = calculateDimension(panel.heightFormula, template.materialThickness, template.construction);
       const area = (width * height * panel.quantity) / 1000000; // Convert to m²
       
       return {
