@@ -6,8 +6,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Import database initialization
-import { initDatabase } from './config/database.js';
+// Import database initialization and connection
+import { initDatabase, db } from './config/database.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -31,18 +31,44 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+let server;
 
 // Enhanced error handling for startup
-process.on('uncaughtException', (err) => {
+process.on('uncaughtException', async (err) => {
   console.error('❌ Uncaught Exception:', err.message);
   console.error('Stack trace:', err.stack);
+  await gracefulShutdown();
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', async (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  await gracefulShutdown();
   process.exit(1);
 });
+
+// Graceful shutdown function
+const gracefulShutdown = async () => {
+  console.log('\n🔄 Shutting down gracefully...');
+  
+  try {
+    // Close server first
+    if (server) {
+      await new Promise((resolve) => {
+        server.close(resolve);
+      });
+      console.log('✅ HTTP server closed');
+    }
+    
+    // Close database connection
+    if (db && typeof db.close === 'function') {
+      await db.close();
+      console.log('✅ Database connection closed');
+    }
+  } catch (error) {
+    console.error('❌ Error during graceful shutdown:', error.message);
+  }
+};
 
 // Middleware
 app.use(helmet());
@@ -101,14 +127,14 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Graceful shutdown
+// Graceful shutdown handlers
 process.on('SIGINT', async () => {
-  console.log('\n🔄 Shutting down gracefully...');
+  await gracefulShutdown();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n🔄 Shutting down gracefully...');
+  await gracefulShutdown();
   process.exit(0);
 });
 
@@ -131,7 +157,7 @@ const startServer = async () => {
     }
     
     // Check if port is available
-    const server = app.listen(PORT, '0.0.0.0', () => {
+    server = app.listen(PORT, '0.0.0.0', () => {
       console.log('');
       console.log('========================================');
       console.log('   Cabinet WMS Server Started');
