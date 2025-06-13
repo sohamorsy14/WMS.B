@@ -126,6 +126,17 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
+  const formatDimensions = (dimensions: any) => {
+    if (!dimensions || typeof dimensions !== 'object') {
+      return 'N/A';
+    }
+    const { width, height, depth } = dimensions;
+    if (width && height && depth) {
+      return `${width} × ${height} × ${depth}mm`;
+    }
+    return 'N/A';
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -250,12 +261,12 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900 text-sm">{config.name}</h4>
                         <p className="text-xs text-gray-600 mt-1">
-                          {config.dimensions.width} × {config.dimensions.height} × {config.dimensions.depth}mm
+                          {formatDimensions(config.dimensions)}
                         </p>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-green-600">
-                          {formatCurrency(config.totalCost)}
+                          {formatCurrency(config.totalCost || 0)}
                         </div>
                       </div>
                     </div>
@@ -279,7 +290,7 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
                     {formatCurrency(
                       savedConfigurations
                         .filter(config => selectedConfigurations.includes(config.id))
-                        .reduce((sum, config) => sum + config.totalCost, 0)
+                        .reduce((sum, config) => sum + (config.totalCost || 0), 0)
                     )}
                   </span>
                 </div>
@@ -349,9 +360,9 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
                 <div className="flex items-center">
                   <DollarSign className="w-5 h-5 text-gray-400 mr-2" />
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{formatCurrency(project.total)}</div>
+                    <div className="text-sm font-medium text-gray-900">{formatCurrency(project.total || 0)}</div>
                     <div className="text-xs text-gray-600">
-                      {project.configurations.length} cabinets
+                      {project.configurations?.length || 0} cabinets
                     </div>
                   </div>
                 </div>
@@ -359,7 +370,7 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
                 <div className="flex items-center">
                   <FileText className="w-5 h-5 text-gray-400 mr-2" />
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{project.estimatedDays} days</div>
+                    <div className="text-sm font-medium text-gray-900">{project.estimatedDays || 0} days</div>
                     <div className="text-xs text-gray-600">
                       Created: {new Date(project.createdAt).toLocaleDateString()}
                     </div>
@@ -369,19 +380,19 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
               
               {/* Cabinet List */}
               <div className="mb-6">
-                <h4 className="font-medium text-gray-900 mb-3">Cabinets ({project.configurations.length})</h4>
+                <h4 className="font-medium text-gray-900 mb-3">Cabinets ({project.configurations?.length || 0})</h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto p-4 bg-gray-50 rounded-lg">
-                  {project.configurations.map((config) => (
+                  {project.configurations?.map((config) => (
                     <div key={config.id} className="flex items-center justify-between p-3 bg-white rounded border border-gray-200">
                       <div>
                         <div className="font-medium text-gray-900">{config.name}</div>
                         <div className="text-xs text-gray-600">
-                          {config.dimensions.width} × {config.dimensions.height} × {config.dimensions.depth}mm
+                          {formatDimensions(config.dimensions)}
                         </div>
                       </div>
                       <div className="flex items-center">
                         <div className="text-sm font-bold text-green-600 mr-4">
-                          {formatCurrency(config.totalCost)}
+                          {formatCurrency(config.totalCost || 0)}
                         </div>
                         <button
                           onClick={() => onEditConfiguration(config)}
@@ -392,7 +403,7 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )) || []}
                 </div>
               </div>
               
@@ -402,19 +413,19 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <div className="text-green-700">Materials:</div>
-                    <div className="font-semibold text-green-900">{formatCurrency(project.totalMaterialCost)}</div>
+                    <div className="font-semibold text-green-900">{formatCurrency(project.totalMaterialCost || 0)}</div>
                   </div>
                   <div>
                     <div className="text-green-700">Hardware:</div>
-                    <div className="font-semibold text-green-900">{formatCurrency(project.totalHardwareCost)}</div>
+                    <div className="font-semibold text-green-900">{formatCurrency(project.totalHardwareCost || 0)}</div>
                   </div>
                   <div>
                     <div className="text-green-700">Labor:</div>
-                    <div className="font-semibold text-green-900">{formatCurrency(project.totalLaborCost)}</div>
+                    <div className="font-semibold text-green-900">{formatCurrency(project.totalLaborCost || 0)}</div>
                   </div>
                   <div>
                     <div className="text-green-700">Total (incl. tax):</div>
-                    <div className="font-bold text-green-900">{formatCurrency(project.total)}</div>
+                    <div className="font-bold text-green-900">{formatCurrency(project.total || 0)}</div>
                   </div>
                 </div>
               </div>
