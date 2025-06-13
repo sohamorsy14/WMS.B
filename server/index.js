@@ -155,6 +155,62 @@ const mockSuppliers = [
   }
 ];
 
+// Mock orders data
+const mockOrders = [
+  {
+    id: '1',
+    orderNumber: 'ORD-2024-0001',
+    customerName: 'Johnson Kitchen Renovation',
+    customerEmail: 'johnson@email.com',
+    customerPhone: '(555) 123-4567',
+    status: 'confirmed',
+    orderDate: new Date().toISOString(),
+    deliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    items: [
+      {
+        id: '1',
+        itemId: 'PLY-18-4X8',
+        itemName: 'Plywood 18mm 4x8ft',
+        quantity: 10,
+        unitCost: 52.75,
+        totalCost: 527.50
+      }
+    ],
+    subtotal: 527.50,
+    tax: 52.75,
+    total: 580.25,
+    notes: 'Kitchen renovation project',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    orderNumber: 'ORD-2024-0002',
+    customerName: 'Smith Bathroom Remodel',
+    customerEmail: 'smith@email.com',
+    customerPhone: '(555) 987-6543',
+    status: 'pending',
+    orderDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    deliveryDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+    items: [
+      {
+        id: '2',
+        itemId: 'MDF-18-4X8',
+        itemName: 'MDF 18mm 4x8ft',
+        quantity: 5,
+        unitCost: 38.90,
+        totalCost: 194.50
+      }
+    ],
+    subtotal: 194.50,
+    tax: 19.45,
+    total: 213.95,
+    notes: 'Bathroom vanity project',
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
 // Mock purchase orders data
 const mockPurchaseOrders = [
   {
@@ -281,15 +337,94 @@ const mockCabinetProjects = [
 const mockBOMs = [
   {
     id: '1',
+    bomNumber: 'BOM-2024-001',
     name: 'Kitchen Cabinet BOM',
-    projectId: '1',
+    version: '1.0',
+    linkedType: 'order',
+    linkedId: '1',
+    linkedNumber: 'ORD-2024-0001',
+    status: 'approved',
+    description: 'Complete BOM for kitchen cabinet project',
+    category: 'Base Cabinets',
+    estimatedTime: 24.5,
     items: [
-      { itemId: 'PLY-18-4X8', quantity: 10, unitCost: 52.75 },
-      { itemId: 'MDF-18-4X8', quantity: 8, unitCost: 38.90 },
-      { itemId: 'HNG-CONC-35', quantity: 20, unitCost: 3.25 }
+      { 
+        id: '1', 
+        itemId: 'PLY-18-4X8', 
+        itemName: 'Plywood 18mm 4x8ft',
+        quantity: 10, 
+        unitCost: 52.75, 
+        totalCost: 527.50,
+        unitMeasurement: 'Sheets (sht)',
+        isOptional: false
+      },
+      { 
+        id: '2', 
+        itemId: 'MDF-18-4X8', 
+        itemName: 'MDF 18mm 4x8ft',
+        quantity: 8, 
+        unitCost: 38.90, 
+        totalCost: 311.20,
+        unitMeasurement: 'Sheets (sht)',
+        isOptional: false
+      },
+      { 
+        id: '3', 
+        itemId: 'HNG-CONC-35', 
+        itemName: 'Concealed Hinges 35mm',
+        quantity: 20, 
+        unitCost: 3.25, 
+        totalCost: 65.00,
+        unitMeasurement: 'Pieces (pcs)',
+        isOptional: false
+      }
     ],
-    totalCost: 1000.00,
+    totalCost: 903.70,
+    createdBy: 'admin',
+    approvedBy: 'manager',
+    approvalDate: new Date().toISOString(),
+    notes: 'Standard kitchen cabinet configuration',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    bomNumber: 'BOM-2024-002',
+    name: 'Bathroom Vanity BOM',
+    version: '1.0',
+    linkedType: 'prototype',
+    linkedId: '1',
+    linkedNumber: 'PROTO-2024-001',
+    status: 'draft',
+    description: 'BOM for bathroom vanity prototype',
+    category: 'Vanities',
+    estimatedTime: 12.0,
+    items: [
+      { 
+        id: '4', 
+        itemId: 'MDF-18-4X8', 
+        itemName: 'MDF 18mm 4x8ft',
+        quantity: 3, 
+        unitCost: 38.90, 
+        totalCost: 116.70,
+        unitMeasurement: 'Sheets (sht)',
+        isOptional: false
+      },
+      { 
+        id: '5', 
+        itemId: 'HNG-CONC-35', 
+        itemName: 'Concealed Hinges 35mm',
+        quantity: 4, 
+        unitCost: 3.25, 
+        totalCost: 13.00,
+        unitMeasurement: 'Pieces (pcs)',
+        isOptional: true
+      }
+    ],
+    totalCost: 129.70,
+    createdBy: 'manager',
+    notes: 'Prototype testing phase',
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date().toISOString()
   }
 ];
@@ -297,6 +432,7 @@ const mockBOMs = [
 const mockPrototypes = [
   {
     id: '1',
+    prototypeNumber: 'PROTO-2024-001',
     name: 'Prototype Cabinet A',
     description: 'Test design for new cabinet style',
     status: 'testing',
@@ -306,6 +442,20 @@ const mockPrototypes = [
       depth: 560
     },
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    prototypeNumber: 'PROTO-2024-002',
+    name: 'Modern Wall Cabinet',
+    description: 'Sleek design for contemporary kitchens',
+    status: 'approved',
+    specifications: {
+      width: 800,
+      height: 900,
+      depth: 350
+    },
+    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date().toISOString()
   }
 ];
@@ -393,6 +543,55 @@ app.delete('/api/inventory/products/:id', (req, res) => {
     res.json({ success: true });
   } else {
     res.status(404).json({ error: 'Item not found' });
+  }
+});
+
+// Orders routes
+app.get('/api/orders', (req, res) => {
+  res.json(mockOrders);
+});
+
+app.get('/api/orders/:id', (req, res) => {
+  const order = mockOrders.find(o => o.id === req.params.id);
+  if (order) {
+    res.json(order);
+  } else {
+    res.status(404).json({ error: 'Order not found' });
+  }
+});
+
+app.post('/api/orders', (req, res) => {
+  const newOrder = {
+    id: Date.now().toString(),
+    ...req.body,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockOrders.push(newOrder);
+  res.json(newOrder);
+});
+
+app.put('/api/orders/:id', (req, res) => {
+  const index = mockOrders.findIndex(o => o.id === req.params.id);
+  if (index !== -1) {
+    mockOrders[index] = {
+      ...mockOrders[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockOrders[index]);
+  } else {
+    res.status(404).json({ error: 'Order not found' });
+  }
+});
+
+app.delete('/api/orders/:id', (req, res) => {
+  const index = mockOrders.findIndex(o => o.id === req.params.id);
+  if (index !== -1) {
+    mockOrders.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Order not found' });
   }
 });
 
