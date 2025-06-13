@@ -22,7 +22,13 @@
     "jsonwebtoken": "^9.0.0",
     "dotenv": "^16.0.3",
     "concurrently": "^7.6.0",
-    "better-sqlite3": "^9.2.2"
+    "better-sqlite3": "^9.2.2",
+    "react-hot-toast": "^2.4.1",
+    "axios": "^1.6.0",
+    "recharts": "^2.8.0",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.6.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.0.28",
