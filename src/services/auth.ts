@@ -34,7 +34,8 @@ export const authService = {
       
       // If the server is not available (ECONNREFUSED or network error), provide mock data
       if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message.includes('Network Error'))) {
+          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || 
+           error.message.includes('Network Error') || error.message.includes('500'))) {
         console.log('Server unavailable, using mock data for login');
         
         // Check credentials against mock users
@@ -91,7 +92,8 @@ export const authService = {
       
       // If the server is not available, provide mock data based on token
       if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message.includes('Network Error'))) {
+          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || 
+           error.message.includes('Network Error') || error.message.includes('500'))) {
         console.log('Server unavailable, using mock data for token validation');
         
         // In a real app, we would decode the JWT. For demo, we'll just check if it's our mock token
@@ -122,7 +124,8 @@ export const authService = {
       
       // If the server is not available, provide mock data
       if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message.includes('Network Error'))) {
+          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || 
+           error.message.includes('Network Error') || error.message.includes('500'))) {
         console.log('Server unavailable, using mock data for users');
         
         return [
@@ -168,7 +171,8 @@ export const authService = {
       
       // If the server is not available, provide mock response
       if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message.includes('Network Error'))) {
+          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || 
+           error.message.includes('Network Error') || error.message.includes('500'))) {
         console.log('Server unavailable, using mock data for user creation');
         
         return {
@@ -196,7 +200,8 @@ export const authService = {
       
       // If the server is not available, provide mock response
       if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message.includes('Network Error'))) {
+          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || 
+           error.message.includes('Network Error') || error.message.includes('500'))) {
         console.log('Server unavailable, using mock data for user update');
         
         return {
@@ -220,7 +225,8 @@ export const authService = {
       
       // If the server is not available, just log and continue
       if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message.includes('Network Error'))) {
+          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || 
+           error.message.includes('Network Error') || error.message.includes('500'))) {
         console.log('Server unavailable, mock delete user operation');
         return;
       }
@@ -243,7 +249,8 @@ export const authService = {
       
       // If the server is not available, provide mock response
       if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message.includes('Network Error'))) {
+          (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || 
+           error.message.includes('Network Error') || error.message.includes('500'))) {
         console.log('Server unavailable, mock password change operation');
         return;
       }
