@@ -36,7 +36,7 @@ const isServerUnavailable = (error: any) => {
     (error.code === 'ECONNREFUSED' || 
      error.code === 'ERR_NETWORK' || 
      error.message.includes('Network Error') ||
-     (error.response && error.response.status >= 500));
+     (error.response && (error.response.status >= 500 || error.response.status === 404)));
 };
 
 // Add response interceptor for better error handling

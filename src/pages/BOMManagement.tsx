@@ -113,9 +113,9 @@ const BOMManagement: React.FC = () => {
   };
 
   const filteredBoms = boms.filter(bom => {
-    const matchesSearch = bom.bomNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bom.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bom.linkedNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (bom.bomNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (bom.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (bom.linkedNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || bom.status === statusFilter;
     const matchesLinkedType = linkedTypeFilter === 'all' || bom.linkedType === linkedTypeFilter;
     return matchesSearch && matchesStatus && matchesLinkedType;
