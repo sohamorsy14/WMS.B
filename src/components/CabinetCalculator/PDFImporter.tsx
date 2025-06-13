@@ -68,8 +68,21 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
-        fullText += pageText + '\n';
+        
+        // Preserve the original layout as much as possible
+        let lastY = null;
+        let text = '';
+        
+        for (const item of textContent.items) {
+          const itemAny = item as any;
+          if (lastY !== itemAny.transform[5] && lastY !== null) {
+            text += '\n';
+          }
+          text += itemAny.str;
+          lastY = itemAny.transform[5];
+        }
+        
+        fullText += text + '\n';
       }
       
       return fullText;
@@ -144,87 +157,112 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
 
   const parsePdfText = (text: string): CuttingListItem[] => {
     // This function attempts to extract cutting list items from PDF text
-    // It uses various heuristics to identify parts, dimensions, etc.
-    
     const items: CuttingListItem[] = [];
     
     // Split into lines and remove empty ones
     const lines = text.split('\n').filter(line => line.trim().length > 0);
     
-    // Find column headers
-    const headerIndices: Record<string, number> = {};
-    const headerLine = lines.findIndex(line => {
-      // Check if this line contains multiple column headers
+    // Find the header line that contains column headers
+    const headerLineIndex = lines.findIndex(line => {
       const lowerLine = line.toLowerCase();
-      let headerCount = 0;
-      
-      // Check for required column headers
-      for (const key of ['num', 'height', 'width', 'quantity']) {
-        if (lowerLine.includes(key)) {
-          headerCount++;
-        }
-      }
-      
-      return headerCount >= 3; // At least 3 of the required headers
+      return (
+        lowerLine.includes('num') && 
+        (lowerLine.includes('reference') || lowerLine.includes('part name')) && 
+        lowerLine.includes('height') && 
+        lowerLine.includes('width') && 
+        lowerLine.includes('quantity')
+      );
     });
     
-    if (headerLine === -1) {
+    if (headerLineIndex === -1) {
       console.warn("Couldn't find header line in PDF");
       return [];
     }
     
-    // Parse the header line to find column positions
-    const headerText = lines[headerLine].toLowerCase();
+    const headerLine = lines[headerLineIndex].toLowerCase();
+    console.log("Found header line:", headerLine);
     
-    // Find column indices based on mappings
-    for (const [key, possibleNames] of Object.entries(extractionSettings.columnMappings)) {
+    // Find column positions
+    const columnPositions: Record<string, { start: number, end?: number }> = {};
+    
+    // Map of column types to possible header names
+    const columnMappings = {
+      num: ['num', 'number', 'part number', 'part no', 'item'],
+      reference: ['reference', 'name', 'part name', 'description', 'part'],
+      height: ['height', 'length', 'len', 'l'],
+      width: ['width', 'w', 'wid'],
+      quantity: ['quantity', 'qty', 'count', 'pcs'],
+      leftEdge: ['left edge', 'edge left', 'left'],
+      rightEdge: ['right edge', 'edge right', 'right'],
+      topEdge: ['top edge', 'edge top', 'top', 'front edge', 'edge front', 'front'],
+      bottomEdge: ['bottom edge', 'edge bottom', 'bottom', 'back edge', 'edge back', 'back'],
+      material: ['material', 'mat', 'type'],
+      thickness: ['thickness', 'thick', 't'],
+      grain: ['grain', 'grain direction', 'direction']
+    };
+    
+    // Find the position of each column in the header line
+    for (const [columnType, possibleNames] of Object.entries(columnMappings)) {
       for (const name of possibleNames) {
-        if (headerText.includes(name)) {
-          headerIndices[key] = headerText.indexOf(name);
+        const position = headerLine.indexOf(name);
+        if (position !== -1) {
+          columnPositions[columnType] = { start: position };
           break;
         }
       }
     }
     
-    // Check if we found the essential columns
-    if (!headerIndices.partNumber || !headerIndices.length || !headerIndices.width || !headerIndices.quantity) {
-      console.warn("Couldn't find essential columns in PDF", headerIndices);
-      return [];
+    // Sort columns by position to determine column boundaries
+    const sortedColumns = Object.entries(columnPositions)
+      .sort((a, b) => a[1].start - b[1].start)
+      .map(([type, position]) => ({ type, position }));
+    
+    // Set end positions based on the next column's start position
+    for (let i = 0; i < sortedColumns.length - 1; i++) {
+      sortedColumns[i].position.end = sortedColumns[i + 1].position.start;
     }
     
-    // Sort column indices to determine column boundaries
-    const sortedIndices = Object.entries(headerIndices)
-      .sort((a, b) => a[1] - b[1])
-      .map(entry => ({ key: entry[0], index: entry[1] }));
+    console.log("Column positions:", sortedColumns);
     
     // Process data rows
-    for (let i = headerLine + 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.trim().length === 0) continue;
-      
-      // Skip lines that don't look like data rows
-      if (!/\d/.test(line)) continue;
+    for (let i = headerLineIndex + 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line || !line.match(/\d+/)) continue; // Skip empty lines or lines without numbers
       
       // Extract values from each column
       const values: Record<string, string> = {};
       
-      for (let j = 0; j < sortedIndices.length; j++) {
-        const currentCol = sortedIndices[j];
-        const nextCol = sortedIndices[j + 1];
-        
-        const startPos = currentCol.index;
-        const endPos = nextCol ? nextCol.index : line.length;
-        
-        values[currentCol.key] = line.substring(startPos, endPos).trim();
+      for (const { type, position } of sortedColumns) {
+        const start = position.start;
+        const end = position.end || line.length;
+        if (start < line.length) {
+          values[type] = line.substring(start, end).trim();
+        }
       }
       
-      // Parse values
-      const partName = values.partName || `Part ${values.partNumber || i}`;
-      const length = parseFloat(values.length) || 0;
-      const width = parseFloat(values.width) || 0;
-      const thickness = parseFloat(values.thickness) || extractionSettings.defaultThickness;
-      const quantity = parseInt(values.quantity) || 1;
-      const materialType = values.material || extractionSettings.defaultMaterial;
+      // Skip rows that don't have essential data
+      if (!values.num || (!values.height && !values.width)) {
+        continue;
+      }
+      
+      // Parse material and thickness
+      let materialType = extractionSettings.defaultMaterial;
+      let thickness = extractionSettings.defaultThickness;
+      
+      if (values.material) {
+        // Check if material contains thickness info like "MDF1, 18.0"
+        const materialMatch = values.material.match(/([^,]+),\s*(\d+(?:\.\d+)?)/);
+        if (materialMatch) {
+          materialType = materialMatch[1].trim();
+          thickness = parseFloat(materialMatch[2]);
+        } else {
+          materialType = values.material;
+        }
+      }
+      
+      if (values.thickness) {
+        thickness = parseFloat(values.thickness) || thickness;
+      }
       
       // Parse grain direction
       let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
@@ -241,28 +279,31 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       
       // Parse edge banding - any non-empty value is considered TRUE
       const edgeBanding = {
-        front: !!values.edgeTop && values.edgeTop.trim() !== '',
-        back: !!values.edgeBottom && values.edgeBottom.trim() !== '',
-        left: !!values.edgeLeft && values.edgeLeft.trim() !== '',
-        right: !!values.edgeRight && values.edgeRight.trim() !== ''
+        front: !!values.topEdge && values.topEdge.trim() !== '',
+        back: !!values.bottomEdge && values.bottomEdge.trim() !== '',
+        left: !!values.leftEdge && values.leftEdge.trim() !== '',
+        right: !!values.rightEdge && values.rightEdge.trim() !== ''
+      };
+      
+      // Create cutting list item
+      const item: CuttingListItem = {
+        id: `imported-${i}-${Date.now()}`,
+        partName: values.reference || `Part ${values.num}`,
+        cabinetId: 'imported',
+        cabinetName: 'Imported Cabinet',
+        materialType,
+        thickness,
+        length: parseFloat(values.height) || 0,
+        width: parseFloat(values.width) || 0,
+        quantity: parseInt(values.quantity) || 1,
+        edgeBanding,
+        grain,
+        priority: 1
       };
       
       // Only add if we have valid dimensions
-      if (length > 0 && width > 0) {
-        items.push({
-          id: `imported-${i}-${Date.now()}`,
-          partName,
-          cabinetId: 'imported',
-          cabinetName: 'Imported Cabinet',
-          materialType,
-          thickness,
-          length,
-          width,
-          quantity,
-          edgeBanding,
-          grain,
-          priority: 1
-        });
+      if (item.length > 0 && item.width > 0) {
+        items.push(item);
       }
     }
     
@@ -589,8 +630,102 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
   const handleManualExtract = () => {
     if (pdfText) {
       try {
-        // Try to parse the PDF text again with manual intervention
-        const items = parsePdfText(pdfText);
+        // Try a more direct approach to parsing the PDF text
+        const lines = pdfText.split('\n').filter(line => line.trim().length > 0);
+        
+        // Find the header line
+        const headerLineIndex = lines.findIndex(line => {
+          const lowerLine = line.toLowerCase();
+          return lowerLine.includes('num') && lowerLine.includes('reference') && 
+                 lowerLine.includes('height') && lowerLine.includes('width');
+        });
+        
+        if (headerLineIndex === -1) {
+          setError('Could not find header line in the PDF');
+          return;
+        }
+        
+        const headerLine = lines[headerLineIndex];
+        console.log("Header line:", headerLine);
+        
+        // Define column positions
+        const numPos = headerLine.toLowerCase().indexOf('num');
+        const refPos = headerLine.toLowerCase().indexOf('reference');
+        const heightPos = headerLine.toLowerCase().indexOf('height');
+        const widthPos = headerLine.toLowerCase().indexOf('width');
+        const qtyPos = headerLine.toLowerCase().indexOf('quantity');
+        const leftEdgePos = headerLine.toLowerCase().indexOf('left edge');
+        const rightEdgePos = headerLine.toLowerCase().indexOf('right edge');
+        const topEdgePos = headerLine.toLowerCase().indexOf('top edge');
+        const bottomEdgePos = headerLine.toLowerCase().indexOf('bottom edge');
+        
+        // Define column boundaries
+        const columns = [
+          { name: 'num', pos: numPos },
+          { name: 'reference', pos: refPos },
+          { name: 'height', pos: heightPos },
+          { name: 'width', pos: widthPos },
+          { name: 'quantity', pos: qtyPos },
+          { name: 'leftEdge', pos: leftEdgePos },
+          { name: 'rightEdge', pos: rightEdgePos },
+          { name: 'topEdge', pos: topEdgePos },
+          { name: 'bottomEdge', pos: bottomEdgePos }
+        ].filter(col => col.pos !== -1)
+         .sort((a, b) => a.pos - b.pos);
+        
+        // Process data rows
+        const items: CuttingListItem[] = [];
+        
+        for (let i = headerLineIndex + 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line.match(/\d+/)) continue; // Skip lines without numbers
+          
+          // Extract values from each column
+          const values: Record<string, string> = {};
+          
+          for (let j = 0; j < columns.length; j++) {
+            const col = columns[j];
+            const nextCol = columns[j + 1];
+            const start = col.pos;
+            const end = nextCol ? nextCol.pos : line.length;
+            
+            if (start < line.length) {
+              values[col.name] = line.substring(start, end).trim();
+            }
+          }
+          
+          // Skip rows that don't have essential data
+          if (!values.num || !values.height || !values.width) {
+            continue;
+          }
+          
+          // Create cutting list item
+          const item: CuttingListItem = {
+            id: `imported-${i}-${Date.now()}`,
+            partName: values.reference || `Part ${values.num}`,
+            cabinetId: 'imported',
+            cabinetName: 'Imported Cabinet',
+            materialType: extractionSettings.defaultMaterial,
+            thickness: extractionSettings.defaultThickness,
+            length: parseFloat(values.height) || 0,
+            width: parseFloat(values.width) || 0,
+            quantity: parseInt(values.quantity) || 1,
+            edgeBanding: {
+              left: !!values.leftEdge,
+              right: !!values.rightEdge,
+              front: !!values.topEdge,
+              back: !!values.bottomEdge
+            },
+            grain: extractionSettings.defaultGrain,
+            priority: 1
+          };
+          
+          // Only add if we have valid dimensions
+          if (item.length > 0 && item.width > 0) {
+            items.push(item);
+          }
+        }
+        
         if (items.length > 0) {
           setParsedItems(items);
           setError(null);
@@ -892,7 +1027,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                     <td className="px-3 py-2 text-gray-900">
                       {Object.entries(item.edgeBanding)
                         .filter(([_, value]) => value)
-                        .map(([edge]) => edge)
+                        .map(([edge]) => edge.charAt(0).toUpperCase() + edge.slice(1))
                         .join(', ') || 'None'}
                     </td>
                   </tr>
@@ -996,7 +1131,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
               <tr className="bg-white">
                 <td className="px-3 py-2 font-medium">Reference</td>
                 <td className="px-3 py-2">Part name or description</td>
-                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">Yes</td>
                 <td className="px-3 py-2">Side Panel, Bottom Panel</td>
               </tr>
               <tr className="bg-white">
@@ -1021,25 +1156,25 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                 <td className="px-3 py-2 font-medium">Left Edge</td>
                 <td className="px-3 py-2">Edge banding on left side</td>
                 <td className="px-3 py-2">No</td>
-                <td className="px-3 py-2">Any value = TRUE, empty = FALSE</td>
+                <td className="px-3 py-2">X (any value = TRUE, empty = FALSE)</td>
               </tr>
               <tr className="bg-white">
                 <td className="px-3 py-2 font-medium">Right Edge</td>
                 <td className="px-3 py-2">Edge banding on right side</td>
                 <td className="px-3 py-2">No</td>
-                <td className="px-3 py-2">Any value = TRUE, empty = FALSE</td>
+                <td className="px-3 py-2">X (any value = TRUE, empty = FALSE)</td>
               </tr>
               <tr className="bg-white">
                 <td className="px-3 py-2 font-medium">Bottom Edge</td>
                 <td className="px-3 py-2">Edge banding on back side</td>
                 <td className="px-3 py-2">No</td>
-                <td className="px-3 py-2">Any value = TRUE, empty = FALSE</td>
+                <td className="px-3 py-2">X (any value = TRUE, empty = FALSE)</td>
               </tr>
               <tr className="bg-white">
                 <td className="px-3 py-2 font-medium">Top Edge</td>
                 <td className="px-3 py-2">Edge banding on front side</td>
                 <td className="px-3 py-2">No</td>
-                <td className="px-3 py-2">Any value = TRUE, empty = FALSE</td>
+                <td className="px-3 py-2">X (any value = TRUE, empty = FALSE)</td>
               </tr>
             </tbody>
           </table>
