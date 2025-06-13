@@ -64,7 +64,6 @@ export interface CabinetTemplate {
 export interface PartDefinition {
   id: string;
   name: string;
-  materialType: string;
   thickness: number;
   widthFormula: string;
   heightFormula: string;

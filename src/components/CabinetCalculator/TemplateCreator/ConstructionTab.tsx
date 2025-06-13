@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CabinetTemplate } from '../../../types/cabinet';
-import { Plus, Minus, Trash2, Edit, Save, X } from 'lucide-react';
+import { Plus, Trash2, Edit, Save, X } from 'lucide-react';
 
 interface ConstructionTabProps {
   template: Partial<CabinetTemplate>;
@@ -10,7 +10,6 @@ interface ConstructionTabProps {
 interface PartDefinition {
   id: string;
   name: string;
-  materialType: string;
   thickness: number;
   widthFormula: string;
   heightFormula: string;
@@ -45,14 +44,6 @@ const predefinedParts = [
   { value: 'back_rail', label: 'Back Rail' },
   { value: 'corner_support', label: 'Corner Support' },
   { value: 'custom_part', label: 'Custom Part' }
-];
-
-const materialTypes = [
-  { value: 'plywood', label: 'Plywood' },
-  { value: 'mdf', label: 'MDF' },
-  { value: 'melamine', label: 'Melamine' },
-  { value: 'solid_wood', label: 'Solid Wood' },
-  { value: 'particleboard', label: 'Particleboard' }
 ];
 
 const grainDirections = [
@@ -116,7 +107,6 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
   const [newPart, setNewPart] = useState<PartDefinition>({
     id: `part-${Date.now()}`,
     name: '',
-    materialType: 'plywood',
     thickness: 18,
     widthFormula: '',
     heightFormula: '',
@@ -150,7 +140,6 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
     setNewPart({
       id: `part-${Date.now()}`,
       name: '',
-      materialType: 'plywood',
       thickness: 18,
       widthFormula: '',
       heightFormula: '',
@@ -264,95 +253,64 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
             {editingPart ? 'Edit Part' : 'Add New Part'}
           </h5>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-blue-700 mb-1">
-                Part Type
-              </label>
-              <select
-                value={editingPart ? 
-                  predefinedParts.find(p => p.label === editingPart.name)?.value || 'custom_part' : 
-                  predefinedParts.find(p => p.label === newPart.name)?.value || ''}
-                onChange={(e) => {
-                  if (editingPart) {
-                    // For editing, just update the name
-                    const partLabel = predefinedParts.find(p => p.value === e.target.value)?.label || '';
-                    setEditingPart({
-                      ...editingPart,
-                      name: partLabel
-                    });
-                  } else {
-                    // For new part, update formulas too
-                    handlePartTypeChange(e.target.value);
-                  }
-                }}
-                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select Part Type</option>
-                {predefinedParts.map(part => (
-                  <option key={part.value} value={part.value}>
-                    {part.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-blue-700 mb-1">
-                Material Type
-              </label>
-              <select
-                value={editingPart ? editingPart.materialType : newPart.materialType}
-                onChange={(e) => {
-                  if (editingPart) {
-                    setEditingPart({
-                      ...editingPart,
-                      materialType: e.target.value
-                    });
-                  } else {
-                    setNewPart({
-                      ...newPart,
-                      materialType: e.target.value
-                    });
-                  }
-                }}
-                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {materialTypes.map(material => (
-                  <option key={material.value} value={material.value}>
-                    {material.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-blue-700 mb-1">
+              Part Type
+            </label>
+            <select
+              value={editingPart ? 
+                predefinedParts.find(p => p.label === editingPart.name)?.value || 'custom_part' : 
+                predefinedParts.find(p => p.label === newPart.name)?.value || ''}
+              onChange={(e) => {
+                if (editingPart) {
+                  // For editing, just update the name
+                  const partLabel = predefinedParts.find(p => p.value === e.target.value)?.label || '';
+                  setEditingPart({
+                    ...editingPart,
+                    name: partLabel
+                  });
+                } else {
+                  // For new part, update formulas too
+                  handlePartTypeChange(e.target.value);
+                }
+              }}
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select Part Type</option>
+              {predefinedParts.map(part => (
+                <option key={part.value} value={part.value}>
+                  {part.label}
+                </option>
+              ))}
+            </select>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-blue-700 mb-1">
-                Thickness (mm)
-              </label>
-              <input
-                type="number"
-                value={editingPart ? editingPart.thickness : newPart.thickness}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value) || 0;
-                  if (editingPart) {
-                    setEditingPart({
-                      ...editingPart,
-                      thickness: value
-                    });
-                  } else {
-                    setNewPart({
-                      ...newPart,
-                      thickness: value
-                    });
-                  }
-                }}
-                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-blue-700 mb-1">
+              Thickness (mm)
+            </label>
+            <input
+              type="number"
+              value={editingPart ? editingPart.thickness : newPart.thickness}
+              onChange={(e) => {
+                const value = parseInt(e.target.value) || 0;
+                if (editingPart) {
+                  setEditingPart({
+                    ...editingPart,
+                    thickness: value
+                  });
+                } else {
+                  setNewPart({
+                    ...newPart,
+                    thickness: value
+                  });
+                }
+              }}
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div>
               <label className="block text-sm font-medium text-blue-700 mb-1">
                 Quantity
@@ -409,7 +367,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div>
               <label className="block text-sm font-medium text-blue-700 mb-1">
                 Width Formula
@@ -461,7 +419,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
             </div>
           </div>
           
-          <div className="mb-4">
+          <div className="mt-4">
             <label className="block text-sm font-medium text-blue-700 mb-2">
               Edge Banding
             </label>
@@ -533,7 +491,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
             </div>
           </div>
           
-          <div className="flex items-center mb-4">
+          <div className="flex items-center mt-4">
             <input
               type="checkbox"
               id={editingPart ? `edit-required` : `new-required`}
@@ -558,7 +516,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
             </label>
           </div>
           
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end space-x-3 mt-4">
             <button
               type="button"
               onClick={() => {
@@ -586,7 +544,6 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
           <thead className="bg-gray-50 sticky top-0">
             <tr>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part Name</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thickness</th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Formulas</th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
@@ -598,7 +555,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
           <tbody className="bg-white divide-y divide-gray-200">
             {parts.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                   No parts defined yet. Click "Add Part" to get started.
                 </td>
               </tr>
@@ -612,11 +569,6 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
                         Required
                       </span>
                     )}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {materialTypes.find(m => m.value === part.materialType)?.label || part.materialType}
-                    </div>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{part.thickness}mm</div>

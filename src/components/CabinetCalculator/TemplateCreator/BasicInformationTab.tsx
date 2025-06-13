@@ -18,14 +18,13 @@ const BasicInformationTab: React.FC<BasicInformationTabProps> = ({ template, set
   };
 
   const handleDimensionChange = (
-    dimensionType: 'defaultDimensions' | 'minDimensions' | 'maxDimensions',
     dimension: 'width' | 'height' | 'depth',
     value: number
   ) => {
     setTemplate(prev => ({
       ...prev,
-      [dimensionType]: {
-        ...prev[dimensionType],
+      defaultDimensions: {
+        ...prev.defaultDimensions,
         [dimension]: value
       }
     }));
@@ -192,109 +191,37 @@ const BasicInformationTab: React.FC<BasicInformationTabProps> = ({ template, set
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Default Dimensions (mm)
-          </label>
-          <div className="space-y-2">
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Width:</span>
-              <input
-                type="number"
-                value={template.defaultDimensions?.width}
-                onChange={(e) => handleDimensionChange('defaultDimensions', 'width', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Height:</span>
-              <input
-                type="number"
-                value={template.defaultDimensions?.height}
-                onChange={(e) => handleDimensionChange('defaultDimensions', 'height', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Depth:</span>
-              <input
-                type="number"
-                value={template.defaultDimensions?.depth}
-                onChange={(e) => handleDimensionChange('defaultDimensions', 'depth', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Default Dimensions (mm)
+        </label>
+        <div className="space-y-2">
+          <div className="flex items-center">
+            <span className="w-16 text-sm text-gray-500">Width:</span>
+            <input
+              type="number"
+              value={template.defaultDimensions?.width}
+              onChange={(e) => handleDimensionChange('width', parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Minimum Dimensions (mm)
-          </label>
-          <div className="space-y-2">
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Width:</span>
-              <input
-                type="number"
-                value={template.minDimensions?.width}
-                onChange={(e) => handleDimensionChange('minDimensions', 'width', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Height:</span>
-              <input
-                type="number"
-                value={template.minDimensions?.height}
-                onChange={(e) => handleDimensionChange('minDimensions', 'height', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Depth:</span>
-              <input
-                type="number"
-                value={template.minDimensions?.depth}
-                onChange={(e) => handleDimensionChange('minDimensions', 'depth', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+          <div className="flex items-center">
+            <span className="w-16 text-sm text-gray-500">Height:</span>
+            <input
+              type="number"
+              value={template.defaultDimensions?.height}
+              onChange={(e) => handleDimensionChange('height', parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Maximum Dimensions (mm)
-          </label>
-          <div className="space-y-2">
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Width:</span>
-              <input
-                type="number"
-                value={template.maxDimensions?.width}
-                onChange={(e) => handleDimensionChange('maxDimensions', 'width', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Height:</span>
-              <input
-                type="number"
-                value={template.maxDimensions?.height}
-                onChange={(e) => handleDimensionChange('maxDimensions', 'height', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center">
-              <span className="w-16 text-sm text-gray-500">Depth:</span>
-              <input
-                type="number"
-                value={template.maxDimensions?.depth}
-                onChange={(e) => handleDimensionChange('maxDimensions', 'depth', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+          <div className="flex items-center">
+            <span className="w-16 text-sm text-gray-500">Depth:</span>
+            <input
+              type="number"
+              value={template.defaultDimensions?.depth}
+              onChange={(e) => handleDimensionChange('depth', parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
         </div>
       </div>

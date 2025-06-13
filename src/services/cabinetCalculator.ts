@@ -611,7 +611,7 @@ export class CabinetCalculatorService {
         partName: part.name,
         cabinetId: config.id,
         cabinetName: config.name,
-        materialType: part.materialType,
+        materialType: 'Plywood', // Default material type
         thickness: part.thickness,
         length,
         width,

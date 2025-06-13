@@ -4,7 +4,6 @@ import { Plus, Minus, Save, X, Info, ArrowLeft, ArrowRight } from 'lucide-react'
 import toast from 'react-hot-toast';
 import BasicInformationTab from './TemplateCreator/BasicInformationTab';
 import ConstructionTab from './TemplateCreator/ConstructionTab';
-import MaterialsTab from './TemplateCreator/MaterialsTab';
 import HardwareTab from './TemplateCreator/HardwareTab';
 
 interface TemplateCreatorProps {
@@ -18,7 +17,7 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({
   onCancel,
   editTemplate
 }) => {
-  const [activeTab, setActiveTab] = useState<'basic' | 'construction' | 'materials' | 'hardware'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'construction' | 'hardware'>('basic');
   const [template, setTemplate] = useState<Partial<CabinetTemplate>>({
     id: '',
     name: '',
@@ -119,19 +118,17 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({
     onTemplateCreated(finalTemplate);
   };
 
-  const handleTabChange = (tab: 'basic' | 'construction' | 'materials' | 'hardware') => {
+  const handleTabChange = (tab: 'basic' | 'construction' | 'hardware') => {
     setActiveTab(tab);
   };
 
   const handleNext = () => {
     if (activeTab === 'basic') setActiveTab('construction');
-    else if (activeTab === 'construction') setActiveTab('materials');
-    else if (activeTab === 'materials') setActiveTab('hardware');
+    else if (activeTab === 'construction') setActiveTab('hardware');
   };
 
   const handlePrevious = () => {
-    if (activeTab === 'hardware') setActiveTab('materials');
-    else if (activeTab === 'materials') setActiveTab('construction');
+    if (activeTab === 'hardware') setActiveTab('construction');
     else if (activeTab === 'construction') setActiveTab('basic');
   };
 
@@ -164,17 +161,6 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => handleTabChange('materials')}
-            className={`border-b-2 py-2 px-1 text-sm font-medium ${
-              activeTab === 'materials'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            Materials
-          </button>
-          <button
-            type="button"
             onClick={() => handleTabChange('hardware')}
             className={`border-b-2 py-2 px-1 text-sm font-medium ${
               activeTab === 'hardware'
@@ -198,13 +184,6 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({
         
         {activeTab === 'construction' && (
           <ConstructionTab 
-            template={template} 
-            setTemplate={setTemplate} 
-          />
-        )}
-        
-        {activeTab === 'materials' && (
-          <MaterialsTab 
             template={template} 
             setTemplate={setTemplate} 
           />
