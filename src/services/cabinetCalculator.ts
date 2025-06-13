@@ -1,4 +1,4 @@
-import { CabinetTemplate, CabinetConfiguration, CuttingListItem, CabinetMaterial, CabinetHardware, NestingResult, CabinetProject } from '../types/cabinet';
+import { CabinetTemplate, CabinetConfiguration, CuttingListItem, CabinetMaterial, CabinetHardware, NestingResult, CabinetProject, PartDefinition, HardwareItem } from '../types/cabinet';
 import { materialSheets, laborRates } from '../data/cabinetTemplates';
 import axios from 'axios';
 
@@ -29,6 +29,11 @@ export class CabinetCalculatorService {
     const { side, topBottom, back, shelf, door, drawer, fixedPanel, drawerBottom, uprights, doubleBack } = template.materialThickness;
     const cuttingList: CuttingListItem[] = [];
     const construction = template.construction || {};
+    
+    // If template has defined parts, use those instead of the default calculations
+    if (template.parts && template.parts.length > 0) {
+      return this.calculateCuttingListFromParts(template.parts, config);
+    }
 
     // Helper function to add cutting list item
     const addItem = (
@@ -551,6 +556,74 @@ export class CabinetCalculatorService {
 
     return cuttingList;
   }
+  
+  // Calculate cutting list from defined parts
+  static calculateCuttingListFromParts(parts: PartDefinition[], config: CabinetConfiguration): CuttingListItem[] {
+    const cuttingList: CuttingListItem[] = [];
+    const { width, height, depth } = config.dimensions;
+    const { doorCount, drawerCount } = config.customizations;
+    
+    // Create evaluation context
+    const context = {
+      width,
+      height,
+      depth,
+      doorCount,
+      drawerCount,
+      hasTop: true,
+      hasBottom: true,
+      hasBack: true,
+      side: 18, // Default values
+      topBottom: 18,
+      back: 12,
+      shelf: 18,
+      door: 18,
+      drawer: 15,
+      fixedPanel: 18,
+      drawerBottom: 12,
+      uprights: 18,
+      doubleBack: 12
+    };
+    
+    // Helper function to evaluate formula
+    const evaluateFormula = (formula: string): number => {
+      try {
+        // Use Function constructor to create a safe evaluation function
+        const evalFunc = new Function(
+          ...Object.keys(context),
+          `return ${formula};`
+        );
+        
+        return evalFunc(...Object.values(context));
+      } catch (error) {
+        console.error('Error evaluating formula:', error);
+        return 0;
+      }
+    };
+    
+    // Process each part
+    parts.forEach(part => {
+      const length = evaluateFormula(part.widthFormula);
+      const width = evaluateFormula(part.heightFormula);
+      
+      cuttingList.push({
+        id: `${config.id}-${part.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+        partName: part.name,
+        cabinetId: config.id,
+        cabinetName: config.name,
+        materialType: part.materialType,
+        thickness: part.thickness,
+        length,
+        width,
+        quantity: part.quantity,
+        edgeBanding: { ...part.edgeBanding },
+        grain: part.grain,
+        priority: part.isRequired ? 1 : 2
+      });
+    });
+    
+    return cuttingList;
+  }
 
   // Calculate materials needed
   static calculateMaterials(cuttingList: CuttingListItem[]): CabinetMaterial[] {
@@ -605,6 +678,21 @@ export class CabinetCalculatorService {
 
   // Calculate hardware requirements
   static calculateHardware(template: CabinetTemplate, config: CabinetConfiguration): CabinetHardware[] {
+    // If template has defined hardware items, use those
+    if (template.hardwareItems && template.hardwareItems.length > 0) {
+      return template.hardwareItems.map(item => ({
+        id: `hardware-${item.type}-${Date.now()}`,
+        hardwareId: `${item.type}-${item.name.replace(/\s+/g, '-').toLowerCase()}`,
+        hardwareName: item.name,
+        type: item.type as any,
+        quantity: item.quantity,
+        unitCost: item.unitCost,
+        totalCost: item.quantity * item.unitCost,
+        supplier: item.supplier
+      }));
+    }
+    
+    // Otherwise use the default calculation
     const hardware: CabinetHardware[] = [];
 
     // Hinges
@@ -775,6 +863,17 @@ export class CabinetCalculatorService {
     return config;
   }
 
+  // Copy a template with a new name
+  static copyTemplate(template: CabinetTemplate, newName: string): CabinetTemplate {
+    return {
+      ...template,
+      id: `template-${Date.now()}`,
+      name: newName,
+      isCustom: true,
+      createdAt: new Date().toISOString()
+    };
+  }
+
   // Improved nesting algorithm with support for different sheet sizes
   static calculateNesting(cuttingList: CuttingListItem[], sheetSize?: { length: number, width: number }): NestingResult[] {
     const results: NestingResult[] = [];
@@ -821,7 +920,8 @@ export class CabinetCalculatorService {
             rotation: 0,
             x: 0,
             y: 0,
-            placed: false
+            placed: false,
+            grain: item.grain
           }))
         );
 
@@ -882,7 +982,8 @@ export class CabinetCalculatorService {
             y: item.y,
             rotation: item.rotation,
             length: item.length,
-            width: item.width
+            width: item.width,
+            grain: item.grain
           });
           
           // Update position for next item

@@ -53,9 +53,40 @@ export interface CabinetTemplate {
     shelfPins?: number;
     drawerBoxType?: 'standard' | 'dovetail' | 'metal';
   };
+  // New fields for advanced cabinet construction
+  parts?: PartDefinition[];
+  hardwareItems?: HardwareItem[];
   isActive: boolean;
   isCustom?: boolean;
   createdAt: string;
+}
+
+export interface PartDefinition {
+  id: string;
+  name: string;
+  materialType: string;
+  thickness: number;
+  widthFormula: string;
+  heightFormula: string;
+  quantity: number;
+  edgeBanding: {
+    front: boolean;
+    back: boolean;
+    left: boolean;
+    right: boolean;
+  };
+  grain: 'length' | 'width' | 'none';
+  isRequired: boolean;
+}
+
+export interface HardwareItem {
+  id: string;
+  type: string;
+  name: string;
+  quantity: number;
+  unitCost: number;
+  supplier: string;
+  notes?: string;
 }
 
 export interface CabinetConfiguration {
