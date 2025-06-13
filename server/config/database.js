@@ -1,4 +1,5 @@
-import { createClient } from 'libsql';
+import pkg from 'libsql';
+const { createClient } = pkg;
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
