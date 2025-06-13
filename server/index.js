@@ -155,6 +155,65 @@ const mockSuppliers = [
   }
 ];
 
+// Mock departments data
+const mockDepartments = [
+  {
+    id: '1',
+    name: 'Production',
+    code: 'PROD',
+    description: 'Manufacturing and production operations',
+    manager: 'John Smith',
+    budget: 150000,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    name: 'Quality Control',
+    code: 'QC',
+    description: 'Quality assurance and testing',
+    manager: 'Sarah Johnson',
+    budget: 75000,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '3',
+    name: 'Warehouse',
+    code: 'WH',
+    description: 'Storage and inventory management',
+    manager: 'Mike Wilson',
+    budget: 100000,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '4',
+    name: 'Design',
+    code: 'DES',
+    description: 'Product design and development',
+    manager: 'Emily Davis',
+    budget: 120000,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '5',
+    name: 'Maintenance',
+    code: 'MAINT',
+    description: 'Equipment and facility maintenance',
+    manager: 'Robert Brown',
+    budget: 80000,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
 // Mock orders data
 const mockOrders = [
   {
@@ -641,6 +700,56 @@ app.delete('/api/suppliers/:id', (req, res) => {
     res.json({ success: true });
   } else {
     res.status(404).json({ error: 'Supplier not found' });
+  }
+});
+
+// Departments routes
+app.get('/api/departments', (req, res) => {
+  res.json(mockDepartments);
+});
+
+app.get('/api/departments/:id', (req, res) => {
+  const department = mockDepartments.find(d => d.id === req.params.id);
+  if (department) {
+    res.json(department);
+  } else {
+    res.status(404).json({ error: 'Department not found' });
+  }
+});
+
+app.post('/api/departments', (req, res) => {
+  const newDepartment = {
+    id: Date.now().toString(),
+    ...req.body,
+    isActive: req.body.isActive !== false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockDepartments.push(newDepartment);
+  res.json(newDepartment);
+});
+
+app.put('/api/departments/:id', (req, res) => {
+  const index = mockDepartments.findIndex(d => d.id === req.params.id);
+  if (index !== -1) {
+    mockDepartments[index] = {
+      ...mockDepartments[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockDepartments[index]);
+  } else {
+    res.status(404).json({ error: 'Department not found' });
+  }
+});
+
+app.delete('/api/departments/:id', (req, res) => {
+  const index = mockDepartments.findIndex(d => d.id === req.params.id);
+  if (index !== -1) {
+    mockDepartments.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Department not found' });
   }
 });
 
