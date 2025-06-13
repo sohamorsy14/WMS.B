@@ -1199,9 +1199,20 @@ export class CabinetStorageService {
           { headers: getAuthHeader() }
         );
       }
+      
+      // Always save to localStorage as a backup
+      this.saveTemplateToLocalStorage(template);
+      
     } catch (error) {
-      console.error('Failed to save template:', error);
+      console.error('Failed to save template to API:', error);
       // Fallback to localStorage if API fails
+      this.saveTemplateToLocalStorage(template);
+    }
+  }
+  
+  // Helper method to save template to localStorage
+  private static saveTemplateToLocalStorage(template: CabinetTemplate): void {
+    try {
       const templates = localStorage.getItem('customCabinetTemplates');
       const existingTemplates = templates ? JSON.parse(templates) : [];
       const existingIndex = existingTemplates.findIndex((t: CabinetTemplate) => t.id === template.id);
@@ -1213,6 +1224,9 @@ export class CabinetStorageService {
       }
       
       localStorage.setItem('customCabinetTemplates', JSON.stringify(existingTemplates));
+      console.log('Template saved to localStorage successfully');
+    } catch (error) {
+      console.error('Failed to save template to localStorage:', error);
     }
   }
 
@@ -1222,15 +1236,29 @@ export class CabinetStorageService {
       await axios.delete(`${API_BASE_URL}/cabinet-calculator/templates/${templateId}`, {
         headers: getAuthHeader()
       });
+      
+      // Also remove from localStorage
+      this.deleteTemplateFromLocalStorage(templateId);
+      
     } catch (error) {
-      console.error('Failed to delete template:', error);
+      console.error('Failed to delete template from API:', error);
       // Fallback to localStorage if API fails
+      this.deleteTemplateFromLocalStorage(templateId);
+    }
+  }
+  
+  // Helper method to delete template from localStorage
+  private static deleteTemplateFromLocalStorage(templateId: string): void {
+    try {
       const templates = localStorage.getItem('customCabinetTemplates');
       if (templates) {
         const existingTemplates = JSON.parse(templates);
         const updatedTemplates = existingTemplates.filter((t: CabinetTemplate) => t.id !== templateId);
         localStorage.setItem('customCabinetTemplates', JSON.stringify(updatedTemplates));
+        console.log('Template deleted from localStorage successfully');
       }
+    } catch (error) {
+      console.error('Failed to delete template from localStorage:', error);
     }
   }
 
@@ -1265,9 +1293,20 @@ export class CabinetStorageService {
           { headers: getAuthHeader() }
         );
       }
+      
+      // Always save to localStorage as a backup
+      this.saveConfigurationToLocalStorage(config);
+      
     } catch (error) {
-      console.error('Failed to save configuration:', error);
+      console.error('Failed to save configuration to API:', error);
       // Fallback to localStorage if API fails
+      this.saveConfigurationToLocalStorage(config);
+    }
+  }
+  
+  // Helper method to save configuration to localStorage
+  private static saveConfigurationToLocalStorage(config: CabinetConfiguration): void {
+    try {
       const configs = localStorage.getItem('cabinetConfigurations');
       const existingConfigs = configs ? JSON.parse(configs) : [];
       const existingIndex = existingConfigs.findIndex((c: CabinetConfiguration) => c.id === config.id);
@@ -1279,6 +1318,9 @@ export class CabinetStorageService {
       }
       
       localStorage.setItem('cabinetConfigurations', JSON.stringify(existingConfigs));
+      console.log('Configuration saved to localStorage successfully');
+    } catch (error) {
+      console.error('Failed to save configuration to localStorage:', error);
     }
   }
 
@@ -1288,15 +1330,29 @@ export class CabinetStorageService {
       await axios.delete(`${API_BASE_URL}/cabinet-calculator/configurations/${configId}`, {
         headers: getAuthHeader()
       });
+      
+      // Also remove from localStorage
+      this.deleteConfigurationFromLocalStorage(configId);
+      
     } catch (error) {
-      console.error('Failed to delete configuration:', error);
+      console.error('Failed to delete configuration from API:', error);
       // Fallback to localStorage if API fails
+      this.deleteConfigurationFromLocalStorage(configId);
+    }
+  }
+  
+  // Helper method to delete configuration from localStorage
+  private static deleteConfigurationFromLocalStorage(configId: string): void {
+    try {
       const configs = localStorage.getItem('cabinetConfigurations');
       if (configs) {
         const existingConfigs = JSON.parse(configs);
         const updatedConfigs = existingConfigs.filter((c: CabinetConfiguration) => c.id !== configId);
         localStorage.setItem('cabinetConfigurations', JSON.stringify(updatedConfigs));
+        console.log('Configuration deleted from localStorage successfully');
       }
+    } catch (error) {
+      console.error('Failed to delete configuration from localStorage:', error);
     }
   }
 
@@ -1331,9 +1387,20 @@ export class CabinetStorageService {
           { headers: getAuthHeader() }
         );
       }
+      
+      // Always save to localStorage as a backup
+      this.saveProjectToLocalStorage(project);
+      
     } catch (error) {
-      console.error('Failed to save project:', error);
+      console.error('Failed to save project to API:', error);
       // Fallback to localStorage if API fails
+      this.saveProjectToLocalStorage(project);
+    }
+  }
+  
+  // Helper method to save project to localStorage
+  private static saveProjectToLocalStorage(project: CabinetProject): void {
+    try {
       const projects = localStorage.getItem('cabinetProjects');
       const existingProjects = projects ? JSON.parse(projects) : [];
       const existingIndex = existingProjects.findIndex((p: CabinetProject) => p.id === project.id);
@@ -1345,6 +1412,9 @@ export class CabinetStorageService {
       }
       
       localStorage.setItem('cabinetProjects', JSON.stringify(existingProjects));
+      console.log('Project saved to localStorage successfully');
+    } catch (error) {
+      console.error('Failed to save project to localStorage:', error);
     }
   }
 
@@ -1354,15 +1424,29 @@ export class CabinetStorageService {
       await axios.delete(`${API_BASE_URL}/cabinet-calculator/projects/${projectId}`, {
         headers: getAuthHeader()
       });
+      
+      // Also remove from localStorage
+      this.deleteProjectFromLocalStorage(projectId);
+      
     } catch (error) {
-      console.error('Failed to delete project:', error);
+      console.error('Failed to delete project from API:', error);
       // Fallback to localStorage if API fails
+      this.deleteProjectFromLocalStorage(projectId);
+    }
+  }
+  
+  // Helper method to delete project from localStorage
+  private static deleteProjectFromLocalStorage(projectId: string): void {
+    try {
       const projects = localStorage.getItem('cabinetProjects');
       if (projects) {
         const existingProjects = JSON.parse(projects);
         const updatedProjects = existingProjects.filter((p: CabinetProject) => p.id !== projectId);
         localStorage.setItem('cabinetProjects', JSON.stringify(updatedProjects));
+        console.log('Project deleted from localStorage successfully');
       }
+    } catch (error) {
+      console.error('Failed to delete project from localStorage:', error);
     }
   }
 

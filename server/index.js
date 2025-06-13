@@ -949,146 +949,365 @@ app.patch('/api/purchase-orders/:id/approve', (req, res) => {
 
 // Cabinet Calculator routes
 app.get('/api/cabinet-calculator/templates', (req, res) => {
-  res.json(mockCabinetTemplates);
-});
-
-app.get('/api/cabinet-calculator/templates/:id', (req, res) => {
-  const template = mockCabinetTemplates.find(t => t.id === req.params.id);
-  if (template) {
-    res.json(template);
-  } else {
-    res.status(404).json({ error: 'Template not found' });
+  // Read templates from localStorage file if it exists
+  const templatesFilePath = path.join(dataDir, 'cabinet_templates.json');
+  let templates = [];
+  
+  if (fs.existsSync(templatesFilePath)) {
+    try {
+      const data = fs.readFileSync(templatesFilePath, 'utf8');
+      templates = JSON.parse(data);
+      console.log(`Loaded ${templates.length} templates from file`);
+    } catch (error) {
+      console.error('Error reading templates file:', error);
+    }
   }
+  
+  res.json(templates);
 });
 
 app.post('/api/cabinet-calculator/templates', (req, res) => {
+  const templatesFilePath = path.join(dataDir, 'cabinet_templates.json');
+  let templates = [];
+  
+  // Load existing templates
+  if (fs.existsSync(templatesFilePath)) {
+    try {
+      const data = fs.readFileSync(templatesFilePath, 'utf8');
+      templates = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading templates file:', error);
+    }
+  }
+  
+  // Add new template
   const newTemplate = {
-    id: Date.now().toString(),
     ...req.body,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    id: req.body.id || `template-${Date.now()}`,
+    createdAt: new Date().toISOString()
   };
-  mockCabinetTemplates.push(newTemplate);
-  res.json(newTemplate);
+  
+  templates.push(newTemplate);
+  
+  // Save templates back to file
+  try {
+    fs.writeFileSync(templatesFilePath, JSON.stringify(templates, null, 2));
+    console.log(`Saved template ${newTemplate.id} to file`);
+    res.json(newTemplate);
+  } catch (error) {
+    console.error('Error writing templates file:', error);
+    res.status(500).json({ error: 'Failed to save template' });
+  }
 });
 
 app.put('/api/cabinet-calculator/templates/:id', (req, res) => {
-  const index = mockCabinetTemplates.findIndex(t => t.id === req.params.id);
-  if (index !== -1) {
-    mockCabinetTemplates[index] = {
-      ...mockCabinetTemplates[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockCabinetTemplates[index]);
-  } else {
-    res.status(404).json({ error: 'Template not found' });
+  const templatesFilePath = path.join(dataDir, 'cabinet_templates.json');
+  let templates = [];
+  
+  // Load existing templates
+  if (fs.existsSync(templatesFilePath)) {
+    try {
+      const data = fs.readFileSync(templatesFilePath, 'utf8');
+      templates = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading templates file:', error);
+      return res.status(500).json({ error: 'Failed to read templates' });
+    }
+  }
+  
+  // Find and update template
+  const index = templates.findIndex(t => t.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Template not found' });
+  }
+  
+  templates[index] = {
+    ...templates[index],
+    ...req.body,
+    updatedAt: new Date().toISOString()
+  };
+  
+  // Save templates back to file
+  try {
+    fs.writeFileSync(templatesFilePath, JSON.stringify(templates, null, 2));
+    console.log(`Updated template ${req.params.id}`);
+    res.json(templates[index]);
+  } catch (error) {
+    console.error('Error writing templates file:', error);
+    res.status(500).json({ error: 'Failed to update template' });
   }
 });
 
 app.delete('/api/cabinet-calculator/templates/:id', (req, res) => {
-  const index = mockCabinetTemplates.findIndex(t => t.id === req.params.id);
-  if (index !== -1) {
-    mockCabinetTemplates.splice(index, 1);
+  const templatesFilePath = path.join(dataDir, 'cabinet_templates.json');
+  let templates = [];
+  
+  // Load existing templates
+  if (fs.existsSync(templatesFilePath)) {
+    try {
+      const data = fs.readFileSync(templatesFilePath, 'utf8');
+      templates = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading templates file:', error);
+      return res.status(500).json({ error: 'Failed to read templates' });
+    }
+  }
+  
+  // Filter out the template to delete
+  const filteredTemplates = templates.filter(t => t.id !== req.params.id);
+  
+  if (filteredTemplates.length === templates.length) {
+    return res.status(404).json({ error: 'Template not found' });
+  }
+  
+  // Save templates back to file
+  try {
+    fs.writeFileSync(templatesFilePath, JSON.stringify(filteredTemplates, null, 2));
+    console.log(`Deleted template ${req.params.id}`);
     res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Template not found' });
+  } catch (error) {
+    console.error('Error writing templates file:', error);
+    res.status(500).json({ error: 'Failed to delete template' });
   }
 });
 
 app.get('/api/cabinet-calculator/configurations', (req, res) => {
-  res.json(mockCabinetConfigurations);
-});
-
-app.get('/api/cabinet-calculator/configurations/:id', (req, res) => {
-  const config = mockCabinetConfigurations.find(c => c.id === req.params.id);
-  if (config) {
-    res.json(config);
-  } else {
-    res.status(404).json({ error: 'Configuration not found' });
+  // Read configurations from file if it exists
+  const configurationsFilePath = path.join(dataDir, 'cabinet_configurations.json');
+  let configurations = [];
+  
+  if (fs.existsSync(configurationsFilePath)) {
+    try {
+      const data = fs.readFileSync(configurationsFilePath, 'utf8');
+      configurations = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading configurations file:', error);
+    }
   }
+  
+  res.json(configurations);
 });
 
 app.post('/api/cabinet-calculator/configurations', (req, res) => {
-  const newConfig = {
-    id: Date.now().toString(),
+  const configurationsFilePath = path.join(dataDir, 'cabinet_configurations.json');
+  let configurations = [];
+  
+  // Load existing configurations
+  if (fs.existsSync(configurationsFilePath)) {
+    try {
+      const data = fs.readFileSync(configurationsFilePath, 'utf8');
+      configurations = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading configurations file:', error);
+    }
+  }
+  
+  // Add new configuration
+  const newConfiguration = {
     ...req.body,
+    id: req.body.id || `config-${Date.now()}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  mockCabinetConfigurations.push(newConfig);
-  res.json(newConfig);
+  
+  configurations.push(newConfiguration);
+  
+  // Save configurations back to file
+  try {
+    fs.writeFileSync(configurationsFilePath, JSON.stringify(configurations, null, 2));
+    res.json(newConfiguration);
+  } catch (error) {
+    console.error('Error writing configurations file:', error);
+    res.status(500).json({ error: 'Failed to save configuration' });
+  }
 });
 
 app.put('/api/cabinet-calculator/configurations/:id', (req, res) => {
-  const index = mockCabinetConfigurations.findIndex(c => c.id === req.params.id);
-  if (index !== -1) {
-    mockCabinetConfigurations[index] = {
-      ...mockCabinetConfigurations[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockCabinetConfigurations[index]);
-  } else {
-    res.status(404).json({ error: 'Configuration not found' });
+  const configurationsFilePath = path.join(dataDir, 'cabinet_configurations.json');
+  let configurations = [];
+  
+  // Load existing configurations
+  if (fs.existsSync(configurationsFilePath)) {
+    try {
+      const data = fs.readFileSync(configurationsFilePath, 'utf8');
+      configurations = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading configurations file:', error);
+      return res.status(500).json({ error: 'Failed to read configurations' });
+    }
+  }
+  
+  // Find and update configuration
+  const index = configurations.findIndex(c => c.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Configuration not found' });
+  }
+  
+  configurations[index] = {
+    ...configurations[index],
+    ...req.body,
+    updatedAt: new Date().toISOString()
+  };
+  
+  // Save configurations back to file
+  try {
+    fs.writeFileSync(configurationsFilePath, JSON.stringify(configurations, null, 2));
+    res.json(configurations[index]);
+  } catch (error) {
+    console.error('Error writing configurations file:', error);
+    res.status(500).json({ error: 'Failed to update configuration' });
   }
 });
 
 app.delete('/api/cabinet-calculator/configurations/:id', (req, res) => {
-  const index = mockCabinetConfigurations.findIndex(c => c.id === req.params.id);
-  if (index !== -1) {
-    mockCabinetConfigurations.splice(index, 1);
+  const configurationsFilePath = path.join(dataDir, 'cabinet_configurations.json');
+  let configurations = [];
+  
+  // Load existing configurations
+  if (fs.existsSync(configurationsFilePath)) {
+    try {
+      const data = fs.readFileSync(configurationsFilePath, 'utf8');
+      configurations = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading configurations file:', error);
+      return res.status(500).json({ error: 'Failed to read configurations' });
+    }
+  }
+  
+  // Filter out the configuration to delete
+  const filteredConfigurations = configurations.filter(c => c.id !== req.params.id);
+  
+  if (filteredConfigurations.length === configurations.length) {
+    return res.status(404).json({ error: 'Configuration not found' });
+  }
+  
+  // Save configurations back to file
+  try {
+    fs.writeFileSync(configurationsFilePath, JSON.stringify(filteredConfigurations, null, 2));
     res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Configuration not found' });
+  } catch (error) {
+    console.error('Error writing configurations file:', error);
+    res.status(500).json({ error: 'Failed to delete configuration' });
   }
 });
 
 app.get('/api/cabinet-calculator/projects', (req, res) => {
-  res.json(mockCabinetProjects);
-});
-
-app.get('/api/cabinet-calculator/projects/:id', (req, res) => {
-  const project = mockCabinetProjects.find(p => p.id === req.params.id);
-  if (project) {
-    res.json(project);
-  } else {
-    res.status(404).json({ error: 'Project not found' });
+  // Read projects from file if it exists
+  const projectsFilePath = path.join(dataDir, 'cabinet_projects.json');
+  let projects = [];
+  
+  if (fs.existsSync(projectsFilePath)) {
+    try {
+      const data = fs.readFileSync(projectsFilePath, 'utf8');
+      projects = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading projects file:', error);
+    }
   }
+  
+  res.json(projects);
 });
 
 app.post('/api/cabinet-calculator/projects', (req, res) => {
+  const projectsFilePath = path.join(dataDir, 'cabinet_projects.json');
+  let projects = [];
+  
+  // Load existing projects
+  if (fs.existsSync(projectsFilePath)) {
+    try {
+      const data = fs.readFileSync(projectsFilePath, 'utf8');
+      projects = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading projects file:', error);
+    }
+  }
+  
+  // Add new project
   const newProject = {
-    id: Date.now().toString(),
     ...req.body,
+    id: req.body.id || `project-${Date.now()}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  mockCabinetProjects.push(newProject);
-  res.json(newProject);
+  
+  projects.push(newProject);
+  
+  // Save projects back to file
+  try {
+    fs.writeFileSync(projectsFilePath, JSON.stringify(projects, null, 2));
+    res.json(newProject);
+  } catch (error) {
+    console.error('Error writing projects file:', error);
+    res.status(500).json({ error: 'Failed to save project' });
+  }
 });
 
 app.put('/api/cabinet-calculator/projects/:id', (req, res) => {
-  const index = mockCabinetProjects.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockCabinetProjects[index] = {
-      ...mockCabinetProjects[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockCabinetProjects[index]);
-  } else {
-    res.status(404).json({ error: 'Project not found' });
+  const projectsFilePath = path.join(dataDir, 'cabinet_projects.json');
+  let projects = [];
+  
+  // Load existing projects
+  if (fs.existsSync(projectsFilePath)) {
+    try {
+      const data = fs.readFileSync(projectsFilePath, 'utf8');
+      projects = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading projects file:', error);
+      return res.status(500).json({ error: 'Failed to read projects' });
+    }
+  }
+  
+  // Find and update project
+  const index = projects.findIndex(p => p.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+  
+  projects[index] = {
+    ...projects[index],
+    ...req.body,
+    updatedAt: new Date().toISOString()
+  };
+  
+  // Save projects back to file
+  try {
+    fs.writeFileSync(projectsFilePath, JSON.stringify(projects, null, 2));
+    res.json(projects[index]);
+  } catch (error) {
+    console.error('Error writing projects file:', error);
+    res.status(500).json({ error: 'Failed to update project' });
   }
 });
 
 app.delete('/api/cabinet-calculator/projects/:id', (req, res) => {
-  const index = mockCabinetProjects.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockCabinetProjects.splice(index, 1);
+  const projectsFilePath = path.join(dataDir, 'cabinet_projects.json');
+  let projects = [];
+  
+  // Load existing projects
+  if (fs.existsSync(projectsFilePath)) {
+    try {
+      const data = fs.readFileSync(projectsFilePath, 'utf8');
+      projects = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading projects file:', error);
+      return res.status(500).json({ error: 'Failed to read projects' });
+    }
+  }
+  
+  // Filter out the project to delete
+  const filteredProjects = projects.filter(p => p.id !== req.params.id);
+  
+  if (filteredProjects.length === projects.length) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+  
+  // Save projects back to file
+  try {
+    fs.writeFileSync(projectsFilePath, JSON.stringify(filteredProjects, null, 2));
     res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Project not found' });
+  } catch (error) {
+    console.error('Error writing projects file:', error);
+    res.status(500).json({ error: 'Failed to delete project' });
   }
 });
 

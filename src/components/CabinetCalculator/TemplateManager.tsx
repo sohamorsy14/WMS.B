@@ -36,6 +36,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
     try {
       setLoading(true);
       const templates = await CabinetStorageService.getCustomTemplates();
+      console.log('Loaded custom templates:', templates);
       setCustomTemplates(templates);
     } catch (error) {
       console.error('Error loading custom templates:', error);
@@ -51,6 +52,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
       await loadCustomTemplates();
       onAddTemplate(template);
       setIsCreateModalOpen(false);
+      toast.success('Template created successfully');
     } catch (error) {
       console.error('Error saving template:', error);
       toast.error('Failed to save template');
@@ -156,6 +158,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
               />
             </div>
           </div>
+          
           <div>
             <select
               value={typeFilter}
@@ -170,6 +173,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
               ))}
             </select>
           </div>
+          
           <div>
             <select
               value={categoryFilter}
@@ -211,7 +215,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
             {/* Preview Image */}
             <div className="aspect-w-4 aspect-h-3 rounded-t-lg overflow-hidden">
               <img
-                src={template.previewImage}
+                src={template.previewImage || "https://images.pexels.com/photos/6585759/pexels-photo-6585759.jpeg?auto=compress&cs=tinysrgb&w=400"}
                 alt={template.name}
                 className="w-full h-48 object-cover"
               />
@@ -244,11 +248,11 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center text-sm text-gray-600">
                   <Package className="w-4 h-4 mr-2" />
-                  <span>{template.features.length} features</span>
+                  <span>{template.features?.length || 0} features</span>
                 </div>
                 
                 <div className="flex flex-wrap gap-1">
-                  {template.features.slice(0, 2).map((feature, index) => (
+                  {template.features?.slice(0, 2).map((feature, index) => (
                     <span
                       key={index}
                       className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
@@ -256,7 +260,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                       {feature}
                     </span>
                   ))}
-                  {template.features.length > 2 && (
+                  {template.features && template.features.length > 2 && (
                     <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
                       +{template.features.length - 2} more
                     </span>
