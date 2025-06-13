@@ -1,5 +1,4 @@
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import { createClient } from 'libsql';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -68,9 +67,9 @@ const createTables = async () => {
       password TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'storekeeper',
       permissions TEXT NOT NULL DEFAULT '[]',
-      password_changed BOOLEAN DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      password_changed INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -83,14 +82,14 @@ const createTables = async () => {
       sub_category TEXT,
       quantity INTEGER NOT NULL DEFAULT 0,
       unit_cost REAL NOT NULL DEFAULT 0,
-      total_cost REAL GENERATED ALWAYS AS (quantity * unit_cost) STORED,
+      total_cost REAL,
       location TEXT,
       supplier TEXT,
       unit_measurement TEXT DEFAULT 'Each (ea)',
       min_stock_level INTEGER DEFAULT 0,
       max_stock_level INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -103,12 +102,12 @@ const createTables = async () => {
       order_number TEXT,
       bom_number TEXT,
       status TEXT NOT NULL DEFAULT 'draft',
-      request_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      request_date TEXT DEFAULT CURRENT_TIMESTAMP,
       approved_by TEXT,
-      approval_date DATETIME,
+      approval_date TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -121,9 +120,9 @@ const createTables = async () => {
       requested_quantity INTEGER NOT NULL,
       approved_quantity INTEGER,
       unit_cost REAL NOT NULL,
-      total_cost REAL GENERATED ALWAYS AS (requested_quantity * unit_cost) STORED,
+      total_cost REAL,
       stock_on_hand INTEGER DEFAULT 0,
-      is_over_stock BOOLEAN DEFAULT 0,
+      is_over_stock INTEGER DEFAULT 0,
       FOREIGN KEY (requisition_id) REFERENCES requisitions (id) ON DELETE CASCADE
     )
   `;
@@ -138,11 +137,11 @@ const createTables = async () => {
       subtotal REAL NOT NULL DEFAULT 0,
       tax REAL NOT NULL DEFAULT 0,
       total REAL NOT NULL DEFAULT 0,
-      order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-      expected_delivery DATETIME,
+      order_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      expected_delivery TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -154,9 +153,9 @@ const createTables = async () => {
       phone TEXT,
       email TEXT UNIQUE NOT NULL,
       address TEXT,
-      is_active BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -168,9 +167,9 @@ const createTables = async () => {
       description TEXT,
       manager TEXT,
       cost_center TEXT,
-      is_active BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -182,9 +181,9 @@ const createTables = async () => {
       email TEXT UNIQUE NOT NULL,
       department TEXT,
       position TEXT,
-      is_active BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -197,17 +196,17 @@ const createTables = async () => {
       order_type TEXT NOT NULL DEFAULT 'production',
       status TEXT NOT NULL DEFAULT 'draft',
       priority TEXT NOT NULL DEFAULT 'medium',
-      order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-      due_date DATETIME NOT NULL,
-      completed_date DATETIME,
+      order_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      due_date TEXT NOT NULL,
+      completed_date TEXT,
       description TEXT,
       notes TEXT,
       estimated_cost REAL DEFAULT 0,
       actual_cost REAL DEFAULT 0,
       assigned_to TEXT,
       department TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -228,10 +227,10 @@ const createTables = async () => {
       estimated_time REAL DEFAULT 0,
       created_by TEXT,
       approved_by TEXT,
-      approval_date DATETIME,
+      approval_date TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -244,11 +243,11 @@ const createTables = async () => {
       status TEXT NOT NULL DEFAULT 'concept',
       category TEXT,
       designer TEXT,
-      created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-      approval_date DATETIME,
+      created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      approval_date TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -270,11 +269,11 @@ const createTables = async () => {
       panels TEXT DEFAULT '[]',
       materials TEXT DEFAULT '[]',
       construction TEXT DEFAULT '{}',
-      is_active BOOLEAN DEFAULT 1,
-      is_custom BOOLEAN DEFAULT 1,
+      is_active INTEGER DEFAULT 1,
+      is_custom INTEGER DEFAULT 1,
       created_by TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -291,8 +290,8 @@ const createTables = async () => {
       total_cost REAL NOT NULL,
       labor_cost REAL NOT NULL,
       created_by TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -313,34 +312,34 @@ const createTables = async () => {
       estimated_days INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'draft',
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
   try {
     console.log('📋 Creating database tables...');
     
-    await db.exec(createUsersTable);
-    await db.exec(createProductsTable);
-    await db.exec(createRequisitionsTable);
-    await db.exec(createRequisitionItemsTable);
-    await db.exec(createPurchaseOrdersTable);
-    await db.exec(createSuppliersTable);
-    await db.exec(createDepartmentsTable);
-    await db.exec(createRequestersTable);
-    await db.exec(createOrdersTable);
-    await db.exec(createBomsTable);
-    await db.exec(createPrototypesTable);
+    await db.execute(createUsersTable);
+    await db.execute(createProductsTable);
+    await db.execute(createRequisitionsTable);
+    await db.execute(createRequisitionItemsTable);
+    await db.execute(createPurchaseOrdersTable);
+    await db.execute(createSuppliersTable);
+    await db.execute(createDepartmentsTable);
+    await db.execute(createRequestersTable);
+    await db.execute(createOrdersTable);
+    await db.execute(createBomsTable);
+    await db.execute(createPrototypesTable);
     
     // Create Cabinet Calculator tables
-    await db.exec(createCabinetTemplatesTable);
-    await db.exec(createCabinetConfigurationsTable);
-    await db.exec(createCabinetProjectsTable);
+    await db.execute(createCabinetTemplatesTable);
+    await db.execute(createCabinetConfigurationsTable);
+    await db.execute(createCabinetProjectsTable);
 
     // Add password_changed column if it doesn't exist (for existing databases)
     try {
-      await db.exec('ALTER TABLE users ADD COLUMN password_changed BOOLEAN DEFAULT 0');
+      await db.execute('ALTER TABLE users ADD COLUMN password_changed INTEGER DEFAULT 0');
       console.log('✅ Added password_changed column to users table');
     } catch (error) {
       // Column already exists, ignore error
@@ -348,7 +347,7 @@ const createTables = async () => {
 
     // Add created_by column to cabinet_templates if it doesn't exist
     try {
-      await db.exec('ALTER TABLE cabinet_templates ADD COLUMN created_by TEXT');
+      await db.execute('ALTER TABLE cabinet_templates ADD COLUMN created_by TEXT');
       console.log('✅ Added created_by column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
@@ -356,7 +355,7 @@ const createTables = async () => {
 
     // Add created_by column to cabinet_configurations if it doesn't exist
     try {
-      await db.exec('ALTER TABLE cabinet_configurations ADD COLUMN created_by TEXT');
+      await db.execute('ALTER TABLE cabinet_configurations ADD COLUMN created_by TEXT');
       console.log('✅ Added created_by column to cabinet_configurations table');
     } catch (error) {
       // Column already exists, ignore error
@@ -364,21 +363,21 @@ const createTables = async () => {
 
     // Add missing columns to cabinet_templates if they don't exist
     try {
-      await db.exec('ALTER TABLE cabinet_templates ADD COLUMN panels TEXT DEFAULT "[]"');
+      await db.execute('ALTER TABLE cabinet_templates ADD COLUMN panels TEXT DEFAULT "[]"');
       console.log('✅ Added panels column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
     }
 
     try {
-      await db.exec('ALTER TABLE cabinet_templates ADD COLUMN materials TEXT DEFAULT "[]"');
+      await db.execute('ALTER TABLE cabinet_templates ADD COLUMN materials TEXT DEFAULT "[]"');
       console.log('✅ Added materials column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
     }
 
     try {
-      await db.exec('ALTER TABLE cabinet_templates ADD COLUMN construction TEXT DEFAULT "{}"');
+      await db.execute('ALTER TABLE cabinet_templates ADD COLUMN construction TEXT DEFAULT "{}"');
       console.log('✅ Added construction column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
@@ -387,16 +386,17 @@ const createTables = async () => {
     console.log('👤 Checking for existing users...');
 
     // Check if ANY users exist in the database
-    const userCount = await db.get('SELECT COUNT(*) as count FROM users');
-    console.log('Current user count:', userCount.count);
+    const userCount = await db.execute('SELECT COUNT(*) as count FROM users');
+    const count = userCount.rows[0]?.count || 0;
+    console.log('Current user count:', count);
 
     // Only create default users if NO users exist at all
-    if (userCount.count === 0) {
+    if (count === 0) {
       console.log('🔧 No users found, creating default users...');
       
       // Create admin user
       const adminHashedPassword = bcrypt.hashSync('admin123', 10);
-      await db.run(
+      await db.execute(
         'INSERT INTO users (id, username, email, password, role, permissions, password_changed) VALUES (?, ?, ?, ?, ?, ?, ?)',
         ['1', 'admin', 'admin@cabinet-wms.com', adminHashedPassword, 'admin', JSON.stringify(['*']), 0]
       );
@@ -404,7 +404,7 @@ const createTables = async () => {
 
       // Create manager user
       const managerHashedPassword = bcrypt.hashSync('manager123', 10);
-      await db.run(
+      await db.execute(
         'INSERT INTO users (id, username, email, password, role, permissions, password_changed) VALUES (?, ?, ?, ?, ?, ?, ?)',
         ['2', 'manager', 'manager@cabinet-wms.com', managerHashedPassword, 'manager', JSON.stringify(['dashboard.view', 'inventory.view', 'requisitions.*', 'purchase_orders.*']), 0]
       );
@@ -413,8 +413,8 @@ const createTables = async () => {
       console.log('✅ Users already exist - preserving existing passwords');
       
       // List existing users (without passwords)
-      const existingUsers = await db.all('SELECT id, username, email, role, password_changed FROM users');
-      console.log('Existing users:', existingUsers.map(u => `${u.username} (${u.role}) - Password changed: ${u.password_changed ? 'Yes' : 'No'}`).join(', '));
+      const existingUsers = await db.execute('SELECT id, username, email, role, password_changed FROM users');
+      console.log('Existing users:', existingUsers.rows.map(u => `${u.username} (${u.role}) - Password changed: ${u.password_changed ? 'Yes' : 'No'}`).join(', '));
     }
 
     console.log('✅ Database tables created successfully');
@@ -427,7 +427,7 @@ const createTables = async () => {
 // Initialize database connection
 const initDatabase = async () => {
   try {
-    console.log('🔄 Initializing SQLite database...');
+    console.log('🔄 Initializing LibSQL database...');
     console.log(`📁 Database path: ${dbPath}`);
     
     // Check if directory is writable (skip for in-memory database)
@@ -442,16 +442,15 @@ const initDatabase = async () => {
       }
     }
 
-    db = await open({
-      filename: dbPath,
-      driver: sqlite3.Database
+    db = createClient({
+      url: dbPath === ':memory:' ? ':memory:' : `file:${dbPath}`
     });
 
     // Enable foreign keys
-    await db.exec('PRAGMA foreign_keys = ON');
+    await db.execute('PRAGMA foreign_keys = ON');
     
     // Test database connection
-    await db.get('SELECT 1');
+    await db.execute('SELECT 1');
     console.log('✅ Database connection established');
     
     // Create tables if they don't exist
@@ -460,7 +459,7 @@ const initDatabase = async () => {
     if (dbPath === ':memory:') {
       console.log('⚠️  Using in-memory database - data will not persist between restarts');
     } else {
-      console.log('✅ SQLite database initialized successfully');
+      console.log('✅ LibSQL database initialized successfully');
     }
     
     isConnected = true;
@@ -474,13 +473,12 @@ const initDatabase = async () => {
       console.warn('⚠️  Attempting fallback to in-memory database...');
       try {
         dbPath = ':memory:';
-        db = await open({
-          filename: dbPath,
-          driver: sqlite3.Database
+        db = createClient({
+          url: ':memory:'
         });
         
-        await db.exec('PRAGMA foreign_keys = ON');
-        await db.get('SELECT 1');
+        await db.execute('PRAGMA foreign_keys = ON');
+        await db.execute('SELECT 1');
         await createTables();
         
         console.log('✅ Fallback to in-memory database successful');
@@ -529,15 +527,11 @@ const query = async (sql, params = []) => {
   }
   
   try {
+    const result = await db.execute(sql, params);
     if (sql.trim().toUpperCase().startsWith('SELECT')) {
-      const rows = await db.all(sql, params);
-      return { rows, rowCount: rows.length };
-    } else if (sql.trim().toUpperCase().startsWith('INSERT')) {
-      const result = await db.run(sql, params);
-      return { rows: [], changes: result.changes, lastID: result.lastID };
+      return { rows: result.rows, rowCount: result.rows.length };
     } else {
-      const result = await db.run(sql, params);
-      return { rows: [], changes: result.changes };
+      return { rows: [], changes: result.changes || 0, lastID: result.lastInsertRowid };
     }
   } catch (err) {
     console.error('Database query error:', err.message);
@@ -552,7 +546,8 @@ const get = async (sql, params = []) => {
   }
   
   try {
-    return await db.get(sql, params);
+    const result = await db.execute(sql, params);
+    return result.rows[0] || null;
   } catch (err) {
     console.error('Database get error:', err.message);
     throw err;
@@ -567,13 +562,15 @@ export default {
     if (!isConnected || !db) {
       return { changes: 0, lastID: null };
     }
-    return await db.run(sql, params);
+    const result = await db.execute(sql, params);
+    return { changes: result.changes || 0, lastID: result.lastInsertRowid };
   },
   all: async (sql, params = []) => {
     if (!isConnected || !db) {
       return [];
     }
-    return await db.all(sql, params);
+    const result = await db.execute(sql, params);
+    return result.rows;
   },
   isConnected: () => isConnected,
   getConnectionError: () => connectionError,
