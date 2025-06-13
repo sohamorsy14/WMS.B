@@ -3,7 +3,7 @@ import { Calculator, Save, Download, FileText, Package, BarChart3, Plus, Trash2,
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { cabinetTemplates } from '../data/cabinetTemplates';
-import { CabinetTemplate, CabinetConfiguration, CabinetProject, NestingResult } from '../types/cabinet';
+import { CabinetTemplate, CabinetConfiguration, CabinetProject, NestingResult, CuttingListItem } from '../types/cabinet';
 import { CabinetCalculatorService, CabinetStorageService } from '../services/cabinetCalculator';
 import CabinetCatalog from '../components/CabinetCalculator/CabinetCatalog';
 import CabinetConfigurator from '../components/CabinetCalculator/CabinetConfigurator';
@@ -12,13 +12,14 @@ import ProjectCreator from '../components/CabinetCalculator/ProjectCreator';
 import TemplateManager from '../components/CabinetCalculator/TemplateManager';
 import PanelCalculator from '../components/CabinetCalculator/PanelCalculator';
 import CuttingListImporter from '../components/CabinetCalculator/CuttingListImporter';
+import PDFImporter from '../components/CabinetCalculator/PDFImporter';
 import Modal from '../components/Common/Modal';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import { exportCuttingListCSV, exportCuttingListPDF, exportBOMExcel, exportProjectPDF, exportNestingSVG, exportNestingDXF } from '../components/CabinetCalculator/ExportUtils';
 
 const CabinetCalculator: React.FC = () => {
   const { user, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<'catalog' | 'configure' | 'nesting' | 'projects' | 'templates' | 'calculator' | 'import'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'configure' | 'nesting' | 'projects' | 'templates' | 'calculator' | 'import' | 'pdf-import'>('catalog');
   const [selectedTemplate, setSelectedTemplate] = useState<CabinetTemplate | null>(null);
   const [currentConfiguration, setCurrentConfiguration] = useState<CabinetConfiguration | null>(null);
   const [savedConfigurations, setSavedConfigurations] = useState<CabinetConfiguration[]>([]);
@@ -290,6 +291,13 @@ const CabinetCalculator: React.FC = () => {
         </div>
         <div className="flex space-x-3">
           <button
+            onClick={() => setActiveTab('pdf-import')}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Import PDF</span>
+          </button>
+          <button
             onClick={() => setActiveTab('import')}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
           >
@@ -330,12 +338,13 @@ const CabinetCalculator: React.FC = () => {
       {/* Navigation Tabs */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6" aria-label="Tabs">
+          <nav className="flex space-x-8 px-6 overflow-x-auto" aria-label="Tabs">
             {[
               { id: 'catalog', label: 'Cabinet Catalog', icon: Package },
               { id: 'configure', label: 'Configure', icon: Calculator, disabled: !selectedTemplate },
               { id: 'nesting',  label: 'Nesting Optimization', icon: BarChart3, disabled: !currentConfiguration },
               { id: 'calculator', label: 'Panel Calculator', icon: Ruler, disabled: !selectedTemplate },
+              { id: 'pdf-import', label: 'Import PDF', icon: FileText },
               { id: 'import', label: 'Import Cutting List', icon: Upload },
               { id: 'projects', label: 'Projects', icon: FileText },
               { id: 'templates', label: 'Template Management', icon: Grid }
@@ -394,6 +403,10 @@ const CabinetCalculator: React.FC = () => {
 
           {activeTab === 'calculator' && selectedTemplate && (
             <PanelCalculator template={selectedTemplate} />
+          )}
+
+          {activeTab === 'pdf-import' && (
+            <PDFImporter onImport={handleImportCuttingList} />
           )}
 
           {activeTab === 'import' && (
