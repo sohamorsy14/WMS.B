@@ -442,9 +442,19 @@ const initDatabase = async () => {
       }
     }
 
-    db = createClient({
-      url: dbPath === ':memory:' ? ':memory:' : `file:${dbPath}`
-    });
+    // Try to create the database client with better error handling
+    try {
+      db = createClient({
+        url: dbPath === ':memory:' ? ':memory:' : `file:${dbPath}`
+      });
+    } catch (clientError) {
+      console.error('❌ Failed to create database client:', clientError.message);
+      console.warn('⚠️  Falling back to in-memory database...');
+      dbPath = ':memory:';
+      db = createClient({
+        url: ':memory:'
+      });
+    }
 
     // Enable foreign keys
     await db.execute('PRAGMA foreign_keys = ON');
@@ -468,9 +478,9 @@ const initDatabase = async () => {
     console.error('❌ Database initialization failed:', err.message);
     console.error('Stack trace:', err.stack);
     
-    // Try to fall back to in-memory database
+    // Try to fall back to in-memory database one more time
     if (dbPath !== ':memory:') {
-      console.warn('⚠️  Attempting fallback to in-memory database...');
+      console.warn('⚠️  Final attempt: falling back to in-memory database...');
       try {
         dbPath = ':memory:';
         db = createClient({
@@ -504,9 +514,15 @@ const initDatabase = async () => {
       console.error('💡 File or directory not found. Check:');
       console.error('   - Database path configuration');
       console.error('   - File system permissions');
+    } else if (err.message.includes('libsql')) {
+      console.error('💡 LibSQL library issue. Try:');
+      console.error('   - Reinstalling dependencies: npm install');
+      console.error('   - Checking Node.js version compatibility');
+      console.error('   - Installing build tools if needed');
     }
     
-    throw err;
+    // Don't throw the error - let the server start anyway
+    console.warn('⚠️  Server will continue without database - some features may not work');
   }
 };
 

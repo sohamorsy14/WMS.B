@@ -32,6 +32,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Enhanced error handling for startup
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err.message);
+  console.error('Stack trace:', err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
 // Middleware
 app.use(helmet());
 app.use(compression());
@@ -105,6 +117,7 @@ const startServer = async () => {
   try {
     console.log('🚀 Starting Cabinet WMS Server...');
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔧 Node.js version: ${process.version}`);
     
     // Initialize database with better error handling
     console.log('🔄 Initializing database...');
@@ -117,7 +130,7 @@ const startServer = async () => {
       // Don't exit - let the server start anyway for debugging
     }
     
-    // Start the server - bind to all interfaces including IPv4 and IPv6
+    // Check if port is available
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log('');
       console.log('========================================');
@@ -142,7 +155,8 @@ const startServer = async () => {
       if (err.code === 'EADDRINUSE') {
         console.error(`❌ Port ${PORT} is already in use`);
         console.error('Please stop any other processes using this port or change the PORT in .env');
-        console.error('You can check what\'s using the port with: lsof -ti:3001');
+        console.error(`You can check what's using the port with: netstat -ano | findstr :${PORT} (Windows) or lsof -ti:${PORT} (Mac/Linux)`);
+        console.error(`To kill the process: taskkill /PID <PID> /F (Windows) or kill -9 <PID> (Mac/Linux)`);
       } else if (err.code === 'EACCES') {
         console.error(`❌ Permission denied to bind to port ${PORT}`);
         console.error('Try using a port number above 1024 or run with appropriate permissions');
@@ -152,18 +166,18 @@ const startServer = async () => {
       process.exit(1);
     });
 
-    // Handle uncaught exceptions
-    process.on('uncaughtException', (err) => {
-      console.error('❌ Uncaught Exception:', err.message);
-      console.error('Stack trace:', err.stack);
-      process.exit(1);
-    });
-
-    // Handle unhandled promise rejections
-    process.on('unhandledRejection', (reason, promise) => {
-      console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-      process.exit(1);
-    });
+    // Test server is responding
+    setTimeout(() => {
+      console.log('🔍 Testing server health...');
+      fetch(`http://127.0.0.1:${PORT}/api/health`)
+        .then(response => response.json())
+        .then(data => {
+          console.log('✅ Server health check passed:', data.status);
+        })
+        .catch(err => {
+          console.warn('⚠️  Server health check failed:', err.message);
+        });
+    }, 1000);
 
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);
@@ -184,7 +198,13 @@ const startServer = async () => {
       console.error('💡 Port is already in use. Try:');
       console.error('   - Stopping other processes using the port');
       console.error('   - Using a different PORT in .env');
-      console.error('   - Running: lsof -ti:3001 | xargs kill');
+      console.error(`   - Running: lsof -ti:${PORT} | xargs kill (Mac/Linux)`);
+      console.error(`   - Running: netstat -ano | findstr :${PORT} then taskkill /PID <PID> /F (Windows)`);
+    } else if (error.message.includes('libsql')) {
+      console.error('💡 LibSQL library issue. Try:');
+      console.error('   - Reinstalling dependencies: npm install');
+      console.error('   - Checking Node.js version compatibility');
+      console.error('   - Installing build tools if needed');
     }
     
     process.exit(1);
