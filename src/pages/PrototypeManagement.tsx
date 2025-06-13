@@ -84,9 +84,9 @@ const PrototypeManagement: React.FC = () => {
   };
 
   const filteredPrototypes = prototypes.filter(prototype => {
-    const matchesSearch = prototype.prototypeNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         prototype.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         prototype.designer.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (prototype.prototypeNumber ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (prototype.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (prototype.designer ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || prototype.status === statusFilter;
     const matchesCategory = categoryFilter === 'all' || prototype.category === categoryFilter;
     return matchesSearch && matchesStatus && matchesCategory;
