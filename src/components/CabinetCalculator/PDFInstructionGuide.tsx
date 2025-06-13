@@ -14,7 +14,7 @@ const PDFInstructionGuide: React.FC = () => {
           <h4 className="font-medium text-gray-800 mb-2">How PDF Import Works</h4>
           <p className="text-gray-600">
             Our PDF importer extracts text from your PDF files and analyzes it to identify cutting list items.
-            It looks for specific column headers like Num, Height, Width, Quantity, and edge banding information.
+            It looks for specific column headers like Num, Reference, Height, Width, Quantity, and edge banding information.
           </p>
         </div>
         
@@ -27,6 +27,7 @@ const PDFInstructionGuide: React.FC = () => {
             <ul className="list-disc pl-5 text-green-700 space-y-1">
               <li>Clear tabular format with headers</li>
               <li>Column labeled "Num" for panel number</li>
+              <li>Column labeled "Reference" for part name</li>
               <li>Column labeled "Height" for panel length</li>
               <li>Column labeled "Width" for panel width</li>
               <li>Column labeled "Quantity" for panel quantity</li>
@@ -58,13 +59,13 @@ const PDFInstructionGuide: React.FC = () => {
             <pre className="whitespace-pre-wrap text-blue-900">
 {`Cutting List for Base Cabinet
 ---------------------------
-Num | Height | Width | Quantity | Left Edge | Right Edge | Top Edge | Bottom Edge
-1   | 720    | 560   | 2        | X         | X          |          |
-2   | 568    | 560   | 1        | X         | X          | X        |
-3   | 568    | 560   | 1        | X         | X          | X        |
-4   | 720    | 568   | 1        |           |            |          |
-5   | 568    | 540   | 2        | X         | X          | X        |
-6   | 720    | 300   | 2        | X         | X          | X        | X`}
+Num | Reference      | Height | Width | Quantity | Left Edge | Right Edge | Top Edge | Bottom Edge
+1   | Side Panel     | 720    | 560   | 2        | X         | X          |          |
+2   | Bottom Panel   | 568    | 560   | 1        | X         | X          | X        |
+3   | Top Panel      | 568    | 560   | 1        | X         | X          | X        |
+4   | Back Panel     | 720    | 568   | 1        |           |            |          |
+5   | Shelf          | 568    | 540   | 2        | X         | X          | X        |
+6   | Door           | 720    | 300   | 2        | X         | X          | X        | X`}
             </pre>
           </div>
         </div>

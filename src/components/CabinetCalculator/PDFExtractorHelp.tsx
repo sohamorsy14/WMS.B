@@ -36,7 +36,7 @@ const PDFExtractorHelp: React.FC = () => {
               <h4 className="font-medium text-blue-800">Column Identification</h4>
             </div>
             <p className="text-blue-700 text-sm">
-              The system identifies column headers like "Num", "Height", "Width", "Quantity", and edge banding columns.
+              The system identifies column headers like "Num", "Reference", "Height", "Width", "Quantity", and edge banding columns.
             </p>
           </div>
           
@@ -60,9 +60,9 @@ const PDFExtractorHelp: React.FC = () => {
             <div className="bg-white p-3 rounded border border-gray-200">
               <h5 className="text-sm font-medium text-gray-700 mb-2">PDF Text Content:</h5>
               <pre className="whitespace-pre-wrap text-xs text-gray-600 bg-gray-50 p-2 rounded">
-{`Num | Height | Width | Quantity | Left Edge | Right Edge | Top Edge | Bottom Edge
-1   | 720    | 560   | 2        | X         | X          |          |
-2   | 568    | 560   | 1        | X         | X          | X        |`}
+{`Num | Reference      | Height | Width | Quantity | Left Edge | Right Edge | Top Edge | Bottom Edge
+1   | Side Panel     | 720    | 560   | 2        | X         | X          |          |
+2   | Bottom Panel   | 568    | 560   | 1        | X         | X          | X        |`}
               </pre>
             </div>
             
@@ -76,7 +76,7 @@ const PDFExtractorHelp: React.FC = () => {
                 <div className="flex items-start">
                   <Check className="w-4 h-4 text-green-600 mt-0.5 mr-1 flex-shrink-0" />
                   <div className="text-xs text-green-800">
-                    <p><strong>Part Name:</strong> Part 1</p>
+                    <p><strong>Part Name:</strong> Side Panel</p>
                     <p><strong>Dimensions:</strong> 720mm × 560mm × 18mm</p>
                     <p><strong>Quantity:</strong> 2</p>
                     <p><strong>Edge Banding:</strong> Left, Right</p>
@@ -85,7 +85,7 @@ const PDFExtractorHelp: React.FC = () => {
                 <div className="flex items-start mt-2">
                   <Check className="w-4 h-4 text-green-600 mt-0.5 mr-1 flex-shrink-0" />
                   <div className="text-xs text-green-800">
-                    <p><strong>Part Name:</strong> Part 2</p>
+                    <p><strong>Part Name:</strong> Bottom Panel</p>
                     <p><strong>Dimensions:</strong> 568mm × 560mm × 18mm</p>
                     <p><strong>Quantity:</strong> 1</p>
                     <p><strong>Edge Banding:</strong> Left, Right, Front</p>
@@ -123,7 +123,7 @@ const PDFExtractorHelp: React.FC = () => {
             <li>Use our Excel template to ensure your data is in the optimal format</li>
             <li>Export to PDF directly from Excel rather than scanning printed documents</li>
             <li>Use a simple, tabular format with clear headers</li>
-            <li>Include all necessary columns: Num, Height, Width, Quantity</li>
+            <li>Include all necessary columns: Num, Reference, Height, Width, Quantity</li>
             <li>For edge banding, use columns: Left Edge, Right Edge, Top Edge, Bottom Edge</li>
             <li>Use any value (like "X") to indicate edge banding is present, and leave empty for no edge banding</li>
             <li>If extraction fails, try the alternative extraction method or use the Excel template directly</li>

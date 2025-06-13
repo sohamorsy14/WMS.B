@@ -32,7 +32,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
     defaultGrain: 'none' as 'length' | 'width' | 'none',
     columnMappings: {
       partNumber: ['num', 'number', 'part number', 'part no', 'item'],
-      partName: ['name', 'part name', 'description', 'part'],
+      partName: ['reference', 'name', 'part name', 'description', 'part'],
       length: ['height', 'length', 'len', 'l'],
       width: ['width', 'w', 'wid'],
       thickness: ['thickness', 'thick', 't'],
@@ -187,7 +187,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
     }
     
     // Check if we found the essential columns
-    if (!headerIndices.length || !headerIndices.width || !headerIndices.quantity) {
+    if (!headerIndices.partNumber || !headerIndices.length || !headerIndices.width || !headerIndices.quantity) {
       console.warn("Couldn't find essential columns in PDF", headerIndices);
       return [];
     }
@@ -239,12 +239,12 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         }
       }
       
-      // Parse edge banding
+      // Parse edge banding - any non-empty value is considered TRUE
       const edgeBanding = {
-        front: !!values.edgeTop && values.edgeTop.toLowerCase() !== 'false' && values.edgeTop.toLowerCase() !== 'no' && values.edgeTop.trim() !== '',
-        back: !!values.edgeBottom && values.edgeBottom.toLowerCase() !== 'false' && values.edgeBottom.toLowerCase() !== 'no' && values.edgeBottom.trim() !== '',
-        left: !!values.edgeLeft && values.edgeLeft.toLowerCase() !== 'false' && values.edgeLeft.toLowerCase() !== 'no' && values.edgeLeft.trim() !== '',
-        right: !!values.edgeRight && values.edgeRight.toLowerCase() !== 'false' && values.edgeRight.toLowerCase() !== 'no' && values.edgeRight.trim() !== ''
+        front: !!values.edgeTop && values.edgeTop.trim() !== '',
+        back: !!values.edgeBottom && values.edgeBottom.trim() !== '',
+        left: !!values.edgeLeft && values.edgeLeft.trim() !== '',
+        right: !!values.edgeRight && values.edgeRight.trim() !== ''
       };
       
       // Only add if we have valid dimensions
@@ -333,7 +333,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       // If we have a header, try to find the correct columns
       if (hasHeader && i === 1) {
         const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-        nameIndex = headers.findIndex(h => h.includes('part') || h.includes('name') || h.includes('description'));
+        nameIndex = headers.findIndex(h => h.includes('part') || h.includes('name') || h.includes('description') || h.includes('reference'));
         lengthIndex = headers.findIndex(h => h.includes('length') || h.includes('len') || h.includes('height'));
         widthIndex = headers.findIndex(h => h.includes('width') || h.includes('wid'));
         thicknessIndex = headers.findIndex(h => h.includes('thickness') || h.includes('thick'));
@@ -459,7 +459,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         
         const item: CuttingListItem = {
           id: `imported-${index}-${Date.now()}`,
-          partName: getValue('Name') || getValue('Description') || `Part ${index + 1}`,
+          partName: getValue('Reference') || getValue('Name') || getValue('Description') || `Part ${index + 1}`,
           cabinetId: 'imported',
           cabinetName: 'Imported Cabinet',
           materialType: getValue('Material') || getValue('Type') || extractionSettings.defaultMaterial,
@@ -548,7 +548,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         
         return {
           id: `imported-${index}-${Date.now()}`,
-          partName: normalizedItem.name || normalizedItem.partname || normalizedItem.description || `Part ${index + 1}`,
+          partName: normalizedItem.reference || normalizedItem.name || normalizedItem.partname || normalizedItem.description || `Part ${index + 1}`,
           cabinetId: 'imported',
           cabinetName: 'Imported Cabinet',
           materialType: normalizedItem.material || normalizedItem.materialtype || normalizedItem.type || extractionSettings.defaultMaterial,
@@ -695,6 +695,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                   <p className="mb-2">The system will look for these column headers in your PDF:</p>
                   <ul className="list-disc pl-5 space-y-1">
                     <li><strong>Part Number:</strong> Num, Number, Part Number, Part No, Item</li>
+                    <li><strong>Part Name:</strong> Reference, Name, Part Name, Description, Part</li>
                     <li><strong>Length:</strong> Height, Length, Len, L</li>
                     <li><strong>Width:</strong> Width, W, Wid</li>
                     <li><strong>Quantity:</strong> Quantity, Qty, Count, Pcs</li>
@@ -991,6 +992,12 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                 <td className="px-3 py-2">Panel number or identifier</td>
                 <td className="px-3 py-2">Yes</td>
                 <td className="px-3 py-2">1, 2, 3...</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Reference</td>
+                <td className="px-3 py-2">Part name or description</td>
+                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">Side Panel, Bottom Panel</td>
               </tr>
               <tr className="bg-white">
                 <td className="px-3 py-2 font-medium">Height</td>

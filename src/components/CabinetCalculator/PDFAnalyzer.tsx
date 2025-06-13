@@ -21,6 +21,7 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
 
   // Look for specific column headers
   const numColumnIndex = pdfText.toLowerCase().indexOf('num');
+  const referenceColumnIndex = pdfText.toLowerCase().indexOf('reference');
   const heightColumnIndex = pdfText.toLowerCase().indexOf('height');
   const widthColumnIndex = pdfText.toLowerCase().indexOf('width');
   const quantityColumnIndex = pdfText.toLowerCase().indexOf('quantity');
@@ -129,6 +130,14 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
                       <AlertCircle className="w-4 h-4 mr-1" />
                     )}
                     <span>Num Column</span>
+                  </div>
+                  <div className={`flex items-center ${referenceColumnIndex !== -1 ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {referenceColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    <span>Reference Column</span>
                   </div>
                   <div className={`flex items-center ${heightColumnIndex !== -1 ? 'text-green-700' : 'text-red-700'}`}>
                     {heightColumnIndex !== -1 ? (
@@ -343,7 +352,7 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
             <ul className="list-disc pl-5 text-blue-700 space-y-1">
               <li>Use the Excel template for best results</li>
               <li>Ensure your PDF has text (not just images)</li>
-              <li>Make sure your PDF has columns labeled: Num, Height, Width, Quantity</li>
+              <li>Make sure your PDF has columns labeled: Num, Reference, Height, Width, Quantity</li>
               <li>For edge banding, include columns: Left Edge, Right Edge, Top Edge, Bottom Edge</li>
               <li>If extraction fails, try adjusting the advanced settings or use the Excel template directly</li>
             </ul>
