@@ -330,8 +330,8 @@ const ProjectCreator: React.FC<ProjectCreatorProps> = ({
                   <h3 className="text-xl font-semibold text-gray-900">{project.name}</h3>
                   <p className="text-sm text-gray-600 mt-1">{project.description}</p>
                 </div>
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(project.status)}`}>
-                  {project.status.replace('_', ' ')}
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(project.status || 'draft')}`}>
+                  {(project.status || 'draft').replace('_', ' ')}
                 </span>
               </div>
               
