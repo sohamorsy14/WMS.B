@@ -1,5 +1,4 @@
-import pkg from 'libsql';
-const { createClient } = pkg;
+import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -321,26 +320,26 @@ const createTables = async () => {
   try {
     console.log('📋 Creating database tables...');
     
-    await db.execute(createUsersTable);
-    await db.execute(createProductsTable);
-    await db.execute(createRequisitionsTable);
-    await db.execute(createRequisitionItemsTable);
-    await db.execute(createPurchaseOrdersTable);
-    await db.execute(createSuppliersTable);
-    await db.execute(createDepartmentsTable);
-    await db.execute(createRequestersTable);
-    await db.execute(createOrdersTable);
-    await db.execute(createBomsTable);
-    await db.execute(createPrototypesTable);
+    db.exec(createUsersTable);
+    db.exec(createProductsTable);
+    db.exec(createRequisitionsTable);
+    db.exec(createRequisitionItemsTable);
+    db.exec(createPurchaseOrdersTable);
+    db.exec(createSuppliersTable);
+    db.exec(createDepartmentsTable);
+    db.exec(createRequestersTable);
+    db.exec(createOrdersTable);
+    db.exec(createBomsTable);
+    db.exec(createPrototypesTable);
     
     // Create Cabinet Calculator tables
-    await db.execute(createCabinetTemplatesTable);
-    await db.execute(createCabinetConfigurationsTable);
-    await db.execute(createCabinetProjectsTable);
+    db.exec(createCabinetTemplatesTable);
+    db.exec(createCabinetConfigurationsTable);
+    db.exec(createCabinetProjectsTable);
 
     // Add password_changed column if it doesn't exist (for existing databases)
     try {
-      await db.execute('ALTER TABLE users ADD COLUMN password_changed INTEGER DEFAULT 0');
+      db.exec('ALTER TABLE users ADD COLUMN password_changed INTEGER DEFAULT 0');
       console.log('✅ Added password_changed column to users table');
     } catch (error) {
       // Column already exists, ignore error
@@ -348,7 +347,7 @@ const createTables = async () => {
 
     // Add created_by column to cabinet_templates if it doesn't exist
     try {
-      await db.execute('ALTER TABLE cabinet_templates ADD COLUMN created_by TEXT');
+      db.exec('ALTER TABLE cabinet_templates ADD COLUMN created_by TEXT');
       console.log('✅ Added created_by column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
@@ -356,7 +355,7 @@ const createTables = async () => {
 
     // Add created_by column to cabinet_configurations if it doesn't exist
     try {
-      await db.execute('ALTER TABLE cabinet_configurations ADD COLUMN created_by TEXT');
+      db.exec('ALTER TABLE cabinet_configurations ADD COLUMN created_by TEXT');
       console.log('✅ Added created_by column to cabinet_configurations table');
     } catch (error) {
       // Column already exists, ignore error
@@ -364,21 +363,21 @@ const createTables = async () => {
 
     // Add missing columns to cabinet_templates if they don't exist
     try {
-      await db.execute('ALTER TABLE cabinet_templates ADD COLUMN panels TEXT DEFAULT "[]"');
+      db.exec('ALTER TABLE cabinet_templates ADD COLUMN panels TEXT DEFAULT "[]"');
       console.log('✅ Added panels column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
     }
 
     try {
-      await db.execute('ALTER TABLE cabinet_templates ADD COLUMN materials TEXT DEFAULT "[]"');
+      db.exec('ALTER TABLE cabinet_templates ADD COLUMN materials TEXT DEFAULT "[]"');
       console.log('✅ Added materials column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
     }
 
     try {
-      await db.execute('ALTER TABLE cabinet_templates ADD COLUMN construction TEXT DEFAULT "{}"');
+      db.exec('ALTER TABLE cabinet_templates ADD COLUMN construction TEXT DEFAULT "{}"');
       console.log('✅ Added construction column to cabinet_templates table');
     } catch (error) {
       // Column already exists, ignore error
@@ -387,8 +386,8 @@ const createTables = async () => {
     console.log('👤 Checking for existing users...');
 
     // Check if ANY users exist in the database
-    const userCount = await db.execute('SELECT COUNT(*) as count FROM users');
-    const count = userCount.rows[0]?.count || 0;
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
+    const count = userCount?.count || 0;
     console.log('Current user count:', count);
 
     // Only create default users if NO users exist at all
@@ -397,25 +396,23 @@ const createTables = async () => {
       
       // Create admin user
       const adminHashedPassword = bcrypt.hashSync('admin123', 10);
-      await db.execute(
-        'INSERT INTO users (id, username, email, password, role, permissions, password_changed) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['1', 'admin', 'admin@cabinet-wms.com', adminHashedPassword, 'admin', JSON.stringify(['*']), 0]
-      );
+      db.prepare(
+        'INSERT INTO users (id, username, email, password, role, permissions, password_changed) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run('1', 'admin', 'admin@cabinet-wms.com', adminHashedPassword, 'admin', JSON.stringify(['*']), 0);
       console.log('✅ Default admin user created (admin/admin123)');
 
       // Create manager user
       const managerHashedPassword = bcrypt.hashSync('manager123', 10);
-      await db.execute(
-        'INSERT INTO users (id, username, email, password, role, permissions, password_changed) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['2', 'manager', 'manager@cabinet-wms.com', managerHashedPassword, 'manager', JSON.stringify(['dashboard.view', 'inventory.view', 'requisitions.*', 'purchase_orders.*']), 0]
-      );
+      db.prepare(
+        'INSERT INTO users (id, username, email, password, role, permissions, password_changed) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run('2', 'manager', 'manager@cabinet-wms.com', managerHashedPassword, 'manager', JSON.stringify(['dashboard.view', 'inventory.view', 'requisitions.*', 'purchase_orders.*']), 0);
       console.log('✅ Default manager user created (manager/manager123)');
     } else {
       console.log('✅ Users already exist - preserving existing passwords');
       
       // List existing users (without passwords)
-      const existingUsers = await db.execute('SELECT id, username, email, role, password_changed FROM users');
-      console.log('Existing users:', existingUsers.rows.map(u => `${u.username} (${u.role}) - Password changed: ${u.password_changed ? 'Yes' : 'No'}`).join(', '));
+      const existingUsers = db.prepare('SELECT id, username, email, role, password_changed FROM users').all();
+      console.log('Existing users:', existingUsers.map(u => `${u.username} (${u.role}) - Password changed: ${u.password_changed ? 'Yes' : 'No'}`).join(', '));
     }
 
     console.log('✅ Database tables created successfully');
@@ -428,7 +425,7 @@ const createTables = async () => {
 // Initialize database connection
 const initDatabase = async () => {
   try {
-    console.log('🔄 Initializing LibSQL database...');
+    console.log('🔄 Initializing Better-SQLite3 database...');
     console.log(`📁 Database path: ${dbPath}`);
     
     // Check if directory is writable (skip for in-memory database)
@@ -445,23 +442,19 @@ const initDatabase = async () => {
 
     // Try to create the database client with better error handling
     try {
-      db = createClient({
-        url: dbPath === ':memory:' ? ':memory:' : `file:${dbPath}`
-      });
+      db = new Database(dbPath);
     } catch (clientError) {
       console.error('❌ Failed to create database client:', clientError.message);
       console.warn('⚠️  Falling back to in-memory database...');
       dbPath = ':memory:';
-      db = createClient({
-        url: ':memory:'
-      });
+      db = new Database(':memory:');
     }
 
     // Enable foreign keys
-    await db.execute('PRAGMA foreign_keys = ON');
+    db.pragma('foreign_keys = ON');
     
     // Test database connection
-    await db.execute('SELECT 1');
+    db.prepare('SELECT 1').get();
     console.log('✅ Database connection established');
     
     // Create tables if they don't exist
@@ -470,7 +463,7 @@ const initDatabase = async () => {
     if (dbPath === ':memory:') {
       console.log('⚠️  Using in-memory database - data will not persist between restarts');
     } else {
-      console.log('✅ LibSQL database initialized successfully');
+      console.log('✅ Better-SQLite3 database initialized successfully');
     }
     
     isConnected = true;
@@ -484,12 +477,10 @@ const initDatabase = async () => {
       console.warn('⚠️  Final attempt: falling back to in-memory database...');
       try {
         dbPath = ':memory:';
-        db = createClient({
-          url: ':memory:'
-        });
+        db = new Database(':memory:');
         
-        await db.execute('PRAGMA foreign_keys = ON');
-        await db.execute('SELECT 1');
+        db.pragma('foreign_keys = ON');
+        db.prepare('SELECT 1').get();
         await createTables();
         
         console.log('✅ Fallback to in-memory database successful');
@@ -515,11 +506,6 @@ const initDatabase = async () => {
       console.error('💡 File or directory not found. Check:');
       console.error('   - Database path configuration');
       console.error('   - File system permissions');
-    } else if (err.message.includes('libsql')) {
-      console.error('💡 LibSQL library issue. Try:');
-      console.error('   - Reinstalling dependencies: npm install');
-      console.error('   - Checking Node.js version compatibility');
-      console.error('   - Installing build tools if needed');
     }
     
     // Don't throw the error - let the server start anyway
@@ -544,10 +530,13 @@ const query = async (sql, params = []) => {
   }
   
   try {
-    const result = await db.execute(sql, params);
     if (sql.trim().toUpperCase().startsWith('SELECT')) {
-      return { rows: result.rows, rowCount: result.rows.length };
+      const stmt = db.prepare(sql);
+      const rows = stmt.all(...params);
+      return { rows, rowCount: rows.length };
     } else {
+      const stmt = db.prepare(sql);
+      const result = stmt.run(...params);
       return { rows: [], changes: result.changes || 0, lastID: result.lastInsertRowid };
     }
   } catch (err) {
@@ -563,8 +552,8 @@ const get = async (sql, params = []) => {
   }
   
   try {
-    const result = await db.execute(sql, params);
-    return result.rows[0] || null;
+    const stmt = db.prepare(sql);
+    return stmt.get(...params) || null;
   } catch (err) {
     console.error('Database get error:', err.message);
     throw err;
@@ -579,22 +568,23 @@ export default {
     if (!isConnected || !db) {
       return { changes: 0, lastID: null };
     }
-    const result = await db.execute(sql, params);
+    const stmt = db.prepare(sql);
+    const result = stmt.run(...params);
     return { changes: result.changes || 0, lastID: result.lastInsertRowid };
   },
   all: async (sql, params = []) => {
     if (!isConnected || !db) {
       return [];
     }
-    const result = await db.execute(sql, params);
-    return result.rows;
+    const stmt = db.prepare(sql);
+    return stmt.all(...params);
   },
   isConnected: () => isConnected,
   getConnectionError: () => connectionError,
   generateUUID,
   close: async () => {
     if (db) {
-      await db.close();
+      db.close();
     }
   }
 };
