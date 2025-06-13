@@ -19,17 +19,19 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
     onAnalyze();
   };
 
+  // Look for specific column headers
+  const numColumnIndex = pdfText.toLowerCase().indexOf('num');
+  const heightColumnIndex = pdfText.toLowerCase().indexOf('height');
+  const widthColumnIndex = pdfText.toLowerCase().indexOf('width');
+  const quantityColumnIndex = pdfText.toLowerCase().indexOf('quantity');
+  const leftEdgeColumnIndex = pdfText.toLowerCase().indexOf('left edge');
+  const rightEdgeColumnIndex = pdfText.toLowerCase().indexOf('right edge');
+  const topEdgeColumnIndex = pdfText.toLowerCase().indexOf('top edge');
+  const bottomEdgeColumnIndex = pdfText.toLowerCase().indexOf('bottom edge');
+  
   // Find patterns in the text that might be dimensions
   const dimensionPatterns = pdfText.match(/\d+\s*[x×*]\s*\d+\s*[x×*]\s*\d+/g) || [];
   const numberPatterns = pdfText.match(/\b\d+(?:\.\d+)?\s*(?:mm|cm|m)?\b/g) || [];
-  
-  // Look for material column and entries
-  const materialColumnIndex = pdfText.toLowerCase().indexOf('material');
-  const materialEntries = pdfText.match(/[A-Za-z0-9]+,\s*[0-9.]+/g) || [];
-  
-  // Look for grain column and entries
-  const grainColumnIndex = pdfText.toLowerCase().indexOf('grain');
-  const grainEntries = pdfText.match(/(?:No|Yes|Reserve Grain)/gi) || [];
   
   // Filter text by search term
   const filteredText = searchTerm 
@@ -116,90 +118,87 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
             <div>
               <h4 className="font-medium text-gray-800 mb-2 flex items-center">
                 <Info className="w-4 h-4 mr-2 text-blue-600" />
-                Dimension Patterns Found
+                Required Columns Found
               </h4>
-              {dimensionPatterns.length > 0 ? (
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-sm text-blue-800 mb-2">Found {dimensionPatterns.length} potential dimensions:</p>
-                  <div className="max-h-32 overflow-y-auto">
-                    {dimensionPatterns.slice(0, 10).map((pattern, index) => (
-                      <div key={index} className="text-xs bg-blue-100 rounded px-2 py-1 mb-1 inline-block mr-1">
-                        {pattern}
-                      </div>
-                    ))}
-                    {dimensionPatterns.length > 10 && (
-                      <div className="text-xs text-blue-600 mt-1">
-                        ...and {dimensionPatterns.length - 10} more
-                      </div>
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`flex items-center ${numColumnIndex !== -1 ? 'text-green-700' : 'text-red-700'}`}>
+                    {numColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
                     )}
+                    <span>Num Column</span>
+                  </div>
+                  <div className={`flex items-center ${heightColumnIndex !== -1 ? 'text-green-700' : 'text-red-700'}`}>
+                    {heightColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    <span>Height Column</span>
+                  </div>
+                  <div className={`flex items-center ${widthColumnIndex !== -1 ? 'text-green-700' : 'text-red-700'}`}>
+                    {widthColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    <span>Width Column</span>
+                  </div>
+                  <div className={`flex items-center ${quantityColumnIndex !== -1 ? 'text-green-700' : 'text-red-700'}`}>
+                    {quantityColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    <span>Quantity Column</span>
                   </div>
                 </div>
-              ) : (
-                <div className="bg-yellow-50 p-3 rounded-lg">
-                  <p className="text-sm text-yellow-800 flex items-center">
-                    <AlertCircle className="w-4 h-4 mr-2" />
-                    No dimension patterns found (e.g., 800×600×18)
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
 
             <div>
               <h4 className="font-medium text-gray-800 mb-2 flex items-center">
                 <Info className="w-4 h-4 mr-2 text-blue-600" />
-                Material Information Found
+                Edge Banding Columns Found
               </h4>
-              {materialColumnIndex !== -1 || materialEntries.length > 0 ? (
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <p className="text-sm text-green-800 mb-2">
-                    {materialColumnIndex !== -1 ? "Found 'Material' column" : ""}
-                    {materialEntries.length > 0 ? ` and ${materialEntries.length} material entries` : ""}
-                  </p>
-                  <div className="max-h-32 overflow-y-auto">
-                    {materialEntries.slice(0, 10).map((entry, index) => (
-                      <div key={index} className="text-xs bg-green-100 rounded px-2 py-1 mb-1 inline-block mr-1">
-                        {entry}
-                      </div>
-                    ))}
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`flex items-center ${leftEdgeColumnIndex !== -1 ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {leftEdgeColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    <span>Left Edge Column</span>
+                  </div>
+                  <div className={`flex items-center ${rightEdgeColumnIndex !== -1 ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {rightEdgeColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    <span>Right Edge Column</span>
+                  </div>
+                  <div className={`flex items-center ${topEdgeColumnIndex !== -1 ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {topEdgeColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    <span>Top Edge Column</span>
+                  </div>
+                  <div className={`flex items-center ${bottomEdgeColumnIndex !== -1 ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {bottomEdgeColumnIndex !== -1 ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    <span>Bottom Edge Column</span>
                   </div>
                 </div>
-              ) : (
-                <div className="bg-yellow-50 p-3 rounded-lg">
-                  <p className="text-sm text-yellow-800 flex items-center">
-                    <AlertCircle className="w-4 h-4 mr-2" />
-                    No material information found (e.g., MDF1, 18.0)
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-gray-800 mb-2 flex items-center">
-                <Info className="w-4 h-4 mr-2 text-blue-600" />
-                Grain Direction Information
-              </h4>
-              {grainColumnIndex !== -1 || grainEntries.length > 0 ? (
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <p className="text-sm text-green-800 mb-2">
-                    {grainColumnIndex !== -1 ? "Found 'Grain' column" : ""}
-                    {grainEntries.length > 0 ? ` and ${grainEntries.length} grain entries` : ""}
-                  </p>
-                  <div className="max-h-32 overflow-y-auto">
-                    {grainEntries.slice(0, 10).map((entry, index) => (
-                      <div key={index} className="text-xs bg-green-100 rounded px-2 py-1 mb-1 inline-block mr-1">
-                        {entry}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-yellow-50 p-3 rounded-lg">
-                  <p className="text-sm text-yellow-800 flex items-center">
-                    <AlertCircle className="w-4 h-4 mr-2" />
-                    No grain direction information found (e.g., Yes, No, Reserve Grain)
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
             
             <div>
@@ -232,6 +231,37 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
                 </div>
               )}
             </div>
+            
+            <div>
+              <h4 className="font-medium text-gray-800 mb-2 flex items-center">
+                <Info className="w-4 h-4 mr-2 text-blue-600" />
+                Dimension Patterns Found
+              </h4>
+              {dimensionPatterns.length > 0 ? (
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-2">Found {dimensionPatterns.length} potential dimensions:</p>
+                  <div className="max-h-32 overflow-y-auto">
+                    {dimensionPatterns.slice(0, 10).map((pattern, index) => (
+                      <div key={index} className="text-xs bg-blue-100 rounded px-2 py-1 mb-1 inline-block mr-1">
+                        {pattern}
+                      </div>
+                    ))}
+                    {dimensionPatterns.length > 10 && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        ...and {dimensionPatterns.length - 10} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    No dimension patterns found (e.g., 800×600×18)
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="mt-6">
@@ -256,6 +286,7 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
                         <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Material</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Grain</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Qty</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Edges</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-green-200">
@@ -266,11 +297,17 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
                           <td className="px-3 py-2 text-gray-700">{item.materialType}</td>
                           <td className="px-3 py-2 text-gray-700 capitalize">{item.grain}</td>
                           <td className="px-3 py-2 text-gray-700">{item.quantity}</td>
+                          <td className="px-3 py-2 text-gray-700">
+                            {Object.entries(item.edgeBanding)
+                              .filter(([_, value]) => value)
+                              .map(([edge]) => edge.charAt(0).toUpperCase() + edge.slice(1))
+                              .join(', ') || 'None'}
+                          </td>
                         </tr>
                       ))}
                       {parsedItems.length > 5 && (
                         <tr className="bg-white">
-                          <td colSpan={5} className="px-3 py-2 text-center text-gray-500">
+                          <td colSpan={6} className="px-3 py-2 text-center text-gray-500">
                             ...and {parsedItems.length - 5} more items
                           </td>
                         </tr>
@@ -306,8 +343,8 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
             <ul className="list-disc pl-5 text-blue-700 space-y-1">
               <li>Use the Excel template for best results</li>
               <li>Ensure your PDF has text (not just images)</li>
-              <li>Make sure dimensions are clearly formatted (e.g., 800×600×18 or 800mm × 600mm × 18mm)</li>
-              <li>Include material types (e.g., MDF1, 18.0) and grain directions (Yes, No, Reserve Grain) in your cutting list</li>
+              <li>Make sure your PDF has columns labeled: Num, Height, Width, Quantity</li>
+              <li>For edge banding, include columns: Left Edge, Right Edge, Top Edge, Bottom Edge</li>
               <li>If extraction fails, try adjusting the advanced settings or use the Excel template directly</li>
             </ul>
           </div>

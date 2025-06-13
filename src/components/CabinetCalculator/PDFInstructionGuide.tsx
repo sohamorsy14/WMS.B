@@ -14,7 +14,7 @@ const PDFInstructionGuide: React.FC = () => {
           <h4 className="font-medium text-gray-800 mb-2">How PDF Import Works</h4>
           <p className="text-gray-600">
             Our PDF importer extracts text from your PDF files and analyzes it to identify cutting list items.
-            It looks for specific patterns like dimensions, part names, and material types.
+            It looks for specific column headers like Num, Height, Width, Quantity, and edge banding information.
           </p>
         </div>
         
@@ -26,11 +26,11 @@ const PDFInstructionGuide: React.FC = () => {
             </h5>
             <ul className="list-disc pl-5 text-green-700 space-y-1">
               <li>Clear tabular format with headers</li>
-              <li>Dimensions in format: 800×600×18</li>
-              <li>Part names clearly labeled</li>
-              <li>Material column with entries like "MDF1, 18.0"</li>
-              <li>Grain column with entries like "Yes", "No", "Reserve Grain"</li>
-              <li>Quantity for each part</li>
+              <li>Column labeled "Num" for panel number</li>
+              <li>Column labeled "Height" for panel length</li>
+              <li>Column labeled "Width" for panel width</li>
+              <li>Column labeled "Quantity" for panel quantity</li>
+              <li>Columns for edge banding: "Left Edge", "Right Edge", "Top Edge", "Bottom Edge"</li>
             </ul>
           </div>
           
@@ -42,9 +42,8 @@ const PDFInstructionGuide: React.FC = () => {
             <ul className="list-disc pl-5 text-red-700 space-y-1">
               <li>Scanned images (no extractable text)</li>
               <li>Complex layouts with multiple tables</li>
+              <li>Missing required column headers</li>
               <li>Unusual dimension formats</li>
-              <li>Missing or ambiguous part names</li>
-              <li>Missing material or grain information</li>
               <li>Password-protected PDFs</li>
             </ul>
           </div>
@@ -59,42 +58,33 @@ const PDFInstructionGuide: React.FC = () => {
             <pre className="whitespace-pre-wrap text-blue-900">
 {`Cutting List for Base Cabinet
 ---------------------------
-Part Name | Length × Width × Thickness | Material | Grain | Qty
-Side Panel | 720 × 560 × 18 | MDF1, 18.0 | Yes | 2
-Bottom Panel | 568 × 560 × 18 | MDF1, 18.0 | No | 1
-Top Panel | 568 × 560 × 18 | MDF1, 18.0 | Reserve Grain | 1
-Back Panel | 720 × 568 × 12 | MDF1, 18.0 | No | 1
-Shelf | 568 × 540 × 18 | MDF1, 18.0 | Yes | 2
-Door | 720 × 300 × 18 | MDF1, 18.0 | Yes | 2`}
+Num | Height | Width | Quantity | Left Edge | Right Edge | Top Edge | Bottom Edge
+1   | 720    | 560   | 2        | X         | X          |          |
+2   | 568    | 560   | 1        | X         | X          | X        |
+3   | 568    | 560   | 1        | X         | X          | X        |
+4   | 720    | 568   | 1        |           |            |          |
+5   | 568    | 540   | 2        | X         | X          | X        |
+6   | 720    | 300   | 2        | X         | X          | X        | X`}
             </pre>
           </div>
         </div>
         
         <div>
-          <h4 className="font-medium text-gray-800 mb-2">Understanding Material and Grain Format</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <h5 className="text-sm font-medium text-gray-700 mb-2">Material Format</h5>
-              <p className="text-sm text-gray-600 mb-2">
-                When you find a column labeled "Material" with entries like "MDF1, 18.0", this means:
-              </p>
-              <ul className="list-disc pl-5 text-gray-600 text-sm">
-                <li><strong>Material type:</strong> MDF1</li>
-                <li><strong>Thickness:</strong> 18.0mm</li>
-              </ul>
-            </div>
-            
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <h5 className="text-sm font-medium text-gray-700 mb-2">Grain Direction Format</h5>
-              <p className="text-sm text-gray-600 mb-2">
-                When you find a column labeled "Grain" with entries like "Yes", "No", or "Reserve Grain", this means:
-              </p>
-              <ul className="list-disc pl-5 text-gray-600 text-sm">
-                <li><strong>Yes:</strong> Grain Direction Length</li>
-                <li><strong>No:</strong> No grain direction</li>
-                <li><strong>Reserve Grain:</strong> Grain Direction Width</li>
-              </ul>
-            </div>
+          <h4 className="font-medium text-gray-800 mb-2">Understanding Edge Banding Format</h4>
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="text-sm text-gray-600 mb-2">
+              For edge banding columns, any non-empty value is considered TRUE, and an empty value is considered FALSE:
+            </p>
+            <ul className="list-disc pl-5 text-gray-600 text-sm">
+              <li><strong>Left Edge:</strong> Edge banding on the left side of the panel</li>
+              <li><strong>Right Edge:</strong> Edge banding on the right side of the panel</li>
+              <li><strong>Top Edge:</strong> Edge banding on the front side of the panel</li>
+              <li><strong>Bottom Edge:</strong> Edge banding on the back side of the panel</li>
+            </ul>
+            <p className="text-sm text-gray-600 mt-2">
+              For example, if "Left Edge" column has an "X" or any other value, it means there is edge banding on the left side.
+              If the cell is empty, it means there is no edge banding on that side.
+            </p>
           </div>
         </div>
         

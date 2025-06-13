@@ -28,13 +28,22 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
   const [showHelp, setShowHelp] = useState(false);
   const [extractionSettings, setExtractionSettings] = useState({
     defaultThickness: 18,
-    defaultMaterial: 'Plywood',
+    defaultMaterial: 'MDF',
     defaultGrain: 'none' as 'length' | 'width' | 'none',
-    dimensionPattern: '\\d+\\s*(?:x|×|X|\\*)\\s*\\d+\\s*(?:x|×|X|\\*)\\s*\\d+',
-    numberPattern: '\\b(\\d+(?:\\.\\d+)?)\\s*(?:mm|cm|m)?\\b',
-    materialPatterns: ['plywood', 'mdf', 'melamine', 'particleboard', 'solid\\s*wood', 'veneer', 'oak', 'maple', 'birch', 'pine', 'cherry', 'walnut'],
-    grainPatterns: ['grain.*length', 'grain.*width', 'grain.*long', 'grain.*cross', 'yes', 'no', 'reserve grain'],
-    quantityPatterns: ['qty.*\\d+', 'quantity.*\\d+', 'count.*\\d+', '\\d+\\s*pcs', '\\d+\\s*pieces']
+    columnMappings: {
+      partNumber: ['num', 'number', 'part number', 'part no', 'item'],
+      partName: ['name', 'part name', 'description', 'part'],
+      length: ['height', 'length', 'len', 'l'],
+      width: ['width', 'w', 'wid'],
+      thickness: ['thickness', 'thick', 't'],
+      quantity: ['quantity', 'qty', 'count', 'pcs'],
+      material: ['material', 'mat', 'type'],
+      grain: ['grain', 'grain direction', 'direction'],
+      edgeLeft: ['left edge', 'edge left', 'left'],
+      edgeRight: ['right edge', 'edge right', 'right'],
+      edgeTop: ['top edge', 'edge top', 'top', 'front edge', 'edge front', 'front'],
+      edgeBottom: ['bottom edge', 'edge bottom', 'bottom', 'back edge', 'edge back', 'back']
+    }
   });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -142,185 +151,107 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
     // Split into lines and remove empty ones
     const lines = text.split('\n').filter(line => line.trim().length > 0);
     
-    // Look for material column header and grain column header
-    const materialColumnIndex = lines.findIndex(line => 
-      line.toLowerCase().includes('material') && line.match(/material/i)
-    );
+    // Find column headers
+    const headerIndices: Record<string, number> = {};
+    const headerLine = lines.findIndex(line => {
+      // Check if this line contains multiple column headers
+      const lowerLine = line.toLowerCase();
+      let headerCount = 0;
+      
+      // Check for required column headers
+      for (const key of ['num', 'height', 'width', 'quantity']) {
+        if (lowerLine.includes(key)) {
+          headerCount++;
+        }
+      }
+      
+      return headerCount >= 3; // At least 3 of the required headers
+    });
     
-    const grainColumnIndex = lines.findIndex(line => 
-      line.toLowerCase().includes('grain') && line.match(/grain/i)
-    );
-
-    // Process material and thickness information
-    let materialMap: Record<string, { type: string, thickness: number }> = {};
+    if (headerLine === -1) {
+      console.warn("Couldn't find header line in PDF");
+      return [];
+    }
     
-    if (materialColumnIndex !== -1) {
-      // Look for material entries like "MDF1, 18.0"
-      for (let i = materialColumnIndex + 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        const materialMatch = line.match(/([A-Za-z0-9]+),\s*([0-9.]+)/);
-        
-        if (materialMatch) {
-          const materialType = materialMatch[1];
-          const thickness = parseFloat(materialMatch[2]);
-          materialMap[materialType] = { type: materialType, thickness };
+    // Parse the header line to find column positions
+    const headerText = lines[headerLine].toLowerCase();
+    
+    // Find column indices based on mappings
+    for (const [key, possibleNames] of Object.entries(extractionSettings.columnMappings)) {
+      for (const name of possibleNames) {
+        if (headerText.includes(name)) {
+          headerIndices[key] = headerText.indexOf(name);
+          break;
         }
       }
     }
     
-    // Process grain direction information
-    let grainMap: Record<string, 'length' | 'width' | 'none'> = {};
-    
-    if (grainColumnIndex !== -1) {
-      // Look for grain entries
-      for (let i = grainColumnIndex + 1; i < lines.length; i++) {
-        const line = lines[i].trim().toLowerCase();
-        
-        if (line.includes('no')) {
-          grainMap['no'] = 'none';
-        } else if (line.includes('yes')) {
-          grainMap['yes'] = 'length';
-        } else if (line.includes('reserve grain')) {
-          grainMap['reserve grain'] = 'width';
-        }
-      }
+    // Check if we found the essential columns
+    if (!headerIndices.length || !headerIndices.width || !headerIndices.quantity) {
+      console.warn("Couldn't find essential columns in PDF", headerIndices);
+      return [];
     }
     
-    // Try to identify table structure or patterns in the PDF
-    // Look for lines that contain dimensions (numbers followed by mm)
-    const dimensionPattern = new RegExp(extractionSettings.dimensionPattern);
-    const numberPattern = new RegExp(extractionSettings.numberPattern, 'g');
+    // Sort column indices to determine column boundaries
+    const sortedIndices = Object.entries(headerIndices)
+      .sort((a, b) => a[1] - b[1])
+      .map(entry => ({ key: entry[0], index: entry[1] }));
     
-    // Try to identify part names and dimensions
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+    // Process data rows
+    for (let i = headerLine + 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trim().length === 0) continue;
       
-      // Skip lines that are too short or don't contain numbers
-      if (line.length < 5 || !/\d/.test(line)) continue;
+      // Skip lines that don't look like data rows
+      if (!/\d/.test(line)) continue;
       
-      // Try to extract dimensions using pattern matching
-      let length = 0;
-      let width = 0;
-      let thickness = extractionSettings.defaultThickness; // Default thickness
-      let partName = '';
-      let quantity = 1;
-      let materialType = extractionSettings.defaultMaterial;
+      // Extract values from each column
+      const values: Record<string, string> = {};
+      
+      for (let j = 0; j < sortedIndices.length; j++) {
+        const currentCol = sortedIndices[j];
+        const nextCol = sortedIndices[j + 1];
+        
+        const startPos = currentCol.index;
+        const endPos = nextCol ? nextCol.index : line.length;
+        
+        values[currentCol.key] = line.substring(startPos, endPos).trim();
+      }
+      
+      // Parse values
+      const partName = values.partName || `Part ${values.partNumber || i}`;
+      const length = parseFloat(values.length) || 0;
+      const width = parseFloat(values.width) || 0;
+      const thickness = parseFloat(values.thickness) || extractionSettings.defaultThickness;
+      const quantity = parseInt(values.quantity) || 1;
+      const materialType = values.material || extractionSettings.defaultMaterial;
+      
+      // Parse grain direction
       let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
-      
-      // First try to match a dimension pattern like 800x600x18
-      const dimensionMatch = line.match(dimensionPattern);
-      if (dimensionMatch) {
-        const dimensions = dimensionMatch[0].split(/\s*(?:x|×|X|\*)\s*/);
-        if (dimensions.length >= 3) {
-          length = parseFloat(dimensions[0]);
-          width = parseFloat(dimensions[1]);
-          thickness = parseFloat(dimensions[2]);
-        } else if (dimensions.length >= 2) {
-          length = parseFloat(dimensions[0]);
-          width = parseFloat(dimensions[1]);
-        }
-        
-        // Try to extract part name from before the dimensions
-        const beforeDimensions = line.split(dimensionMatch[0])[0].trim();
-        if (beforeDimensions) {
-          partName = beforeDimensions;
-        } else {
-          // If no name before dimensions, look for it after
-          const afterDimensions = line.split(dimensionMatch[0])[1]?.trim();
-          if (afterDimensions) {
-            partName = afterDimensions;
-          }
-        }
-      } else {
-        // If no dimension pattern, try to extract individual numbers
-        const numbers = [];
-        let match;
-        while ((match = numberPattern.exec(line)) !== null) {
-          numbers.push(parseFloat(match[1]));
-        }
-        
-        // If we found at least 2 numbers, assume they're length and width
-        if (numbers.length >= 2) {
-          // Sort numbers in descending order (typically length > width > thickness)
-          numbers.sort((a, b) => b - a);
-          length = numbers[0];
-          width = numbers[1];
-          
-          if (numbers.length >= 3) {
-            thickness = numbers[2];
-          }
-          
-          // Try to extract part name by removing numbers and units
-          partName = line.replace(/\b\d+(?:\.\d+)?\s*(?:mm|cm|m)?\b/g, '').trim();
+      if (values.grain) {
+        const grainValue = values.grain.toLowerCase();
+        if (grainValue === 'yes' || grainValue.includes('length')) {
+          grain = 'length';
+        } else if (grainValue === 'reserve grain' || grainValue.includes('width')) {
+          grain = 'width';
+        } else if (grainValue === 'no' || grainValue.includes('none')) {
+          grain = 'none';
         }
       }
       
-      // Look for material information in the line
-      for (const materialKey in materialMap) {
-        if (line.includes(materialKey)) {
-          materialType = materialMap[materialKey].type;
-          thickness = materialMap[materialKey].thickness;
-          break;
-        }
-      }
+      // Parse edge banding
+      const edgeBanding = {
+        front: !!values.edgeTop && values.edgeTop.toLowerCase() !== 'false' && values.edgeTop.toLowerCase() !== 'no' && values.edgeTop.trim() !== '',
+        back: !!values.edgeBottom && values.edgeBottom.toLowerCase() !== 'false' && values.edgeBottom.toLowerCase() !== 'no' && values.edgeBottom.trim() !== '',
+        left: !!values.edgeLeft && values.edgeLeft.toLowerCase() !== 'false' && values.edgeLeft.toLowerCase() !== 'no' && values.edgeLeft.trim() !== '',
+        right: !!values.edgeRight && values.edgeRight.toLowerCase() !== 'false' && values.edgeRight.toLowerCase() !== 'no' && values.edgeRight.trim() !== ''
+      };
       
-      // Look for grain information in the line
-      for (const grainKey in grainMap) {
-        if (line.toLowerCase().includes(grainKey.toLowerCase())) {
-          grain = grainMap[grainKey];
-          break;
-        }
-      }
-      
-      // Try to extract quantity if it exists
-      for (const pattern of extractionSettings.quantityPatterns) {
-        const qtyMatch = line.match(new RegExp(pattern, 'i'));
-        if (qtyMatch) {
-          const qtyNumber = qtyMatch[0].match(/\d+/);
-          if (qtyNumber) {
-            quantity = parseInt(qtyNumber[0]);
-            break;
-          }
-        }
-      }
-      
-      // Try to extract material type if not already found
-      if (materialType === extractionSettings.defaultMaterial) {
-        for (const pattern of extractionSettings.materialPatterns) {
-          const materialMatch = line.match(new RegExp(`\\b(${pattern})\\b`, 'i'));
-          if (materialMatch) {
-            materialType = materialMatch[1];
-            break;
-          }
-        }
-      }
-      
-      // Try to extract grain direction if not already found
-      if (grain === extractionSettings.defaultGrain) {
-        for (const pattern of extractionSettings.grainPatterns) {
-          if (line.match(new RegExp(pattern, 'i'))) {
-            if (pattern.includes('length') || pattern.includes('long') || pattern === 'yes') {
-              grain = 'length';
-            } else if (pattern.includes('width') || pattern.includes('cross') || pattern === 'reserve grain') {
-              grain = 'width';
-            } else if (pattern === 'no') {
-              grain = 'none';
-            }
-            break;
-          }
-        }
-      }
-      
-      // Only add if we have valid dimensions and a part name
-      if (length > 0 && width > 0 && thickness > 0) {
-        // Clean up part name if it's still messy
-        if (!partName || partName.length < 2) {
-          partName = `Part ${i + 1}`;
-        }
-        
+      // Only add if we have valid dimensions
+      if (length > 0 && width > 0) {
         items.push({
           id: `imported-${i}-${Date.now()}`,
-          partName: partName,
+          partName,
           cabinetId: 'imported',
           cabinetName: 'Imported Cabinet',
           materialType,
@@ -328,7 +259,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           length,
           width,
           quantity,
-          edgeBanding: { front: false, back: false, left: false, right: false },
+          edgeBanding,
           grain,
           priority: 1
         });
@@ -394,17 +325,25 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       let quantityIndex = 4;
       let materialIndex = 5;
       let grainIndex = 6;
+      let edgeLeftIndex = -1;
+      let edgeRightIndex = -1;
+      let edgeTopIndex = -1;
+      let edgeBottomIndex = -1;
       
       // If we have a header, try to find the correct columns
       if (hasHeader && i === 1) {
         const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
         nameIndex = headers.findIndex(h => h.includes('part') || h.includes('name') || h.includes('description'));
-        lengthIndex = headers.findIndex(h => h.includes('length') || h.includes('len'));
+        lengthIndex = headers.findIndex(h => h.includes('length') || h.includes('len') || h.includes('height'));
         widthIndex = headers.findIndex(h => h.includes('width') || h.includes('wid'));
         thicknessIndex = headers.findIndex(h => h.includes('thickness') || h.includes('thick'));
         quantityIndex = headers.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('count'));
         materialIndex = headers.findIndex(h => h.includes('material') || h.includes('type'));
         grainIndex = headers.findIndex(h => h.includes('grain') || h.includes('direction'));
+        edgeLeftIndex = headers.findIndex(h => h.includes('left edge') || h.includes('edge left'));
+        edgeRightIndex = headers.findIndex(h => h.includes('right edge') || h.includes('edge right'));
+        edgeTopIndex = headers.findIndex(h => h.includes('top edge') || h.includes('edge top') || h.includes('front edge'));
+        edgeBottomIndex = headers.findIndex(h => h.includes('bottom edge') || h.includes('edge bottom') || h.includes('back edge'));
         
         // Use default indices if not found
         nameIndex = nameIndex >= 0 ? nameIndex : 0;
@@ -418,7 +357,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       
       // Process grain direction based on your specific format
       let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
-      if (values[grainIndex]) {
+      if (grainIndex >= 0 && values[grainIndex]) {
         const grainValue = values[grainIndex].toLowerCase();
         if (grainValue === 'yes' || grainValue.includes('length')) {
           grain = 'length';
@@ -428,6 +367,14 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           grain = 'none';
         }
       }
+      
+      // Process edge banding
+      const edgeBanding = {
+        front: edgeTopIndex >= 0 ? !!values[edgeTopIndex] && values[edgeTopIndex].toLowerCase() !== 'false' && values[edgeTopIndex].toLowerCase() !== 'no' : false,
+        back: edgeBottomIndex >= 0 ? !!values[edgeBottomIndex] && values[edgeBottomIndex].toLowerCase() !== 'false' && values[edgeBottomIndex].toLowerCase() !== 'no' : false,
+        left: edgeLeftIndex >= 0 ? !!values[edgeLeftIndex] && values[edgeLeftIndex].toLowerCase() !== 'false' && values[edgeLeftIndex].toLowerCase() !== 'no' : false,
+        right: edgeRightIndex >= 0 ? !!values[edgeRightIndex] && values[edgeRightIndex].toLowerCase() !== 'false' && values[edgeRightIndex].toLowerCase() !== 'no' : false
+      };
       
       const item: CuttingListItem = {
         id: `imported-${i}-${Date.now()}`,
@@ -439,7 +386,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         length: parseFloat(values[lengthIndex]) || 0,
         width: parseFloat(values[widthIndex]) || 0,
         quantity: parseInt(values[quantityIndex]) || 1,
-        edgeBanding: { front: false, back: false, left: false, right: false },
+        edgeBanding,
         grain,
         priority: 1
       };
@@ -502,6 +449,14 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           grain = 'none';
         }
         
+        // Process edge banding
+        const edgeBanding = {
+          front: getValue('EdgeTop')?.toLowerCase() === 'true' || getValue('EdgeFront')?.toLowerCase() === 'true',
+          back: getValue('EdgeBottom')?.toLowerCase() === 'true' || getValue('EdgeBack')?.toLowerCase() === 'true',
+          left: getValue('EdgeLeft')?.toLowerCase() === 'true',
+          right: getValue('EdgeRight')?.toLowerCase() === 'true'
+        };
+        
         const item: CuttingListItem = {
           id: `imported-${index}-${Date.now()}`,
           partName: getValue('Name') || getValue('Description') || `Part ${index + 1}`,
@@ -509,15 +464,10 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           cabinetName: 'Imported Cabinet',
           materialType: getValue('Material') || getValue('Type') || extractionSettings.defaultMaterial,
           thickness: parseFloat(getValue('Thickness')) || extractionSettings.defaultThickness,
-          length: parseFloat(getValue('Length')) || 0,
+          length: parseFloat(getValue('Length') || getValue('Height')) || 0,
           width: parseFloat(getValue('Width')) || 0,
           quantity: parseInt(getValue('Quantity')) || parseInt(getValue('Count')) || 1,
-          edgeBanding: { 
-            front: getValue('EdgeFront')?.toLowerCase() === 'true', 
-            back: getValue('EdgeBack')?.toLowerCase() === 'true', 
-            left: getValue('EdgeLeft')?.toLowerCase() === 'true', 
-            right: getValue('EdgeRight')?.toLowerCase() === 'true' 
-          },
+          edgeBanding,
           grain,
           priority: parseInt(getValue('Priority')) || 1
         };
@@ -575,34 +525,13 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           normalizedItem[key.toLowerCase()] = item[key];
         });
         
+        // Process edge banding
         const edgeBanding = {
-          front: false,
-          back: false,
-          left: false,
-          right: false
+          front: !!normalizedItem.edgetop || !!normalizedItem.edgefront || !!normalizedItem.topedge || !!normalizedItem.frontedge,
+          back: !!normalizedItem.edgebottom || !!normalizedItem.edgeback || !!normalizedItem.bottomedge || !!normalizedItem.backedge,
+          left: !!normalizedItem.edgeleft || !!normalizedItem.leftedge,
+          right: !!normalizedItem.edgeright || !!normalizedItem.rightedge
         };
-        
-        // Try to parse edge banding information
-        if (normalizedItem.edgebanding) {
-          if (typeof normalizedItem.edgebanding === 'object') {
-            edgeBanding.front = !!normalizedItem.edgebanding.front;
-            edgeBanding.back = !!normalizedItem.edgebanding.back;
-            edgeBanding.left = !!normalizedItem.edgebanding.left;
-            edgeBanding.right = !!normalizedItem.edgebanding.right;
-          } else if (typeof normalizedItem.edgebanding === 'string') {
-            const edges = normalizedItem.edgebanding.toLowerCase();
-            edgeBanding.front = edges.includes('front') || edges.includes('f');
-            edgeBanding.back = edges.includes('back') || edges.includes('b');
-            edgeBanding.left = edges.includes('left') || edges.includes('l');
-            edgeBanding.right = edges.includes('right') || edges.includes('r');
-          }
-        } else {
-          // Check for individual edge banding properties
-          edgeBanding.front = !!normalizedItem.edgefront || !!normalizedItem.frontedge;
-          edgeBanding.back = !!normalizedItem.edgeback || !!normalizedItem.backedge;
-          edgeBanding.left = !!normalizedItem.edgeleft || !!normalizedItem.leftedge;
-          edgeBanding.right = !!normalizedItem.edgeright || !!normalizedItem.rightedge;
-        }
         
         // Process grain direction based on your specific format
         let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
@@ -624,7 +553,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           cabinetName: 'Imported Cabinet',
           materialType: normalizedItem.material || normalizedItem.materialtype || normalizedItem.type || extractionSettings.defaultMaterial,
           thickness: parseFloat(normalizedItem.thickness) || extractionSettings.defaultThickness,
-          length: parseFloat(normalizedItem.length) || 0,
+          length: parseFloat(normalizedItem.length || normalizedItem.height) || 0,
           width: parseFloat(normalizedItem.width) || 0,
           quantity: parseInt(normalizedItem.quantity) || parseInt(normalizedItem.count) || 1,
           edgeBanding,
@@ -712,7 +641,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           <div className="mb-6 bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium text-gray-800 mb-3 flex items-center">
               <Sliders className="w-4 h-4 mr-2 text-gray-600" />
-              PDF Extraction Settings
+              PDF Column Mapping Settings
             </h4>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -760,15 +689,18 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
               
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Material Types to Detect (comma separated)
+                  Column Mapping Information
                 </label>
-                <input
-                  type="text"
-                  value={extractionSettings.materialPatterns.join(', ')}
-                  onChange={(e) => handleSettingChange('materialPatterns', e.target.value.split(',').map(s => s.trim()))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">The system will look for these material types in the PDF</p>
+                <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
+                  <p className="mb-2">The system will look for these column headers in your PDF:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Part Number:</strong> Num, Number, Part Number, Part No, Item</li>
+                    <li><strong>Length:</strong> Height, Length, Len, L</li>
+                    <li><strong>Width:</strong> Width, W, Wid</li>
+                    <li><strong>Quantity:</strong> Quantity, Qty, Count, Pcs</li>
+                    <li><strong>Edge Banding:</strong> Left Edge, Right Edge, Top Edge, Bottom Edge</li>
+                  </ul>
+                </div>
               </div>
             </div>
             
@@ -1038,9 +970,9 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       )}
       
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-900 mb-4">Excel Template Format</h3>
+        <h3 className="text-lg font-semibold text-blue-900 mb-4">Column Mapping Guide</h3>
         <p className="text-blue-800 mb-4">
-          For best results, use the Excel template provided above. The template includes the following columns:
+          For best results, your PDF should include these columns with the following information:
         </p>
         
         <div className="overflow-x-auto">
@@ -1055,46 +987,52 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
             </thead>
             <tbody className="divide-y divide-blue-100">
               <tr className="bg-white">
-                <td className="px-3 py-2 font-medium">Part Name</td>
-                <td className="px-3 py-2">Name or description of the part</td>
+                <td className="px-3 py-2 font-medium">Num</td>
+                <td className="px-3 py-2">Panel number or identifier</td>
                 <td className="px-3 py-2">Yes</td>
-                <td className="px-3 py-2">Side Panel</td>
+                <td className="px-3 py-2">1, 2, 3...</td>
               </tr>
               <tr className="bg-white">
-                <td className="px-3 py-2 font-medium">Length (mm)</td>
-                <td className="px-3 py-2">Length of the part in millimeters</td>
+                <td className="px-3 py-2 font-medium">Height</td>
+                <td className="px-3 py-2">Length of the panel in millimeters</td>
                 <td className="px-3 py-2">Yes</td>
                 <td className="px-3 py-2">720</td>
               </tr>
               <tr className="bg-white">
-                <td className="px-3 py-2 font-medium">Width (mm)</td>
-                <td className="px-3 py-2">Width of the part in millimeters</td>
+                <td className="px-3 py-2 font-medium">Width</td>
+                <td className="px-3 py-2">Width of the panel in millimeters</td>
                 <td className="px-3 py-2">Yes</td>
                 <td className="px-3 py-2">560</td>
               </tr>
               <tr className="bg-white">
-                <td className="px-3 py-2 font-medium">Thickness (mm)</td>
-                <td className="px-3 py-2">Thickness of the part in millimeters</td>
-                <td className="px-3 py-2">Yes</td>
-                <td className="px-3 py-2">18</td>
-              </tr>
-              <tr className="bg-white">
                 <td className="px-3 py-2 font-medium">Quantity</td>
-                <td className="px-3 py-2">Number of identical parts needed</td>
+                <td className="px-3 py-2">Number of identical panels needed</td>
                 <td className="px-3 py-2">Yes</td>
                 <td className="px-3 py-2">2</td>
               </tr>
               <tr className="bg-white">
-                <td className="px-3 py-2 font-medium">Material Type</td>
-                <td className="px-3 py-2">Type of material for the part</td>
+                <td className="px-3 py-2 font-medium">Left Edge</td>
+                <td className="px-3 py-2">Edge banding on left side</td>
                 <td className="px-3 py-2">No</td>
-                <td className="px-3 py-2">MDF1, 18.0</td>
+                <td className="px-3 py-2">Any value = TRUE, empty = FALSE</td>
               </tr>
               <tr className="bg-white">
-                <td className="px-3 py-2 font-medium">Grain Direction</td>
-                <td className="px-3 py-2">Direction of wood grain</td>
+                <td className="px-3 py-2 font-medium">Right Edge</td>
+                <td className="px-3 py-2">Edge banding on right side</td>
                 <td className="px-3 py-2">No</td>
-                <td className="px-3 py-2">Yes, No, Reserve Grain</td>
+                <td className="px-3 py-2">Any value = TRUE, empty = FALSE</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Bottom Edge</td>
+                <td className="px-3 py-2">Edge banding on back side</td>
+                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">Any value = TRUE, empty = FALSE</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Top Edge</td>
+                <td className="px-3 py-2">Edge banding on front side</td>
+                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">Any value = TRUE, empty = FALSE</td>
               </tr>
             </tbody>
           </table>
