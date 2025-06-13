@@ -65,6 +65,7 @@ const mockProjects = [
     id: 1,
     name: "Kitchen Renovation",
     description: "Complete kitchen cabinet project",
+    status: "in_progress",
     configurations: [
       {
         id: 1,
@@ -309,7 +310,7 @@ router.get('/projects', requirePermission('cabinet_calc.view'), async (req, res)
     }
 
     const projects = await db.all(`
-      SELECT id, name, description, configurations, created_by, created_at, updated_at
+      SELECT id, name, description, status, configurations, created_by, created_at, updated_at
       FROM cabinet_projects 
       ORDER BY name ASC
     `);
@@ -343,7 +344,7 @@ router.get('/projects/:id', requirePermission('cabinet_calc.view'), async (req, 
     }
     
     const project = await db.get(`
-      SELECT id, name, description, configurations, created_by, created_at, updated_at
+      SELECT id, name, description, status, configurations, created_by, created_at, updated_at
       FROM cabinet_projects 
       WHERE id = ?
     `, [id]);
@@ -373,7 +374,7 @@ router.get('/projects/:id', requirePermission('cabinet_calc.view'), async (req, 
 // Create a new project
 router.post('/projects', requirePermission('cabinet_calc.edit'), async (req, res) => {
   try {
-    const { name, description, configurations } = req.body;
+    const { name, description, status, configurations } = req.body;
     const userId = req.user.id;
     const dbReady = await isDatabaseReady();
 
@@ -384,11 +385,12 @@ router.post('/projects', requirePermission('cabinet_calc.edit'), async (req, res
 
     const result = await db.run(`
       INSERT INTO cabinet_projects (
-        name, description, configurations, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+        name, description, status, configurations, created_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `, [
       name,
       description,
+      status || 'draft',
       JSON.stringify(configurations || []),
       userId
     ]);
@@ -405,7 +407,7 @@ router.post('/projects', requirePermission('cabinet_calc.edit'), async (req, res
 router.put('/projects/:id', requirePermission('cabinet_calc.edit'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, configurations } = req.body;
+    const { name, description, status, configurations } = req.body;
     const dbReady = await isDatabaseReady();
 
     if (!dbReady) {
@@ -414,11 +416,12 @@ router.put('/projects/:id', requirePermission('cabinet_calc.edit'), async (req, 
 
     const result = await db.run(`
       UPDATE cabinet_projects 
-      SET name = ?, description = ?, configurations = ?, updated_at = datetime('now')
+      SET name = ?, description = ?, status = ?, configurations = ?, updated_at = datetime('now')
       WHERE id = ?
     `, [
       name,
       description,
+      status,
       JSON.stringify(configurations || []),
       id
     ]);
