@@ -118,6 +118,8 @@ const OrderManagement: React.FC = () => {
       setRequesters(data);
     } catch (error) {
       console.error('Failed to fetch requesters:', error);
+      // Set empty array to prevent further errors
+      setRequesters([]);
     }
   };
 
@@ -251,7 +253,7 @@ const OrderManagement: React.FC = () => {
       dueDate: order.dueDate.split('T')[0],
       description: order.description,
       notes: order.notes || '',
-      estimatedCost: order.estimatedCost,
+      estimatedCost: order.estimatedCost || 0,
       assignedTo: order.assignedTo,
       department: order.department
     });
@@ -479,11 +481,11 @@ const OrderManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        ${order.estimatedCost.toLocaleString()}
+                        ${(order.estimatedCost || 0).toLocaleString()}
                       </div>
-                      {order.actualCost > 0 && (
+                      {(order.actualCost || 0) > 0 && (
                         <div className="text-xs text-gray-500">
-                          Actual: ${order.actualCost.toLocaleString()}
+                          Actual: ${(order.actualCost || 0).toLocaleString()}
                         </div>
                       )}
                     </td>
@@ -504,7 +506,7 @@ const OrderManagement: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Layers className="w-4 h-4 text-gray-400 mr-1" />
-                        <span className="text-sm text-gray-900">{order.bomCount}</span>
+                        <span className="text-sm text-gray-900">{order.bomCount || 0}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -1033,9 +1035,9 @@ const OrderManagement: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Estimated Cost</label>
-                  <p className="text-lg font-semibold text-gray-900">${selectedOrder.estimatedCost.toLocaleString()}</p>
-                  {selectedOrder.actualCost > 0 && (
-                    <p className="text-sm text-gray-600">Actual: ${selectedOrder.actualCost.toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-gray-900">${(selectedOrder.estimatedCost || 0).toLocaleString()}</p>
+                  {(selectedOrder.actualCost || 0) > 0 && (
+                    <p className="text-sm text-gray-600">Actual: ${(selectedOrder.actualCost || 0).toLocaleString()}</p>
                   )}
                 </div>
               </div>

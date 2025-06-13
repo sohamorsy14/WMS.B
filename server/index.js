@@ -214,6 +214,65 @@ const mockDepartments = [
   }
 ];
 
+// Mock requesters data
+const mockRequesters = [
+  {
+    id: '1',
+    name: 'John Smith',
+    position: 'Production Manager',
+    department: 'Production',
+    email: 'john.smith@cabinet-wms.com',
+    phone: '(555) 123-4567',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    name: 'Sarah Johnson',
+    position: 'Quality Control Lead',
+    department: 'Quality Control',
+    email: 'sarah.johnson@cabinet-wms.com',
+    phone: '(555) 234-5678',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '3',
+    name: 'Mike Wilson',
+    position: 'Warehouse Supervisor',
+    department: 'Warehouse',
+    email: 'mike.wilson@cabinet-wms.com',
+    phone: '(555) 345-6789',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '4',
+    name: 'Emily Davis',
+    position: 'Design Lead',
+    department: 'Design',
+    email: 'emily.davis@cabinet-wms.com',
+    phone: '(555) 456-7890',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '5',
+    name: 'Robert Brown',
+    position: 'Maintenance Technician',
+    department: 'Maintenance',
+    email: 'robert.brown@cabinet-wms.com',
+    phone: '(555) 567-8901',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
 // Mock orders data
 const mockOrders = [
   {
@@ -222,9 +281,20 @@ const mockOrders = [
     customerName: 'Johnson Kitchen Renovation',
     customerEmail: 'johnson@email.com',
     customerPhone: '(555) 123-4567',
+    customerContact: 'johnson@email.com',
+    orderType: 'production',
+    priority: 'medium',
     status: 'confirmed',
     orderDate: new Date().toISOString(),
+    dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
     deliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    description: 'Kitchen renovation project',
+    notes: 'Kitchen renovation project',
+    estimatedCost: 2500.00,
+    actualCost: 0,
+    assignedTo: 'John Smith',
+    department: 'Production',
+    bomCount: 1,
     items: [
       {
         id: '1',
@@ -238,7 +308,6 @@ const mockOrders = [
     subtotal: 527.50,
     tax: 52.75,
     total: 580.25,
-    notes: 'Kitchen renovation project',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -248,9 +317,20 @@ const mockOrders = [
     customerName: 'Smith Bathroom Remodel',
     customerEmail: 'smith@email.com',
     customerPhone: '(555) 987-6543',
+    customerContact: 'smith@email.com',
+    orderType: 'custom',
+    priority: 'high',
     status: 'pending',
     orderDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
     deliveryDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+    description: 'Bathroom vanity project',
+    notes: 'Bathroom vanity project',
+    estimatedCost: 1500.00,
+    actualCost: 0,
+    assignedTo: 'Sarah Johnson',
+    department: 'Design',
+    bomCount: 0,
     items: [
       {
         id: '2',
@@ -264,7 +344,6 @@ const mockOrders = [
     subtotal: 194.50,
     tax: 19.45,
     total: 213.95,
-    notes: 'Bathroom vanity project',
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date().toISOString()
   }
@@ -623,6 +702,8 @@ app.post('/api/orders', (req, res) => {
   const newOrder = {
     id: Date.now().toString(),
     ...req.body,
+    bomCount: 0,
+    actualCost: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -750,6 +831,56 @@ app.delete('/api/departments/:id', (req, res) => {
     res.json({ success: true });
   } else {
     res.status(404).json({ error: 'Department not found' });
+  }
+});
+
+// Requesters routes
+app.get('/api/requesters', (req, res) => {
+  res.json(mockRequesters);
+});
+
+app.get('/api/requesters/:id', (req, res) => {
+  const requester = mockRequesters.find(r => r.id === req.params.id);
+  if (requester) {
+    res.json(requester);
+  } else {
+    res.status(404).json({ error: 'Requester not found' });
+  }
+});
+
+app.post('/api/requesters', (req, res) => {
+  const newRequester = {
+    id: Date.now().toString(),
+    ...req.body,
+    isActive: req.body.isActive !== false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockRequesters.push(newRequester);
+  res.json(newRequester);
+});
+
+app.put('/api/requesters/:id', (req, res) => {
+  const index = mockRequesters.findIndex(r => r.id === req.params.id);
+  if (index !== -1) {
+    mockRequesters[index] = {
+      ...mockRequesters[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockRequesters[index]);
+  } else {
+    res.status(404).json({ error: 'Requester not found' });
+  }
+});
+
+app.delete('/api/requesters/:id', (req, res) => {
+  const index = mockRequesters.findIndex(r => r.id === req.params.id);
+  if (index !== -1) {
+    mockRequesters.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Requester not found' });
   }
 });
 
