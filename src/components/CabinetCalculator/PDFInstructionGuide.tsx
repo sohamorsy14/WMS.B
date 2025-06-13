@@ -28,9 +28,9 @@ const PDFInstructionGuide: React.FC = () => {
               <li>Clear tabular format with headers</li>
               <li>Dimensions in format: 800×600×18</li>
               <li>Part names clearly labeled</li>
-              <li>Material types specified</li>
+              <li>Material column with entries like "MDF1, 18.0"</li>
+              <li>Grain column with entries like "Yes", "No", "Reserve Grain"</li>
               <li>Quantity for each part</li>
-              <li>Grain direction if applicable</li>
             </ul>
           </div>
           
@@ -44,7 +44,7 @@ const PDFInstructionGuide: React.FC = () => {
               <li>Complex layouts with multiple tables</li>
               <li>Unusual dimension formats</li>
               <li>Missing or ambiguous part names</li>
-              <li>Heavily formatted or designed documents</li>
+              <li>Missing material or grain information</li>
               <li>Password-protected PDFs</li>
             </ul>
           </div>
@@ -59,14 +59,42 @@ const PDFInstructionGuide: React.FC = () => {
             <pre className="whitespace-pre-wrap text-blue-900">
 {`Cutting List for Base Cabinet
 ---------------------------
-Part Name | Length × Width × Thickness | Material | Qty | Grain
-Side Panel | 720 × 560 × 18 | Plywood | 2 | Length
-Bottom Panel | 568 × 560 × 18 | Plywood | 1 | Length
-Top Panel | 568 × 560 × 18 | Plywood | 1 | Length
-Back Panel | 720 × 568 × 12 | Plywood | 1 | None
-Shelf | 568 × 540 × 18 | Plywood | 2 | Length
-Door | 720 × 300 × 18 | Melamine | 2 | Length`}
+Part Name | Length × Width × Thickness | Material | Grain | Qty
+Side Panel | 720 × 560 × 18 | MDF1, 18.0 | Yes | 2
+Bottom Panel | 568 × 560 × 18 | MDF1, 18.0 | No | 1
+Top Panel | 568 × 560 × 18 | MDF1, 18.0 | Reserve Grain | 1
+Back Panel | 720 × 568 × 12 | MDF1, 18.0 | No | 1
+Shelf | 568 × 540 × 18 | MDF1, 18.0 | Yes | 2
+Door | 720 × 300 × 18 | MDF1, 18.0 | Yes | 2`}
             </pre>
+          </div>
+        </div>
+        
+        <div>
+          <h4 className="font-medium text-gray-800 mb-2">Understanding Material and Grain Format</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <h5 className="text-sm font-medium text-gray-700 mb-2">Material Format</h5>
+              <p className="text-sm text-gray-600 mb-2">
+                When you find a column labeled "Material" with entries like "MDF1, 18.0", this means:
+              </p>
+              <ul className="list-disc pl-5 text-gray-600 text-sm">
+                <li><strong>Material type:</strong> MDF1</li>
+                <li><strong>Thickness:</strong> 18.0mm</li>
+              </ul>
+            </div>
+            
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <h5 className="text-sm font-medium text-gray-700 mb-2">Grain Direction Format</h5>
+              <p className="text-sm text-gray-600 mb-2">
+                When you find a column labeled "Grain" with entries like "Yes", "No", or "Reserve Grain", this means:
+              </p>
+              <ul className="list-disc pl-5 text-gray-600 text-sm">
+                <li><strong>Yes:</strong> Grain Direction Length</li>
+                <li><strong>No:</strong> No grain direction</li>
+                <li><strong>Reserve Grain:</strong> Grain Direction Width</li>
+              </ul>
+            </div>
           </div>
         </div>
         

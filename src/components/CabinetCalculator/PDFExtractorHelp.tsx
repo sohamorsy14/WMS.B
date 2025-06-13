@@ -36,7 +36,7 @@ const PDFExtractorHelp: React.FC = () => {
               <h4 className="font-medium text-blue-800">Pattern Matching</h4>
             </div>
             <p className="text-blue-700 text-sm">
-              The system searches for patterns that look like dimensions (e.g., 800×600×18), part names, and material types.
+              The system searches for patterns that look like dimensions, material types (MDF1, 18.0), and grain directions (Yes, No, Reserve Grain).
             </p>
           </div>
           
@@ -62,9 +62,9 @@ const PDFExtractorHelp: React.FC = () => {
               <pre className="whitespace-pre-wrap text-xs text-gray-600 bg-gray-50 p-2 rounded">
 {`Side Panel
 720 × 560 × 18
-Plywood
-Qty: 2
-Grain: Length`}
+Material: MDF1, 18.0
+Grain: Yes
+Qty: 2`}
               </pre>
             </div>
             
@@ -80,9 +80,10 @@ Grain: Length`}
                   <div className="text-xs text-green-800">
                     <p><strong>Part Name:</strong> Side Panel</p>
                     <p><strong>Dimensions:</strong> 720mm × 560mm × 18mm</p>
-                    <p><strong>Material:</strong> Plywood</p>
+                    <p><strong>Material:</strong> MDF1</p>
+                    <p><strong>Thickness:</strong> 18.0mm</p>
                     <p><strong>Quantity:</strong> 2</p>
-                    <p><strong>Grain Direction:</strong> Length</p>
+                    <p><strong>Grain Direction:</strong> Length (from "Yes")</p>
                   </div>
                 </div>
               </div>
@@ -106,7 +107,10 @@ Grain: Length`}
               <strong>Missing Information:</strong> If key information like dimensions is missing, items cannot be created.
             </li>
             <li>
-              <strong>Non-standard Units:</strong> The system works best with millimeters (mm) as the unit of measurement.
+              <strong>Non-standard Material Format:</strong> The system expects material format like "MDF1, 18.0".
+            </li>
+            <li>
+              <strong>Non-standard Grain Format:</strong> The system expects grain values like "Yes", "No", or "Reserve Grain".
             </li>
           </ul>
         </div>
@@ -117,8 +121,10 @@ Grain: Length`}
             <li>Use our Excel template to ensure your data is in the optimal format</li>
             <li>Export to PDF directly from Excel rather than scanning printed documents</li>
             <li>Use a simple, tabular format with clear headers</li>
-            <li>Include all necessary information: part name, dimensions, material, quantity</li>
+            <li>Include all necessary information: part name, dimensions, material, quantity, grain</li>
             <li>Use consistent formatting for dimensions (e.g., always use "×" between values)</li>
+            <li>Format material information as "MDF1, 18.0" where MDF1 is the material type and 18.0 is the thickness</li>
+            <li>Format grain direction as "Yes" for length, "No" for none, and "Reserve Grain" for width</li>
             <li>If extraction fails, try the alternative extraction method or use the Excel template directly</li>
           </ul>
         </div>

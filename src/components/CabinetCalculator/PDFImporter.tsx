@@ -33,7 +33,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
     dimensionPattern: '\\d+\\s*(?:x|×|X|\\*)\\s*\\d+\\s*(?:x|×|X|\\*)\\s*\\d+',
     numberPattern: '\\b(\\d+(?:\\.\\d+)?)\\s*(?:mm|cm|m)?\\b',
     materialPatterns: ['plywood', 'mdf', 'melamine', 'particleboard', 'solid\\s*wood', 'veneer', 'oak', 'maple', 'birch', 'pine', 'cherry', 'walnut'],
-    grainPatterns: ['grain.*length', 'grain.*width', 'grain.*long', 'grain.*cross'],
+    grainPatterns: ['grain.*length', 'grain.*width', 'grain.*long', 'grain.*cross', 'yes', 'no', 'reserve grain'],
     quantityPatterns: ['qty.*\\d+', 'quantity.*\\d+', 'count.*\\d+', '\\d+\\s*pcs', '\\d+\\s*pieces']
   });
   
@@ -142,6 +142,50 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
     // Split into lines and remove empty ones
     const lines = text.split('\n').filter(line => line.trim().length > 0);
     
+    // Look for material column header and grain column header
+    const materialColumnIndex = lines.findIndex(line => 
+      line.toLowerCase().includes('material') && line.match(/material/i)
+    );
+    
+    const grainColumnIndex = lines.findIndex(line => 
+      line.toLowerCase().includes('grain') && line.match(/grain/i)
+    );
+
+    // Process material and thickness information
+    let materialMap: Record<string, { type: string, thickness: number }> = {};
+    
+    if (materialColumnIndex !== -1) {
+      // Look for material entries like "MDF1, 18.0"
+      for (let i = materialColumnIndex + 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        const materialMatch = line.match(/([A-Za-z0-9]+),\s*([0-9.]+)/);
+        
+        if (materialMatch) {
+          const materialType = materialMatch[1];
+          const thickness = parseFloat(materialMatch[2]);
+          materialMap[materialType] = { type: materialType, thickness };
+        }
+      }
+    }
+    
+    // Process grain direction information
+    let grainMap: Record<string, 'length' | 'width' | 'none'> = {};
+    
+    if (grainColumnIndex !== -1) {
+      // Look for grain entries
+      for (let i = grainColumnIndex + 1; i < lines.length; i++) {
+        const line = lines[i].trim().toLowerCase();
+        
+        if (line.includes('no')) {
+          grainMap['no'] = 'none';
+        } else if (line.includes('yes')) {
+          grainMap['yes'] = 'length';
+        } else if (line.includes('reserve grain')) {
+          grainMap['reserve grain'] = 'width';
+        }
+      }
+    }
+    
     // Try to identify table structure or patterns in the PDF
     // Look for lines that contain dimensions (numbers followed by mm)
     const dimensionPattern = new RegExp(extractionSettings.dimensionPattern);
@@ -161,7 +205,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
       let partName = '';
       let quantity = 1;
       let materialType = extractionSettings.defaultMaterial;
-      let grain = extractionSettings.defaultGrain;
+      let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
       
       // First try to match a dimension pattern like 800x600x18
       const dimensionMatch = line.match(dimensionPattern);
@@ -211,6 +255,23 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         }
       }
       
+      // Look for material information in the line
+      for (const materialKey in materialMap) {
+        if (line.includes(materialKey)) {
+          materialType = materialMap[materialKey].type;
+          thickness = materialMap[materialKey].thickness;
+          break;
+        }
+      }
+      
+      // Look for grain information in the line
+      for (const grainKey in grainMap) {
+        if (line.toLowerCase().includes(grainKey.toLowerCase())) {
+          grain = grainMap[grainKey];
+          break;
+        }
+      }
+      
       // Try to extract quantity if it exists
       for (const pattern of extractionSettings.quantityPatterns) {
         const qtyMatch = line.match(new RegExp(pattern, 'i'));
@@ -223,24 +284,30 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         }
       }
       
-      // Try to extract material type
-      for (const pattern of extractionSettings.materialPatterns) {
-        const materialMatch = line.match(new RegExp(`\\b(${pattern})\\b`, 'i'));
-        if (materialMatch) {
-          materialType = materialMatch[1];
-          break;
+      // Try to extract material type if not already found
+      if (materialType === extractionSettings.defaultMaterial) {
+        for (const pattern of extractionSettings.materialPatterns) {
+          const materialMatch = line.match(new RegExp(`\\b(${pattern})\\b`, 'i'));
+          if (materialMatch) {
+            materialType = materialMatch[1];
+            break;
+          }
         }
       }
       
-      // Try to extract grain direction
-      for (const pattern of extractionSettings.grainPatterns) {
-        if (line.match(new RegExp(pattern, 'i'))) {
-          if (pattern.includes('length') || pattern.includes('long')) {
-            grain = 'length';
-          } else if (pattern.includes('width') || pattern.includes('cross')) {
-            grain = 'width';
+      // Try to extract grain direction if not already found
+      if (grain === extractionSettings.defaultGrain) {
+        for (const pattern of extractionSettings.grainPatterns) {
+          if (line.match(new RegExp(pattern, 'i'))) {
+            if (pattern.includes('length') || pattern.includes('long') || pattern === 'yes') {
+              grain = 'length';
+            } else if (pattern.includes('width') || pattern.includes('cross') || pattern === 'reserve grain') {
+              grain = 'width';
+            } else if (pattern === 'no') {
+              grain = 'none';
+            }
+            break;
           }
-          break;
         }
       }
       
@@ -349,8 +416,18 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         grainIndex = grainIndex >= 0 ? grainIndex : 6;
       }
       
-      const grain = values[grainIndex]?.toLowerCase()?.includes('length') ? 'length' : 
-                    values[grainIndex]?.toLowerCase()?.includes('width') ? 'width' : 'none';
+      // Process grain direction based on your specific format
+      let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
+      if (values[grainIndex]) {
+        const grainValue = values[grainIndex].toLowerCase();
+        if (grainValue === 'yes' || grainValue.includes('length')) {
+          grain = 'length';
+        } else if (grainValue === 'reserve grain' || grainValue.includes('width')) {
+          grain = 'width';
+        } else if (grainValue === 'no' || grainValue.includes('none')) {
+          grain = 'none';
+        }
+      }
       
       const item: CuttingListItem = {
         id: `imported-${i}-${Date.now()}`,
@@ -363,7 +440,7 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
         width: parseFloat(values[widthIndex]) || 0,
         quantity: parseInt(values[quantityIndex]) || 1,
         edgeBanding: { front: false, back: false, left: false, right: false },
-        grain: grain as 'length' | 'width' | 'none',
+        grain,
         priority: 1
       };
       
@@ -414,8 +491,16 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           return element ? element.textContent || '' : '';
         };
         
-        const grain = getValue('Grain')?.toLowerCase()?.includes('length') ? 'length' : 
-                      getValue('Grain')?.toLowerCase()?.includes('width') ? 'width' : extractionSettings.defaultGrain;
+        // Process grain direction based on your specific format
+        let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
+        const grainValue = getValue('Grain')?.toLowerCase() || '';
+        if (grainValue === 'yes' || grainValue.includes('length')) {
+          grain = 'length';
+        } else if (grainValue === 'reserve grain' || grainValue.includes('width')) {
+          grain = 'width';
+        } else if (grainValue === 'no' || grainValue.includes('none')) {
+          grain = 'none';
+        }
         
         const item: CuttingListItem = {
           id: `imported-${index}-${Date.now()}`,
@@ -519,12 +604,17 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
           edgeBanding.right = !!normalizedItem.edgeright || !!normalizedItem.rightedge;
         }
         
-        // Determine grain direction
+        // Process grain direction based on your specific format
         let grain: 'length' | 'width' | 'none' = extractionSettings.defaultGrain;
         if (normalizedItem.grain) {
           const grainValue = normalizedItem.grain.toString().toLowerCase();
-          grain = grainValue.includes('length') ? 'length' : 
-                 grainValue.includes('width') ? 'width' : extractionSettings.defaultGrain;
+          if (grainValue === 'yes' || grainValue.includes('length')) {
+            grain = 'length';
+          } else if (grainValue === 'reserve grain' || grainValue.includes('width')) {
+            grain = 'width';
+          } else if (grainValue === 'no' || grainValue.includes('none')) {
+            grain = 'none';
+          }
         }
         
         return {
@@ -998,13 +1088,13 @@ const PDFImporter: React.FC<PDFImporterProps> = ({ onImport }) => {
                 <td className="px-3 py-2 font-medium">Material Type</td>
                 <td className="px-3 py-2">Type of material for the part</td>
                 <td className="px-3 py-2">No</td>
-                <td className="px-3 py-2">Plywood</td>
+                <td className="px-3 py-2">MDF1, 18.0</td>
               </tr>
               <tr className="bg-white">
                 <td className="px-3 py-2 font-medium">Grain Direction</td>
                 <td className="px-3 py-2">Direction of wood grain</td>
                 <td className="px-3 py-2">No</td>
-                <td className="px-3 py-2">length</td>
+                <td className="px-3 py-2">Yes, No, Reserve Grain</td>
               </tr>
             </tbody>
           </table>

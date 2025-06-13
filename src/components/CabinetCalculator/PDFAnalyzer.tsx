@@ -22,8 +22,14 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
   // Find patterns in the text that might be dimensions
   const dimensionPatterns = pdfText.match(/\d+\s*[x×*]\s*\d+\s*[x×*]\s*\d+/g) || [];
   const numberPatterns = pdfText.match(/\b\d+(?:\.\d+)?\s*(?:mm|cm|m)?\b/g) || [];
-  const materialPatterns = pdfText.match(/\b(?:plywood|mdf|melamine|particleboard|solid\s*wood|veneer|oak|maple|birch|pine|cherry|walnut)\b/gi) || [];
-  const grainPatterns = pdfText.match(/\bgrain\s*(?:direction)?\s*(?:length|width|long|cross)\b/gi) || [];
+  
+  // Look for material column and entries
+  const materialColumnIndex = pdfText.toLowerCase().indexOf('material');
+  const materialEntries = pdfText.match(/[A-Za-z0-9]+,\s*[0-9.]+/g) || [];
+  
+  // Look for grain column and entries
+  const grainColumnIndex = pdfText.toLowerCase().indexOf('grain');
+  const grainEntries = pdfText.match(/(?:No|Yes|Reserve Grain)/gi) || [];
   
   // Filter text by search term
   const filteredText = searchTerm 
@@ -141,15 +147,18 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
             <div>
               <h4 className="font-medium text-gray-800 mb-2 flex items-center">
                 <Info className="w-4 h-4 mr-2 text-blue-600" />
-                Material Types Found
+                Material Information Found
               </h4>
-              {materialPatterns.length > 0 ? (
+              {materialColumnIndex !== -1 || materialEntries.length > 0 ? (
                 <div className="bg-green-50 p-3 rounded-lg">
-                  <p className="text-sm text-green-800 mb-2">Found {materialPatterns.length} material references:</p>
+                  <p className="text-sm text-green-800 mb-2">
+                    {materialColumnIndex !== -1 ? "Found 'Material' column" : ""}
+                    {materialEntries.length > 0 ? ` and ${materialEntries.length} material entries` : ""}
+                  </p>
                   <div className="max-h-32 overflow-y-auto">
-                    {Array.from(new Set(materialPatterns)).slice(0, 10).map((pattern, index) => (
+                    {materialEntries.slice(0, 10).map((entry, index) => (
                       <div key={index} className="text-xs bg-green-100 rounded px-2 py-1 mb-1 inline-block mr-1">
-                        {pattern}
+                        {entry}
                       </div>
                     ))}
                   </div>
@@ -158,7 +167,67 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
                 <div className="bg-yellow-50 p-3 rounded-lg">
                   <p className="text-sm text-yellow-800 flex items-center">
                     <AlertCircle className="w-4 h-4 mr-2" />
-                    No material types found (e.g., Plywood, MDF)
+                    No material information found (e.g., MDF1, 18.0)
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <h4 className="font-medium text-gray-800 mb-2 flex items-center">
+                <Info className="w-4 h-4 mr-2 text-blue-600" />
+                Grain Direction Information
+              </h4>
+              {grainColumnIndex !== -1 || grainEntries.length > 0 ? (
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-green-800 mb-2">
+                    {grainColumnIndex !== -1 ? "Found 'Grain' column" : ""}
+                    {grainEntries.length > 0 ? ` and ${grainEntries.length} grain entries` : ""}
+                  </p>
+                  <div className="max-h-32 overflow-y-auto">
+                    {grainEntries.slice(0, 10).map((entry, index) => (
+                      <div key={index} className="text-xs bg-green-100 rounded px-2 py-1 mb-1 inline-block mr-1">
+                        {entry}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    No grain direction information found (e.g., Yes, No, Reserve Grain)
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <h4 className="font-medium text-gray-800 mb-2 flex items-center">
+                <Info className="w-4 h-4 mr-2 text-blue-600" />
+                Numeric Values Found
+              </h4>
+              {numberPatterns.length > 0 ? (
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-2">Found {numberPatterns.length} numeric values:</p>
+                  <div className="max-h-32 overflow-y-auto">
+                    {Array.from(new Set(numberPatterns)).slice(0, 15).map((pattern, index) => (
+                      <div key={index} className="text-xs bg-blue-100 rounded px-2 py-1 mb-1 inline-block mr-1">
+                        {pattern}
+                      </div>
+                    ))}
+                    {numberPatterns.length > 15 && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        ...and {numberPatterns.length - 15} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    No numeric values found
                   </p>
                 </div>
               )}
@@ -185,6 +254,7 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
                         <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Part Name</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Dimensions</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Material</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Grain</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-green-800 uppercase">Qty</th>
                       </tr>
                     </thead>
@@ -194,12 +264,13 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
                           <td className="px-3 py-2 font-medium text-gray-900">{item.partName}</td>
                           <td className="px-3 py-2 text-gray-700">{item.length} × {item.width} × {item.thickness}mm</td>
                           <td className="px-3 py-2 text-gray-700">{item.materialType}</td>
+                          <td className="px-3 py-2 text-gray-700 capitalize">{item.grain}</td>
                           <td className="px-3 py-2 text-gray-700">{item.quantity}</td>
                         </tr>
                       ))}
                       {parsedItems.length > 5 && (
                         <tr className="bg-white">
-                          <td colSpan={4} className="px-3 py-2 text-center text-gray-500">
+                          <td colSpan={5} className="px-3 py-2 text-center text-gray-500">
                             ...and {parsedItems.length - 5} more items
                           </td>
                         </tr>
@@ -236,7 +307,7 @@ const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({ pdfText, parsedItems, onAnaly
               <li>Use the Excel template for best results</li>
               <li>Ensure your PDF has text (not just images)</li>
               <li>Make sure dimensions are clearly formatted (e.g., 800×600×18 or 800mm × 600mm × 18mm)</li>
-              <li>Include material types and grain directions in your cutting list</li>
+              <li>Include material types (e.g., MDF1, 18.0) and grain directions (Yes, No, Reserve Grain) in your cutting list</li>
               <li>If extraction fails, try adjusting the advanced settings or use the Excel template directly</li>
             </ul>
           </div>
