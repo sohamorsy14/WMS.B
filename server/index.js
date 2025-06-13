@@ -121,6 +121,7 @@ const mockUsers = [
   }
 ];
 
+// Mock suppliers data
 const mockSuppliers = [
   {
     id: '1',
@@ -151,26 +152,66 @@ const mockSuppliers = [
     address: '789 Laminate Dr, Finish City, FC 11111',
     isActive: true,
     createdAt: new Date().toISOString()
+  }
+];
+
+// Mock purchase orders data
+const mockPurchaseOrders = [
+  {
+    id: '1',
+    poNumber: 'PO-2024-0001',
+    supplier: 'Wood Supply Co.',
+    status: 'approved',
+    items: [
+      {
+        id: '1',
+        itemId: 'PLY-18-4X8',
+        itemName: 'Plywood 18mm 4x8ft',
+        quantity: 50,
+        unitCost: 52.75,
+        totalCost: 2637.50
+      },
+      {
+        id: '2',
+        itemId: 'MDF-18-4X8',
+        itemName: 'MDF 18mm 4x8ft',
+        quantity: 30,
+        unitCost: 38.90,
+        totalCost: 1167.00
+      }
+    ],
+    subtotal: 3804.50,
+    tax: 380.45,
+    total: 4184.95,
+    orderDate: new Date().toISOString(),
+    expectedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    notes: 'Urgent delivery required for production schedule',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
-    id: '4',
-    name: 'Cabinet Hardware Direct',
-    contactPerson: 'Lisa Chen',
-    phone: '(555) 321-9876',
-    email: 'sales@cabinethardware.com',
-    address: '321 Hardware Plaza, Component City, CC 22222',
-    isActive: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '5',
-    name: 'Premium Wood Products',
-    contactPerson: 'Robert Davis',
-    phone: '(555) 654-3210',
-    email: 'info@premiumwood.com',
-    address: '654 Lumber Lane, Wood Valley, WV 33333',
-    isActive: true,
-    createdAt: new Date().toISOString()
+    id: '2',
+    poNumber: 'PO-2024-0002',
+    supplier: 'Hardware Plus',
+    status: 'pending',
+    items: [
+      {
+        id: '3',
+        itemId: 'HNG-CONC-35',
+        itemName: 'Concealed Hinges 35mm',
+        quantity: 200,
+        unitCost: 3.25,
+        totalCost: 650.00
+      }
+    ],
+    subtotal: 650.00,
+    tax: 65.00,
+    total: 715.00,
+    orderDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    expectedDelivery: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+    notes: 'Standard delivery terms',
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];
 
@@ -260,7 +301,7 @@ app.delete('/api/inventory/products/:id', (req, res) => {
   }
 });
 
-// Supplier routes
+// Suppliers routes
 app.get('/api/suppliers', (req, res) => {
   res.json(mockSuppliers);
 });
@@ -278,7 +319,7 @@ app.post('/api/suppliers', (req, res) => {
   const newSupplier = {
     id: Date.now().toString(),
     ...req.body,
-    isActive: true,
+    isActive: req.body.isActive !== false,
     createdAt: new Date().toISOString()
   };
   mockSuppliers.push(newSupplier);
@@ -290,7 +331,8 @@ app.put('/api/suppliers/:id', (req, res) => {
   if (index !== -1) {
     mockSuppliers[index] = {
       ...mockSuppliers[index],
-      ...req.body
+      ...req.body,
+      updatedAt: new Date().toISOString()
     };
     res.json(mockSuppliers[index]);
   } else {
@@ -305,6 +347,69 @@ app.delete('/api/suppliers/:id', (req, res) => {
     res.json({ success: true });
   } else {
     res.status(404).json({ error: 'Supplier not found' });
+  }
+});
+
+// Purchase Orders routes
+app.get('/api/purchase-orders', (req, res) => {
+  res.json(mockPurchaseOrders);
+});
+
+app.get('/api/purchase-orders/:id', (req, res) => {
+  const po = mockPurchaseOrders.find(p => p.id === req.params.id);
+  if (po) {
+    res.json(po);
+  } else {
+    res.status(404).json({ error: 'Purchase order not found' });
+  }
+});
+
+app.post('/api/purchase-orders', (req, res) => {
+  const newPO = {
+    id: Date.now().toString(),
+    ...req.body,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockPurchaseOrders.push(newPO);
+  res.json(newPO);
+});
+
+app.put('/api/purchase-orders/:id', (req, res) => {
+  const index = mockPurchaseOrders.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockPurchaseOrders[index] = {
+      ...mockPurchaseOrders[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockPurchaseOrders[index]);
+  } else {
+    res.status(404).json({ error: 'Purchase order not found' });
+  }
+});
+
+app.delete('/api/purchase-orders/:id', (req, res) => {
+  const index = mockPurchaseOrders.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockPurchaseOrders.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Purchase order not found' });
+  }
+});
+
+app.patch('/api/purchase-orders/:id/approve', (req, res) => {
+  const index = mockPurchaseOrders.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockPurchaseOrders[index] = {
+      ...mockPurchaseOrders[index],
+      status: 'approved',
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockPurchaseOrders[index]);
+  } else {
+    res.status(404).json({ error: 'Purchase order not found' });
   }
 });
 
@@ -340,7 +445,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Dashboard API: http://localhost:${PORT}/api/dashboard/stats`);
   console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth/login`);
   console.log(`📦 Inventory API: http://localhost:${PORT}/api/inventory/products`);
-  console.log(`🏭 Suppliers API: http://localhost:${PORT}/api/suppliers`);
   console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
 });
 
