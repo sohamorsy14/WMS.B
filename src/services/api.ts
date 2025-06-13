@@ -30,21 +30,22 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Helper function to check if error is due to server unavailability
+const isServerUnavailable = (error: any) => {
+  return axios.isAxiosError(error) && 
+    (error.code === 'ECONNREFUSED' || 
+     error.code === 'ERR_NETWORK' || 
+     error.message.includes('Network Error') ||
+     (error.response && error.response.status >= 500));
+};
+
 // Add response interceptor for better error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error);
     
-    // Check if error is due to server not being available
-    const isServerUnavailable = 
-      axios.isAxiosError(error) && 
-      (error.code === 'ECONNREFUSED' || 
-       error.code === 'ERR_NETWORK' || 
-       error.message.includes('Network Error') ||
-       (error.response && error.response.status >= 500));
-    
-    if (isServerUnavailable) {
+    if (isServerUnavailable(error)) {
       console.log('Server unavailable, using mock data');
       // Let the specific service methods handle the fallback
       return Promise.reject({ ...error, isServerUnavailable: true });
@@ -104,11 +105,7 @@ export const cabinetService = {
       console.error('Failed to create BOM:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: `bom-${Date.now()}`,
           bomNumber: `BOM-${Date.now().toString().slice(-6)}`,
@@ -175,11 +172,7 @@ export const cabinetService = {
       console.error('Failed to create order:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: `order-${Date.now()}`,
           orderNumber: `ORD-${Date.now().toString().slice(-6)}`,
@@ -212,11 +205,7 @@ export const cabinetService = {
       console.error('Failed to optimize nesting:', error);
       
       // Return empty array if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [];
       }
       
@@ -234,11 +223,8 @@ export const inventoryService = {
       console.error('Failed to fetch inventory items:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
+        console.log('Using mock inventory data - server unavailable');
         return [
           {
             id: '1',
@@ -287,6 +273,38 @@ export const inventoryService = {
             minStockLevel: 100,
             maxStockLevel: 1000,
             lastUpdated: new Date().toISOString(),
+          },
+          {
+            id: '4',
+            itemId: 'SLD-18-FULL',
+            name: 'Full Extension Slides 18"',
+            category: 'Hardware',
+            subCategory: 'Drawer Hardware',
+            quantity: 125,
+            unitCost: 12.50,
+            totalCost: 1562.50,
+            location: 'B-1-02',
+            supplier: 'Hardware Plus',
+            unitMeasurement: 'Pieces (pcs)',
+            minStockLevel: 50,
+            maxStockLevel: 500,
+            lastUpdated: new Date().toISOString(),
+          },
+          {
+            id: '5',
+            itemId: 'MEL-WHT-4X8',
+            name: 'White Melamine 4x8ft',
+            category: 'Panels',
+            subCategory: 'Finished Panels',
+            quantity: 28,
+            unitCost: 68.50,
+            totalCost: 1918.00,
+            location: 'A-2-01',
+            supplier: 'Laminate Plus',
+            unitMeasurement: 'Sheets (sht)',
+            minStockLevel: 15,
+            maxStockLevel: 75,
+            lastUpdated: new Date().toISOString(),
           }
         ];
       }
@@ -303,11 +321,7 @@ export const inventoryService = {
       console.error('Failed to fetch inventory item:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           itemId: 'PLY-18-4X8',
@@ -338,11 +352,7 @@ export const inventoryService = {
       console.error('Failed to create inventory item:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...item,
@@ -363,11 +373,7 @@ export const inventoryService = {
       console.error('Failed to update inventory item:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...item,
@@ -387,11 +393,7 @@ export const inventoryService = {
       console.error('Failed to delete inventory item:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Mock delete - server unavailable');
         return;
       }
@@ -412,11 +414,7 @@ export const inventoryService = {
       console.error('Failed to import from Excel:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return { success: true, count: 0 };
       }
       
@@ -434,11 +432,7 @@ export const inventoryService = {
       console.error('Failed to export to PDF:', error);
       
       // Return empty blob if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return new Blob([''], { type: 'application/pdf' });
       }
       
@@ -456,11 +450,8 @@ export const purchaseOrderService = {
       console.error('Failed to fetch purchase orders:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
+        console.log('Using mock purchase orders data - server unavailable');
         return [
           {
             id: '1',
@@ -564,11 +555,7 @@ export const purchaseOrderService = {
       console.error('Failed to fetch purchase order:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           poNumber: `PO-2024-${id}`,
@@ -596,11 +583,7 @@ export const purchaseOrderService = {
       console.error('Failed to create purchase order:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...po,
@@ -621,11 +604,7 @@ export const purchaseOrderService = {
       console.error('Failed to update purchase order:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...po,
@@ -644,11 +623,7 @@ export const purchaseOrderService = {
       console.error('Failed to delete purchase order:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Purchase order deleted (mock)');
         return;
       }
@@ -665,11 +640,7 @@ export const purchaseOrderService = {
       console.error('Failed to approve purchase order:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           status: 'approved',
@@ -691,11 +662,8 @@ export const supplierService = {
       console.error('Failed to fetch suppliers:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
+        console.log('Using mock suppliers data - server unavailable');
         return [
           {
             id: '1',
@@ -726,6 +694,26 @@ export const supplierService = {
             address: '789 Laminate Dr, Finish City, FC 11111',
             isActive: true,
             createdAt: new Date().toISOString()
+          },
+          {
+            id: '4',
+            name: 'Cabinet Hardware Direct',
+            contactPerson: 'Lisa Chen',
+            phone: '(555) 321-9876',
+            email: 'sales@cabinethardware.com',
+            address: '321 Hardware Plaza, Component City, CC 22222',
+            isActive: true,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: '5',
+            name: 'Premium Wood Products',
+            contactPerson: 'Robert Davis',
+            phone: '(555) 654-3210',
+            email: 'info@premiumwood.com',
+            address: '654 Lumber Lane, Wood Valley, WV 33333',
+            isActive: true,
+            createdAt: new Date().toISOString()
           }
         ];
       }
@@ -742,11 +730,7 @@ export const supplierService = {
       console.error('Failed to create supplier:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...supplier,
@@ -767,11 +751,7 @@ export const supplierService = {
       console.error('Failed to update supplier:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...supplier,
@@ -790,11 +770,7 @@ export const supplierService = {
       console.error('Failed to delete supplier:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Supplier deleted (mock)');
         return;
       }
@@ -813,11 +789,7 @@ export const dashboardService = {
       console.error('Failed to fetch dashboard stats:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         const recentActivity = [
           { id: 1, action: 'Product Added', item: 'Kitchen Cabinet Set A', timestamp: new Date().toISOString() },
           { id: 2, action: 'Stock Updated', item: 'Bathroom Vanity B', timestamp: new Date(Date.now() - 3600000).toISOString() },
@@ -851,11 +823,7 @@ export const requesterService = {
       console.error('Failed to fetch requesters:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [
           {
             id: '1',
@@ -902,11 +870,7 @@ export const requesterService = {
       console.error('Failed to create requester:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...requester,
@@ -927,11 +891,7 @@ export const requesterService = {
       console.error('Failed to update requester:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...requester,
@@ -950,11 +910,7 @@ export const requesterService = {
       console.error('Failed to delete requester:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Requester deleted (mock)');
         return;
       }
@@ -973,11 +929,7 @@ export const departmentService = {
       console.error('Failed to fetch departments:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [
           {
             id: '1',
@@ -1024,11 +976,7 @@ export const departmentService = {
       console.error('Failed to create department:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...department,
@@ -1049,11 +997,7 @@ export const departmentService = {
       console.error('Failed to update department:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...department,
@@ -1072,11 +1016,7 @@ export const departmentService = {
       console.error('Failed to delete department:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Department deleted (mock)');
         return;
       }
@@ -1095,11 +1035,7 @@ export const costCenterService = {
       console.error('Failed to fetch cost centers:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [
           {
             id: '1',
@@ -1144,11 +1080,7 @@ export const costCenterService = {
       console.error('Failed to create cost center:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...costCenter,
@@ -1171,11 +1103,7 @@ export const costCenterService = {
       console.error('Failed to update cost center:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...costCenter,
@@ -1194,11 +1122,7 @@ export const costCenterService = {
       console.error('Failed to delete cost center:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Cost center deleted (mock)');
         return;
       }
@@ -1217,11 +1141,7 @@ export const reportService = {
       console.error('Failed to fetch reports:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [];
       }
       
@@ -1237,11 +1157,7 @@ export const reportService = {
       console.error('Failed to generate report:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           name: `${type} Report - ${new Date().toLocaleDateString()}`,
@@ -1267,11 +1183,7 @@ export const reportService = {
       console.error('Failed to delete report:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Report deleted (mock)');
         return;
       }
@@ -1288,11 +1200,7 @@ export const reportService = {
       console.error('Failed to fetch inventory valuation:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [];
       }
       
@@ -1308,11 +1216,7 @@ export const reportService = {
       console.error('Failed to fetch purchase history:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [];
       }
       
@@ -1330,11 +1234,7 @@ export const orderService = {
       console.error('Failed to fetch orders:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [
           {
             id: '1',
@@ -1389,11 +1289,7 @@ export const orderService = {
       console.error('Failed to create order:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...order,
@@ -1416,11 +1312,7 @@ export const orderService = {
       console.error('Failed to update order:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...order,
@@ -1439,11 +1331,7 @@ export const orderService = {
       console.error('Failed to delete order:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Order deleted (mock)');
         return;
       }
@@ -1462,11 +1350,7 @@ export const bomService = {
       console.error('Failed to fetch BOMs:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [
           {
             id: '1',
@@ -1553,11 +1437,7 @@ export const bomService = {
       console.error('Failed to create BOM:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...bom,
@@ -1581,11 +1461,7 @@ export const bomService = {
       console.error('Failed to update BOM:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...bom,
@@ -1604,11 +1480,7 @@ export const bomService = {
       console.error('Failed to delete BOM:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('BOM deleted (mock)');
         return;
       }
@@ -1625,11 +1497,7 @@ export const bomService = {
       console.error('Failed to fetch linked BOMs:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         // Return filtered mock data
         const allBoms = await this.getAll();
         return allBoms.filter(bom => bom.linkedType === linkedType && bom.linkedId === linkedId);
@@ -1649,11 +1517,7 @@ export const prototypeService = {
       console.error('Failed to fetch prototypes:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return [
           {
             id: '1',
@@ -1697,11 +1561,7 @@ export const prototypeService = {
       console.error('Failed to create prototype:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id: Date.now().toString(),
           ...prototype,
@@ -1723,11 +1583,7 @@ export const prototypeService = {
       console.error('Failed to update prototype:', error);
       
       // Return mock data if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         return {
           id,
           ...prototype,
@@ -1746,11 +1602,7 @@ export const prototypeService = {
       console.error('Failed to delete prototype:', error);
       
       // Just log if server is unavailable
-      if (axios.isAxiosError(error) && 
-          (error.code === 'ECONNREFUSED' || 
-           error.code === 'ERR_NETWORK' || 
-           error.message.includes('Network Error') ||
-           (error.response && error.response.status >= 500))) {
+      if (isServerUnavailable(error)) {
         console.log('Prototype deleted (mock)');
         return;
       }
