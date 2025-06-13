@@ -1,7 +1,11 @@
-import React, { useState, useCallback } from 'react';
-import { Upload, File, FileText, AlertCircle, Check, X, Info } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { Upload, File, FileText, AlertCircle, Check, X, Info, FileType, Download } from 'lucide-react';
 import { CuttingListItem } from '../../types/cabinet';
 import toast from 'react-hot-toast';
+import * as pdfjs from 'pdfjs-dist';
+
+// Set the worker source
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface CuttingListImporterProps {
   onImport: (cuttingList: CuttingListItem[]) => void;
@@ -13,6 +17,10 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
   const [parsedItems, setParsedItems] = useState<CuttingListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pdfText, setPdfText] = useState<string | null>(null);
+  const [pdfPages, setPdfPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -24,21 +32,61 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
     setIsDragging(false);
   }, []);
 
+  const extractTextFromPdf = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+      setPdfPages(pdf.numPages);
+      
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+      
+      return fullText;
+    } catch (error) {
+      console.error('Error extracting text from PDF:', error);
+      throw new Error('Failed to extract text from PDF');
+    }
+  };
+
   const processFile = useCallback(async (file: File) => {
     setIsProcessing(true);
     setError(null);
     
     try {
-      const text = await file.text();
-      const items = parseFileContent(text, file.name);
-      
-      if (items.length === 0) {
-        setError('No valid cutting list items found in the file');
-        setParsedItems([]);
-        return;
+      if (file.type === 'application/pdf') {
+        // Process PDF file
+        const text = await extractTextFromPdf(file);
+        setPdfText(text);
+        
+        // Try to parse the extracted text as a cutting list
+        const items = parsePdfText(text);
+        
+        if (items.length === 0) {
+          setError('No valid cutting list items found in the PDF. Try adjusting the format or use CSV/XML/JSON instead.');
+          setParsedItems([]);
+          return;
+        }
+        
+        setParsedItems(items);
+      } else {
+        // Process other file types
+        const text = await file.text();
+        const items = parseFileContent(text, file.name);
+        
+        if (items.length === 0) {
+          setError('No valid cutting list items found in the file');
+          setParsedItems([]);
+          return;
+        }
+        
+        setParsedItems(items);
       }
       
-      setParsedItems(items);
       setFile(file);
     } catch (err) {
       console.error('Error parsing file:', err);
@@ -68,6 +116,124 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
     }
   }, [processFile]);
 
+  const parsePdfText = (text: string): CuttingListItem[] => {
+    // This function attempts to extract cutting list items from PDF text
+    // It uses various heuristics to identify parts, dimensions, etc.
+    
+    const items: CuttingListItem[] = [];
+    
+    // Split into lines and remove empty ones
+    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    
+    // Try to identify table structure or patterns in the PDF
+    // Look for lines that contain dimensions (numbers followed by mm)
+    const dimensionPattern = /(\d+(?:\.\d+)?)\s*(?:x|×|X|\*)\s*(\d+(?:\.\d+)?)\s*(?:x|×|X|\*)\s*(\d+(?:\.\d+)?)/;
+    const numberPattern = /\b(\d+(?:\.\d+)?)\s*(?:mm|cm|m)?\b/g;
+    
+    // Try to identify part names and dimensions
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip lines that are too short or don't contain numbers
+      if (line.length < 5 || !/\d/.test(line)) continue;
+      
+      // Try to extract dimensions using pattern matching
+      let length = 0;
+      let width = 0;
+      let thickness = 18; // Default thickness
+      let partName = '';
+      let quantity = 1;
+      let materialType = 'Plywood';
+      
+      // First try to match a dimension pattern like 800x600x18
+      const dimensionMatch = line.match(dimensionPattern);
+      if (dimensionMatch) {
+        length = parseFloat(dimensionMatch[1]);
+        width = parseFloat(dimensionMatch[2]);
+        thickness = parseFloat(dimensionMatch[3]);
+        
+        // Try to extract part name from before the dimensions
+        const beforeDimensions = line.split(dimensionMatch[0])[0].trim();
+        if (beforeDimensions) {
+          partName = beforeDimensions;
+        } else {
+          // If no name before dimensions, look for it after
+          const afterDimensions = line.split(dimensionMatch[0])[1]?.trim();
+          if (afterDimensions) {
+            partName = afterDimensions;
+          }
+        }
+      } else {
+        // If no dimension pattern, try to extract individual numbers
+        const numbers = [];
+        let match;
+        while ((match = numberPattern.exec(line)) !== null) {
+          numbers.push(parseFloat(match[1]));
+        }
+        
+        // If we found at least 2 numbers, assume they're length and width
+        if (numbers.length >= 2) {
+          // Sort numbers in descending order (typically length > width > thickness)
+          numbers.sort((a, b) => b - a);
+          length = numbers[0];
+          width = numbers[1];
+          
+          if (numbers.length >= 3) {
+            thickness = numbers[2];
+          }
+          
+          // Try to extract part name by removing numbers and units
+          partName = line.replace(/\b\d+(?:\.\d+)?\s*(?:mm|cm|m)?\b/g, '').trim();
+        }
+      }
+      
+      // Try to extract quantity if it exists
+      const qtyMatch = line.match(/\b(?:qty|quantity|count)?\s*(?::|=|-)?\s*(\d+)\b/i);
+      if (qtyMatch) {
+        quantity = parseInt(qtyMatch[1]);
+      }
+      
+      // Try to extract material type
+      const materialPatterns = [
+        /\b(plywood|mdf|melamine|particleboard|solid\s*wood|veneer)\b/i,
+        /\b(oak|maple|birch|pine|cherry|walnut)\b/i
+      ];
+      
+      for (const pattern of materialPatterns) {
+        const materialMatch = line.match(pattern);
+        if (materialMatch) {
+          materialType = materialMatch[1];
+          break;
+        }
+      }
+      
+      // Only add if we have valid dimensions and a part name
+      if (length > 0 && width > 0 && thickness > 0) {
+        // Clean up part name if it's still messy
+        if (!partName || partName.length < 2) {
+          partName = `Part ${i + 1}`;
+        }
+        
+        items.push({
+          id: `imported-${i}-${Date.now()}`,
+          partName: partName,
+          cabinetId: 'imported',
+          cabinetName: 'Imported Cabinet',
+          materialType,
+          thickness,
+          length,
+          width,
+          quantity,
+          edgeBanding: { front: false, back: false, left: false, right: false },
+          grain: 'none' as 'length' | 'width' | 'none',
+          priority: 1
+        });
+      }
+    }
+    
+    return items;
+  };
+
   const parseFileContent = (content: string, fileName: string): CuttingListItem[] => {
     // Detect file type based on extension or content
     const isCSV = fileName.toLowerCase().endsWith('.csv');
@@ -87,7 +253,7 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
       } else if (content.includes('<') && content.includes('>')) {
         return parseXML(content);
       } else {
-        throw new Error('Unsupported file format. Please use CSV, XML, or JSON files.');
+        throw new Error('Unsupported file format. Please use PDF, CSV, XML, or JSON files.');
       }
     }
   };
@@ -341,6 +507,7 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
       toast.success(`Successfully imported ${parsedItems.length} cutting list items`);
       setFile(null);
       setParsedItems([]);
+      setPdfText(null);
     } else {
       toast.error('No valid items to import');
     }
@@ -350,6 +517,25 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
     setFile(null);
     setParsedItems([]);
     setError(null);
+    setPdfText(null);
+  };
+
+  const handleManualExtract = () => {
+    if (pdfText) {
+      try {
+        // Try to parse the PDF text again with manual intervention
+        const items = parsePdfText(pdfText);
+        if (items.length > 0) {
+          setParsedItems(items);
+          setError(null);
+        } else {
+          setError('Could not extract cutting list items from the PDF text');
+        }
+      } catch (err) {
+        console.error('Error parsing PDF text:', err);
+        setError(err instanceof Error ? err.message : 'Failed to parse PDF text');
+      }
+    }
   };
 
   return (
@@ -371,8 +557,9 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
             <input
               type="file"
               id="file-upload"
+              ref={fileInputRef}
               className="hidden"
-              accept=".csv,.xml,.json,.txt"
+              accept=".csv,.xml,.json,.txt,.pdf"
               onChange={handleFileChange}
             />
             <label
@@ -383,17 +570,24 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
             </label>
             
             <div className="mt-6 text-sm text-gray-500">
-              <p>Supported file formats: CSV, XML, JSON</p>
+              <p>Supported file formats: PDF, CSV, XML, JSON</p>
               <p className="mt-2">The file should contain panel dimensions, material types, and quantities</p>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-              <File className="w-8 h-8 text-blue-600 mr-4" />
+              {file.type === 'application/pdf' ? (
+                <FileType className="w-8 h-8 text-red-600 mr-4" />
+              ) : (
+                <File className="w-8 h-8 text-blue-600 mr-4" />
+              )}
               <div className="flex-1">
                 <p className="font-medium text-gray-900">{file.name}</p>
-                <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+                <p className="text-sm text-gray-500">
+                  {(file.size / 1024).toFixed(1)} KB
+                  {file.type === 'application/pdf' && pdfPages > 0 && ` • ${pdfPages} pages`}
+                </p>
               </div>
               {isProcessing ? (
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -411,6 +605,20 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
                   <h4 className="font-medium">Error Processing File</h4>
                 </div>
                 <p className="text-red-700">{error}</p>
+                
+                {file.type === 'application/pdf' && pdfText && (
+                  <div className="mt-4">
+                    <button
+                      onClick={handleManualExtract}
+                      className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors text-sm"
+                    >
+                      Try Alternative Extraction Method
+                    </button>
+                    <p className="mt-2 text-sm text-red-600">
+                      PDF extraction can be challenging. You can also try exporting to CSV from your CAD program for better results.
+                    </p>
+                  </div>
+                )}
               </div>
             ) : parsedItems.length > 0 ? (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -421,6 +629,27 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
                 <p className="text-green-700">Found {parsedItems.length} cutting list items ready to import</p>
               </div>
             ) : null}
+            
+            {file.type === 'application/pdf' && pdfText && parsedItems.length === 0 && !isProcessing && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center text-yellow-800 mb-2">
+                  <Info className="w-5 h-5 mr-2" />
+                  <h4 className="font-medium">PDF Text Extracted</h4>
+                </div>
+                <p className="text-yellow-700 mb-2">
+                  Text was extracted from the PDF, but no cutting list items were identified. 
+                  The system looks for patterns like dimensions and part names.
+                </p>
+                <div className="mt-3">
+                  <button
+                    onClick={handleManualExtract}
+                    className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors text-sm"
+                  >
+                    Try Alternative Extraction Method
+                  </button>
+                </div>
+              </div>
+            )}
             
             <div className="flex justify-end space-x-3">
               <button
@@ -487,6 +716,50 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      
+      {file?.type === 'application/pdf' && pdfText && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">PDF Text Content</h3>
+            {pdfPages > 1 && (
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="text-sm">
+                  Page {currentPage} of {pdfPages}
+                </span>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(pdfPages, prev + 1))}
+                  disabled={currentPage === pdfPages}
+                  className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-gray-50 p-4 rounded-lg max-h-60 overflow-y-auto font-mono text-xs whitespace-pre-wrap">
+            {pdfText}
+          </div>
+          
+          <div className="mt-4 text-sm text-gray-600">
+            <p>
+              This is the raw text extracted from the PDF. If automatic extraction failed, you can:
+            </p>
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>Export to CSV from your CAD program instead</li>
+              <li>Copy this text and format it as CSV in a text editor</li>
+              <li>Try a different PDF with clearer formatting</li>
+            </ul>
           </div>
         </div>
       )}
