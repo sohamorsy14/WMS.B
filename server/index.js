@@ -121,6 +121,59 @@ const mockUsers = [
   }
 ];
 
+const mockSuppliers = [
+  {
+    id: '1',
+    name: 'Wood Supply Co.',
+    contactPerson: 'John Anderson',
+    phone: '(555) 123-4567',
+    email: 'orders@woodsupply.com',
+    address: '123 Industrial Blvd, Manufacturing City, MC 12345',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    name: 'Hardware Plus',
+    contactPerson: 'Sarah Mitchell',
+    phone: '(555) 987-6543',
+    email: 'sales@hardwareplus.com',
+    address: '456 Hardware Ave, Supply Town, ST 67890',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: '3',
+    name: 'Laminate Plus',
+    contactPerson: 'Mike Johnson',
+    phone: '(555) 456-7890',
+    email: 'info@laminateplus.com',
+    address: '789 Laminate Dr, Finish City, FC 11111',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: '4',
+    name: 'Cabinet Hardware Direct',
+    contactPerson: 'Lisa Chen',
+    phone: '(555) 321-9876',
+    email: 'sales@cabinethardware.com',
+    address: '321 Hardware Plaza, Component City, CC 22222',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: '5',
+    name: 'Premium Wood Products',
+    contactPerson: 'Robert Davis',
+    phone: '(555) 654-3210',
+    email: 'info@premiumwood.com',
+    address: '654 Lumber Lane, Wood Valley, WV 33333',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
 // Authentication routes
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
@@ -207,6 +260,54 @@ app.delete('/api/inventory/products/:id', (req, res) => {
   }
 });
 
+// Supplier routes
+app.get('/api/suppliers', (req, res) => {
+  res.json(mockSuppliers);
+});
+
+app.get('/api/suppliers/:id', (req, res) => {
+  const supplier = mockSuppliers.find(s => s.id === req.params.id);
+  if (supplier) {
+    res.json(supplier);
+  } else {
+    res.status(404).json({ error: 'Supplier not found' });
+  }
+});
+
+app.post('/api/suppliers', (req, res) => {
+  const newSupplier = {
+    id: Date.now().toString(),
+    ...req.body,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  };
+  mockSuppliers.push(newSupplier);
+  res.json(newSupplier);
+});
+
+app.put('/api/suppliers/:id', (req, res) => {
+  const index = mockSuppliers.findIndex(s => s.id === req.params.id);
+  if (index !== -1) {
+    mockSuppliers[index] = {
+      ...mockSuppliers[index],
+      ...req.body
+    };
+    res.json(mockSuppliers[index]);
+  } else {
+    res.status(404).json({ error: 'Supplier not found' });
+  }
+});
+
+app.delete('/api/suppliers/:id', (req, res) => {
+  const index = mockSuppliers.findIndex(s => s.id === req.params.id);
+  if (index !== -1) {
+    mockSuppliers.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Supplier not found' });
+  }
+});
+
 // User management routes
 app.get('/api/users', (req, res) => {
   res.json(mockUsers);
@@ -239,6 +340,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Dashboard API: http://localhost:${PORT}/api/dashboard/stats`);
   console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth/login`);
   console.log(`📦 Inventory API: http://localhost:${PORT}/api/inventory/products`);
+  console.log(`🏭 Suppliers API: http://localhost:${PORT}/api/suppliers`);
   console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
 });
 
