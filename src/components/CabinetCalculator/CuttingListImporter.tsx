@@ -3,6 +3,7 @@ import { Upload, File, FileText, AlertCircle, Check, X, Info, FileType, Download
 import { CuttingListItem } from '../../types/cabinet';
 import toast from 'react-hot-toast';
 import * as pdfjs from 'pdfjs-dist';
+import ExcelTemplateGenerator from './ExcelTemplateGenerator';
 
 // Set the worker source
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -290,6 +291,11 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
       let quantityIndex = 4;
       let materialIndex = 5;
       let grainIndex = 6;
+      let edgeFrontIndex = 7;
+      let edgeBackIndex = 8;
+      let edgeLeftIndex = 9;
+      let edgeRightIndex = 10;
+      let priorityIndex = 11;
       
       // If we have a header, try to find the correct columns
       if (hasHeader && i === 1) {
@@ -301,6 +307,11 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
         quantityIndex = headers.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('count'));
         materialIndex = headers.findIndex(h => h.includes('material') || h.includes('type'));
         grainIndex = headers.findIndex(h => h.includes('grain') || h.includes('direction'));
+        edgeFrontIndex = headers.findIndex(h => h.includes('edge front') || h.includes('front edge'));
+        edgeBackIndex = headers.findIndex(h => h.includes('edge back') || h.includes('back edge'));
+        edgeLeftIndex = headers.findIndex(h => h.includes('edge left') || h.includes('left edge'));
+        edgeRightIndex = headers.findIndex(h => h.includes('edge right') || h.includes('right edge'));
+        priorityIndex = headers.findIndex(h => h.includes('priority'));
         
         // Use default indices if not found
         nameIndex = nameIndex >= 0 ? nameIndex : 0;
@@ -312,6 +323,13 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
         grainIndex = grainIndex >= 0 ? grainIndex : 6;
       }
       
+      const edgeBanding = {
+        front: values[edgeFrontIndex]?.toLowerCase() === 'true' || values[edgeFrontIndex]?.toLowerCase() === 'yes' || values[edgeFrontIndex] === '1',
+        back: values[edgeBackIndex]?.toLowerCase() === 'true' || values[edgeBackIndex]?.toLowerCase() === 'yes' || values[edgeBackIndex] === '1',
+        left: values[edgeLeftIndex]?.toLowerCase() === 'true' || values[edgeLeftIndex]?.toLowerCase() === 'yes' || values[edgeLeftIndex] === '1',
+        right: values[edgeRightIndex]?.toLowerCase() === 'true' || values[edgeRightIndex]?.toLowerCase() === 'yes' || values[edgeRightIndex] === '1'
+      };
+      
       const item: CuttingListItem = {
         id: `imported-${i}-${Date.now()}`,
         partName: values[nameIndex] || `Part ${i}`,
@@ -322,10 +340,10 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
         length: parseFloat(values[lengthIndex]) || 0,
         width: parseFloat(values[widthIndex]) || 0,
         quantity: parseInt(values[quantityIndex]) || 1,
-        edgeBanding: { front: false, back: false, left: false, right: false },
+        edgeBanding,
         grain: (values[grainIndex]?.toLowerCase()?.includes('length') ? 'length' : 
                 values[grainIndex]?.toLowerCase()?.includes('width') ? 'width' : 'none') as 'length' | 'width' | 'none',
-        priority: 1
+        priority: parseInt(values[priorityIndex]) || 1
       };
       
       // Only add if we have valid dimensions
@@ -470,6 +488,12 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
             edgeBanding.left = edges.includes('left') || edges.includes('l');
             edgeBanding.right = edges.includes('right') || edges.includes('r');
           }
+        } else {
+          // Check for individual edge banding properties
+          edgeBanding.front = !!normalizedItem.edgefront || !!normalizedItem.frontedge;
+          edgeBanding.back = !!normalizedItem.edgeback || !!normalizedItem.backedge;
+          edgeBanding.left = !!normalizedItem.edgeleft || !!normalizedItem.leftedge;
+          edgeBanding.right = !!normalizedItem.edgeright || !!normalizedItem.rightedge;
         }
         
         // Determine grain direction
@@ -541,7 +565,10 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Import Cutting List</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Import Cutting List</h3>
+          <ExcelTemplateGenerator />
+        </div>
         
         {!file ? (
           <div 
@@ -559,7 +586,7 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
               id="file-upload"
               ref={fileInputRef}
               className="hidden"
-              accept=".csv,.xml,.json,.txt,.pdf"
+              accept=".csv,.xml,.json,.txt,.pdf,.xlsx,.xls"
               onChange={handleFileChange}
             />
             <label
@@ -570,8 +597,9 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
             </label>
             
             <div className="mt-6 text-sm text-gray-500">
-              <p>Supported file formats: PDF, CSV, XML, JSON</p>
+              <p>Supported file formats: Excel, CSV, PDF, XML, JSON</p>
               <p className="mt-2">The file should contain panel dimensions, material types, and quantities</p>
+              <p className="mt-2">Click "Download Excel Template" above for a properly formatted template</p>
             </div>
           </div>
         ) : (
@@ -579,6 +607,8 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
             <div className="flex items-center p-4 bg-gray-50 rounded-lg">
               {file.type === 'application/pdf' ? (
                 <FileType className="w-8 h-8 text-red-600 mr-4" />
+              ) : file.type.includes('excel') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') ? (
+                <FileText className="w-8 h-8 text-green-600 mr-4" />
               ) : (
                 <File className="w-8 h-8 text-blue-600 mr-4" />
               )}
@@ -615,7 +645,7 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
                       Try Alternative Extraction Method
                     </button>
                     <p className="mt-2 text-sm text-red-600">
-                      PDF extraction can be challenging. You can also try exporting to CSV from your CAD program for better results.
+                      PDF extraction can be challenging. You can also try using the Excel template for better results.
                     </p>
                   </div>
                 )}
@@ -693,6 +723,7 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Width</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grain</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Edge Banding</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -705,11 +736,17 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
                     <td className="px-3 py-2 text-gray-900">{item.width}mm</td>
                     <td className="px-3 py-2 text-gray-900">{item.quantity}</td>
                     <td className="px-3 py-2 text-gray-900 capitalize">{item.grain}</td>
+                    <td className="px-3 py-2 text-gray-900">
+                      {Object.entries(item.edgeBanding)
+                        .filter(([_, value]) => value)
+                        .map(([edge]) => edge)
+                        .join(', ') || 'None'}
+                    </td>
                   </tr>
                 ))}
                 {parsedItems.length > 10 && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-2 text-center text-gray-500">
+                    <td colSpan={8} className="px-3 py-2 text-center text-gray-500">
                       ... and {parsedItems.length - 10} more items
                     </td>
                   </tr>
@@ -756,13 +793,83 @@ const CuttingListImporter: React.FC<CuttingListImporterProps> = ({ onImport }) =
               This is the raw text extracted from the PDF. If automatic extraction failed, you can:
             </p>
             <ul className="list-disc pl-5 mt-2 space-y-1">
-              <li>Export to CSV from your CAD program instead</li>
+              <li>Use the Excel template provided above</li>
               <li>Copy this text and format it as CSV in a text editor</li>
               <li>Try a different PDF with clearer formatting</li>
             </ul>
           </div>
         </div>
       )}
+      
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-blue-900 mb-4">Excel Template Format</h3>
+        <p className="text-blue-800 mb-4">
+          For best results, use the Excel template provided above. The template includes the following columns:
+        </p>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-blue-100">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-blue-800 uppercase">Column</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-blue-800 uppercase">Description</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-blue-800 uppercase">Required</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-blue-800 uppercase">Example</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-blue-100">
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Part Name</td>
+                <td className="px-3 py-2">Name or description of the part</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">Side Panel</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Length (mm)</td>
+                <td className="px-3 py-2">Length of the part in millimeters</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">720</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Width (mm)</td>
+                <td className="px-3 py-2">Width of the part in millimeters</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">560</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Thickness (mm)</td>
+                <td className="px-3 py-2">Thickness of the part in millimeters</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">18</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Quantity</td>
+                <td className="px-3 py-2">Number of identical parts needed</td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">2</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Material Type</td>
+                <td className="px-3 py-2">Type of material for the part</td>
+                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">Plywood</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Grain Direction</td>
+                <td className="px-3 py-2">Direction of wood grain</td>
+                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">length</td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-2 font-medium">Edge Banding</td>
+                <td className="px-3 py-2">Edge banding on each edge (front, back, left, right)</td>
+                <td className="px-3 py-2">No</td>
+                <td className="px-3 py-2">TRUE, FALSE, TRUE, TRUE</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
