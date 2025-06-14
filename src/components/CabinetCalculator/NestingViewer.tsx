@@ -237,11 +237,11 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                 <div className="mt-2 flex justify-center space-x-4 text-xs">
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-green-100 border border-green-500 mr-1"></div>
-                    <span>With Grain (Length)</span>
+                    <span>Grain with Length</span>
                   </div>
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-purple-100 border border-purple-500 mr-1"></div>
-                    <span>With Grain (Width)</span>
+                    <span>Grain with Width</span>
                   </div>
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-gray-100 border border-gray-500 mr-1"></div>
@@ -292,8 +292,8 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                             <td className="px-3 py-2 text-gray-900">{part.x}, {part.y}</td>
                             <td className="px-3 py-2 text-gray-900">{part.rotation}°</td>
                             <td className="px-3 py-2 text-gray-900">
-                              {part.grain === 'length' ? 'With Grain (Length)' : 
-                               part.grain === 'width' ? 'With Grain (Width)' : 
+                              {part.grain === 'length' ? 'Grain with Length' : 
+                               part.grain === 'width' ? 'Grain with Width' : 
                                'No Grain'}
                             </td>
                           </tr>

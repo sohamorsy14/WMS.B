@@ -44,7 +44,7 @@ export class CabinetCalculatorService {
       width: number,
       quantity: number,
       edgeBanding: any = { front: false, back: false, left: false, right: false },
-      grain: 'length' | 'width' = 'length',
+      grain: 'length' | 'width' | 'none' = 'length',
       priority: number = 1
     ) => {
       cuttingList.push({
@@ -558,18 +558,18 @@ export class CabinetCalculatorService {
   }
   
   // Calculate cutting list from defined parts
-  static calculateCuttingListFromParts(parts: PartDefinition[], config: CabinetConfiguration, template?: CabinetTemplate): CuttingListItem[] {
+  static calculateCuttingListFromParts(
+    parts: PartDefinition[], 
+    config: CabinetConfiguration,
+    template?: CabinetTemplate
+  ): CuttingListItem[] {
     const cuttingList: CuttingListItem[] = [];
     const { width, height, depth } = config.dimensions;
     const { doorCount, drawerCount, shelfCount } = config.customizations;
     
-    // Get material thickness values from template or use defaults
-    const materialThickness = template?.materialThickness || {};
-    const construction = template?.construction || {};
-    
-    // Create comprehensive evaluation context with all possible variables
-    const context = {
-      // Dimensions
+    // Create comprehensive evaluation context
+    const context: any = {
+      // Cabinet dimensions
       width,
       height,
       depth,
@@ -580,74 +580,67 @@ export class CabinetCalculatorService {
       shelfCount,
       
       // Construction flags with defaults
-      hasTop: construction.hasTop ?? true,
-      hasBottom: construction.hasBottom ?? true,
-      hasBack: construction.hasBack ?? true,
-      hasDoubleBack: construction.hasDoubleBack ?? false,
-      hasToe: construction.hasToe ?? false,
-      hasFixedShelf: construction.hasFixedShelf ?? false,
-      isCorner: construction.isCorner ?? false,
-      hasFrontPanel: construction.hasFrontPanel ?? false,
-      hasFillerPanel: construction.hasFillerPanel ?? false,
-      hasUprights: construction.hasUprights ?? false,
+      hasTop: template?.construction?.hasTop ?? true,
+      hasBottom: template?.construction?.hasBottom ?? true,
+      hasBack: template?.construction?.hasBack ?? true,
+      hasDoubleBack: template?.construction?.hasDoubleBack ?? false,
+      hasToe: template?.construction?.hasToe ?? true,
+      hasFixedShelf: template?.construction?.hasFixedShelf ?? false,
+      isCorner: template?.construction?.isCorner ?? false,
+      hasFrontPanel: template?.construction?.hasFrontPanel ?? false,
+      hasFillerPanel: template?.construction?.hasFillerPanel ?? false,
+      hasUprights: template?.construction?.hasUprights ?? false,
       
-      // Material thickness values with defaults
-      side: materialThickness.side ?? 18,
-      topBottom: materialThickness.topBottom ?? 18,
-      back: materialThickness.back ?? 12,
-      shelf: materialThickness.shelf ?? 18,
-      door: materialThickness.door ?? 18,
-      drawer: materialThickness.drawer ?? 15,
-      fixedPanel: materialThickness.fixedPanel ?? 18,
-      drawerBottom: materialThickness.drawerBottom ?? 12,
-      uprights: materialThickness.uprights ?? 18,
-      doubleBack: materialThickness.doubleBack ?? 12,
+      // Material thicknesses with defaults
+      side: template?.materialThickness?.side ?? 18,
+      topBottom: template?.materialThickness?.topBottom ?? 18,
+      back: template?.materialThickness?.back ?? 12,
+      shelf: template?.materialThickness?.shelf ?? 18,
+      door: template?.materialThickness?.door ?? 18,
+      drawer: template?.materialThickness?.drawer ?? 15,
+      fixedPanel: template?.materialThickness?.fixedPanel ?? 18,
+      drawerBottom: template?.materialThickness?.drawerBottom ?? 12,
+      uprights: template?.materialThickness?.uprights ?? 18,
+      doubleBack: template?.materialThickness?.doubleBack ?? 12,
       
-      // Common aliases and variations that might be used in formulas
-      Side: materialThickness.side ?? 18,
-      Top: materialThickness.topBottom ?? 18,
-      Bottom: materialThickness.topBottom ?? 18,
-      Back: materialThickness.back ?? 12,
-      Shelf: materialThickness.shelf ?? 18,
-      Door: materialThickness.door ?? 18,
-      Drawer: materialThickness.drawer ?? 15,
-      FixedPanel: materialThickness.fixedPanel ?? 18,
-      DrawerBottom: materialThickness.drawerBottom ?? 12,
-      Uprights: materialThickness.uprights ?? 18,
-      DoubleBack: materialThickness.doubleBack ?? 12,
+      // Common aliases and variations
+      Side: template?.materialThickness?.side ?? 18,
+      Top: template?.materialThickness?.topBottom ?? 18,
+      Bottom: template?.materialThickness?.topBottom ?? 18,
+      Back: template?.materialThickness?.back ?? 12,
+      Shelf: template?.materialThickness?.shelf ?? 18,
+      Door: template?.materialThickness?.door ?? 18,
+      Drawer: template?.materialThickness?.drawer ?? 15,
       
-      // Mathematical constants and functions
-      Math,
+      // Math constants and functions
+      PI: Math.PI,
       min: Math.min,
       max: Math.max,
-      floor: Math.floor,
-      ceil: Math.ceil,
       round: Math.round,
-      abs: Math.abs
+      floor: Math.floor,
+      ceil: Math.ceil
     };
     
-    // Helper function to evaluate formula safely
+    // Helper function to evaluate formula
     const evaluateFormula = (formula: string): number => {
       try {
-        // Create a safe evaluation function with all context variables
+        // Use Function constructor to create a safe evaluation function
         const evalFunc = new Function(
           ...Object.keys(context),
-          `"use strict"; return ${formula};`
+          `return ${formula};`
         );
         
         const result = evalFunc(...Object.values(context));
         
-        // Ensure result is a valid number
+        // Validate result is a number
         if (typeof result !== 'number' || isNaN(result)) {
-          console.warn(`Formula "${formula}" returned invalid result:`, result);
+          console.error('Formula evaluation returned non-numeric result:', result);
           return 0;
         }
         
-        return Math.max(0, result); // Ensure non-negative result
+        return result;
       } catch (error) {
         console.error('Error evaluating formula:', error);
-        console.error('Formula:', formula);
-        console.error('Available context variables:', Object.keys(context));
         return 0;
       }
     };
@@ -1250,20 +1243,9 @@ export class CabinetStorageService {
           { headers: getAuthHeader() }
         );
       }
-      
-      // Always save to localStorage as a backup
-      this.saveTemplateToLocalStorage(template);
-      
     } catch (error) {
-      console.error('Failed to save template to API:', error);
+      console.error('Failed to save template:', error);
       // Fallback to localStorage if API fails
-      this.saveTemplateToLocalStorage(template);
-    }
-  }
-  
-  // Helper method to save template to localStorage
-  private static saveTemplateToLocalStorage(template: CabinetTemplate): void {
-    try {
       const templates = localStorage.getItem('customCabinetTemplates');
       const existingTemplates = templates ? JSON.parse(templates) : [];
       const existingIndex = existingTemplates.findIndex((t: CabinetTemplate) => t.id === template.id);
@@ -1275,9 +1257,6 @@ export class CabinetStorageService {
       }
       
       localStorage.setItem('customCabinetTemplates', JSON.stringify(existingTemplates));
-      console.log('Template saved to localStorage successfully');
-    } catch (error) {
-      console.error('Failed to save template to localStorage:', error);
     }
   }
 
@@ -1287,29 +1266,15 @@ export class CabinetStorageService {
       await axios.delete(`${API_BASE_URL}/cabinet-calculator/templates/${templateId}`, {
         headers: getAuthHeader()
       });
-      
-      // Also remove from localStorage
-      this.deleteTemplateFromLocalStorage(templateId);
-      
     } catch (error) {
-      console.error('Failed to delete template from API:', error);
+      console.error('Failed to delete template:', error);
       // Fallback to localStorage if API fails
-      this.deleteTemplateFromLocalStorage(templateId);
-    }
-  }
-  
-  // Helper method to delete template from localStorage
-  private static deleteTemplateFromLocalStorage(templateId: string): void {
-    try {
       const templates = localStorage.getItem('customCabinetTemplates');
       if (templates) {
         const existingTemplates = JSON.parse(templates);
         const updatedTemplates = existingTemplates.filter((t: CabinetTemplate) => t.id !== templateId);
         localStorage.setItem('customCabinetTemplates', JSON.stringify(updatedTemplates));
-        console.log('Template deleted from localStorage successfully');
       }
-    } catch (error) {
-      console.error('Failed to delete template from localStorage:', error);
     }
   }
 
@@ -1344,20 +1309,9 @@ export class CabinetStorageService {
           { headers: getAuthHeader() }
         );
       }
-      
-      // Always save to localStorage as a backup
-      this.saveConfigurationToLocalStorage(config);
-      
     } catch (error) {
-      console.error('Failed to save configuration to API:', error);
+      console.error('Failed to save configuration:', error);
       // Fallback to localStorage if API fails
-      this.saveConfigurationToLocalStorage(config);
-    }
-  }
-  
-  // Helper method to save configuration to localStorage
-  private static saveConfigurationToLocalStorage(config: CabinetConfiguration): void {
-    try {
       const configs = localStorage.getItem('cabinetConfigurations');
       const existingConfigs = configs ? JSON.parse(configs) : [];
       const existingIndex = existingConfigs.findIndex((c: CabinetConfiguration) => c.id === config.id);
@@ -1369,9 +1323,6 @@ export class CabinetStorageService {
       }
       
       localStorage.setItem('cabinetConfigurations', JSON.stringify(existingConfigs));
-      console.log('Configuration saved to localStorage successfully');
-    } catch (error) {
-      console.error('Failed to save configuration to localStorage:', error);
     }
   }
 
@@ -1381,29 +1332,15 @@ export class CabinetStorageService {
       await axios.delete(`${API_BASE_URL}/cabinet-calculator/configurations/${configId}`, {
         headers: getAuthHeader()
       });
-      
-      // Also remove from localStorage
-      this.deleteConfigurationFromLocalStorage(configId);
-      
     } catch (error) {
-      console.error('Failed to delete configuration from API:', error);
+      console.error('Failed to delete configuration:', error);
       // Fallback to localStorage if API fails
-      this.deleteConfigurationFromLocalStorage(configId);
-    }
-  }
-  
-  // Helper method to delete configuration from localStorage
-  private static deleteConfigurationFromLocalStorage(configId: string): void {
-    try {
       const configs = localStorage.getItem('cabinetConfigurations');
       if (configs) {
         const existingConfigs = JSON.parse(configs);
         const updatedConfigs = existingConfigs.filter((c: CabinetConfiguration) => c.id !== configId);
         localStorage.setItem('cabinetConfigurations', JSON.stringify(updatedConfigs));
-        console.log('Configuration deleted from localStorage successfully');
       }
-    } catch (error) {
-      console.error('Failed to delete configuration from localStorage:', error);
     }
   }
 
@@ -1438,20 +1375,9 @@ export class CabinetStorageService {
           { headers: getAuthHeader() }
         );
       }
-      
-      // Always save to localStorage as a backup
-      this.saveProjectToLocalStorage(project);
-      
     } catch (error) {
-      console.error('Failed to save project to API:', error);
+      console.error('Failed to save project:', error);
       // Fallback to localStorage if API fails
-      this.saveProjectToLocalStorage(project);
-    }
-  }
-  
-  // Helper method to save project to localStorage
-  private static saveProjectToLocalStorage(project: CabinetProject): void {
-    try {
       const projects = localStorage.getItem('cabinetProjects');
       const existingProjects = projects ? JSON.parse(projects) : [];
       const existingIndex = existingProjects.findIndex((p: CabinetProject) => p.id === project.id);
@@ -1463,9 +1389,6 @@ export class CabinetStorageService {
       }
       
       localStorage.setItem('cabinetProjects', JSON.stringify(existingProjects));
-      console.log('Project saved to localStorage successfully');
-    } catch (error) {
-      console.error('Failed to save project to localStorage:', error);
     }
   }
 
@@ -1475,29 +1398,15 @@ export class CabinetStorageService {
       await axios.delete(`${API_BASE_URL}/cabinet-calculator/projects/${projectId}`, {
         headers: getAuthHeader()
       });
-      
-      // Also remove from localStorage
-      this.deleteProjectFromLocalStorage(projectId);
-      
     } catch (error) {
-      console.error('Failed to delete project from API:', error);
+      console.error('Failed to delete project:', error);
       // Fallback to localStorage if API fails
-      this.deleteProjectFromLocalStorage(projectId);
-    }
-  }
-  
-  // Helper method to delete project from localStorage
-  private static deleteProjectFromLocalStorage(projectId: string): void {
-    try {
       const projects = localStorage.getItem('cabinetProjects');
       if (projects) {
         const existingProjects = JSON.parse(projects);
         const updatedProjects = existingProjects.filter((p: CabinetProject) => p.id !== projectId);
         localStorage.setItem('cabinetProjects', JSON.stringify(updatedProjects));
-        console.log('Project deleted from localStorage successfully');
       }
-    } catch (error) {
-      console.error('Failed to delete project from localStorage:', error);
     }
   }
 
