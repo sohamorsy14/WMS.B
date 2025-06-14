@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CabinetTemplate } from '../../types/cabinet';
-import { Plus, Edit, Trash2, Eye, Package, Settings, Search, Filter, Ruler } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Package, Settings, Search, Filter, Ruler, Grid, Image as ImageIcon } from 'lucide-react';
 import { CabinetStorageService } from '../../services/cabinetCalculator';
 import TemplateCreator from './TemplateCreator';
 import Modal from '../Common/Modal';
@@ -21,6 +21,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
   const [customTemplates, setCustomTemplates] = useState<CabinetTemplate[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewImageModalOpen, setIsViewImageModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<CabinetTemplate | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -121,6 +122,11 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
     return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
+  const handleViewImage = (template: CabinetTemplate) => {
+    setSelectedTemplate(template);
+    setIsViewImageModalOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -217,7 +223,8 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
               <img
                 src={template.previewImage || "https://images.pexels.com/photos/6585759/pexels-photo-6585759.jpeg?auto=compress&cs=tinysrgb&w=400"}
                 alt={template.name}
-                className="w-full h-48 object-cover"
+                className="w-full h-48 object-cover cursor-pointer"
+                onClick={() => handleViewImage(template)}
               />
             </div>
 
@@ -301,9 +308,9 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                     </>
                   )}
                   <button
-                    onClick={() => onSelectTemplate(template)}
+                    onClick={() => handleViewImage(template)}
                     className="text-gray-600 hover:text-gray-800 p-1 rounded hover:bg-gray-50"
-                    title="View Details"
+                    title="View Image"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
@@ -360,6 +367,62 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
             }}
             editTemplate={selectedTemplate}
           />
+        )}
+      </Modal>
+
+      {/* View Image Modal */}
+      <Modal
+        isOpen={isViewImageModalOpen}
+        onClose={() => {
+          setIsViewImageModalOpen(false);
+          setSelectedTemplate(null);
+        }}
+        title={selectedTemplate?.name || "Cabinet Preview"}
+        size="lg"
+      >
+        {selectedTemplate && (
+          <div className="flex flex-col items-center">
+            <div className="w-full max-h-[500px] overflow-hidden rounded-lg">
+              {selectedTemplate.previewImage ? (
+                <img 
+                  src={selectedTemplate.previewImage} 
+                  alt={selectedTemplate.name}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-64 bg-gray-100 flex items-center justify-center">
+                  <ImageIcon className="w-16 h-16 text-gray-400" />
+                  <p className="text-gray-500 ml-2">No image available</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 text-center">
+              <h3 className="font-medium text-gray-900">{selectedTemplate.name}</h3>
+              <p className="text-sm text-gray-600 mt-1">{selectedTemplate.description}</p>
+              <div className="flex items-center justify-center mt-2">
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(selectedTemplate.type)}`}>
+                  {selectedTemplate.type}
+                </span>
+                <span className="mx-2 text-gray-400">•</span>
+                <span className="text-sm text-gray-600">{selectedTemplate.category}</span>
+              </div>
+              <div className="mt-2 text-sm text-gray-600">
+                <Ruler className="w-4 h-4 inline mr-1" />
+                {selectedTemplate.defaultDimensions.width} × {selectedTemplate.defaultDimensions.height} × {selectedTemplate.defaultDimensions.depth}mm
+              </div>
+            </div>
+            <div className="flex justify-end w-full mt-6">
+              <button
+                onClick={() => {
+                  setIsViewImageModalOpen(false);
+                  setSelectedTemplate(null);
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         )}
       </Modal>
     </div>

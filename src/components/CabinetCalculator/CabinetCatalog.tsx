@@ -22,6 +22,8 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [selectedImageTemplate, setSelectedImageTemplate] = useState<CabinetTemplate | null>(null);
   const [templateToCopy, setTemplateToCopy] = useState<CabinetTemplate | null>(null);
   const [newTemplateName, setNewTemplateName] = useState('');
 
@@ -77,6 +79,12 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
     }
   };
 
+  const handleViewImage = (template: CabinetTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedImageTemplate(template);
+    setIsImageModalOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -84,19 +92,19 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
         
         {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search cabinets..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+          <div className="md:col-span-2">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search cabinets..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+          <div className="grid grid-cols-2 gap-2">
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -107,10 +115,7 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
                 <option key={category} value={category}>{category}</option>
               ))}
             </select>
-          </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
@@ -129,7 +134,7 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
 
       {/* Cabinet Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredTemplates.map(template => (
+        {filteredTemplates.map((template) => (
           <div
             key={template.id}
             className={`bg-white rounded-lg shadow-sm border-2 transition-all cursor-pointer hover:shadow-md ${
@@ -142,9 +147,10 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
             {/* Preview Image */}
             <div className="aspect-w-4 aspect-h-3 rounded-t-lg overflow-hidden">
               <img
-                src={template.previewImage}
+                src={template.previewImage || "https://images.pexels.com/photos/6585759/pexels-photo-6585759.jpeg?auto=compress&cs=tinysrgb&w=400"}
                 alt={template.name}
                 className="w-full h-48 object-cover"
+                onClick={(e) => handleViewImage(template, e)}
               />
             </div>
 
@@ -175,11 +181,11 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center text-sm text-gray-600">
                   <Package className="w-4 h-4 mr-2" />
-                  <span>{template.features.length} features</span>
+                  <span>{template.features?.length || 0} features</span>
                 </div>
                 
                 <div className="flex flex-wrap gap-1">
-                  {template.features.slice(0, 2).map((feature, index) => (
+                  {template.features?.slice(0, 2).map((feature, index) => (
                     <span
                       key={index}
                       className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
@@ -187,7 +193,7 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
                       {feature}
                     </span>
                   ))}
-                  {template.features.length > 2 && (
+                  {template.features && template.features.length > 2 && (
                     <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
                       +{template.features.length - 2} more
                     </span>
@@ -218,14 +224,11 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
                   </button>
                   
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Handle view details
-                    }}
+                    onClick={(e) => handleViewImage(template, e)}
                     className="flex items-center text-sm text-gray-600 hover:text-gray-800"
                   >
                     <Eye className="w-4 h-4 mr-1" />
-                    Details
+                    View
                   </button>
                 </div>
               </div>
@@ -258,7 +261,7 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
             <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg">
               <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                 <img 
-                  src={templateToCopy.previewImage} 
+                  src={templateToCopy.previewImage || "https://images.pexels.com/photos/6585759/pexels-photo-6585759.jpeg?auto=compress&cs=tinysrgb&w=400"} 
                   alt={templateToCopy.name}
                   className="w-full h-full object-cover"
                 />
@@ -306,6 +309,66 @@ const CabinetCatalog: React.FC<CabinetCatalogProps> = ({
               <Plus className="w-4 h-4 mr-2" />
               Create Copy
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* View Image Modal */}
+      <Modal
+        isOpen={isImageModalOpen}
+        onClose={() => {
+          setIsImageModalOpen(false);
+          setSelectedImageTemplate(null);
+        }}
+        title={selectedImageTemplate?.name || "Cabinet Preview"}
+        size="lg"
+      >
+        <div className="space-y-4">
+          {selectedImageTemplate && (
+            <div className="flex flex-col items-center">
+              <div className="w-full max-h-[500px] overflow-hidden rounded-lg">
+                <img 
+                  src={selectedImageTemplate.previewImage || "https://images.pexels.com/photos/6585759/pexels-photo-6585759.jpeg?auto=compress&cs=tinysrgb&w=400"} 
+                  alt={selectedImageTemplate.name}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="mt-4 text-center">
+                <h3 className="font-medium text-gray-900">{selectedImageTemplate.name}</h3>
+                <p className="text-sm text-gray-600 mt-1">{selectedImageTemplate.description}</p>
+                <div className="flex items-center justify-center mt-2">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(selectedImageTemplate.type)}`}>
+                    {selectedImageTemplate.type}
+                  </span>
+                  <span className="mx-2 text-gray-400">•</span>
+                  <span className="text-sm text-gray-600">{selectedImageTemplate.category}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={() => {
+                setIsImageModalOpen(false);
+                setSelectedImageTemplate(null);
+              }}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Close
+            </button>
+            {selectedImageTemplate && (
+              <button
+                onClick={() => {
+                  setIsImageModalOpen(false);
+                  onSelectTemplate(selectedImageTemplate);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Configure
+              </button>
+            )}
           </div>
         </div>
       </Modal>

@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 require('dotenv').config();
 
 const app = express();
@@ -15,6 +16,36 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
   console.log('Created server/data directory');
 }
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadsDir = path.join(dataDir, 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Accept only image files
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+  }
+});
 
 // Middleware
 app.use(helmet({
@@ -28,6 +59,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(dataDir, 'uploads')));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -409,195 +443,6 @@ const mockPurchaseOrders = [
   }
 ];
 
-// Mock cabinet calculator data
-const mockCabinetTemplates = [
-  {
-    id: '1',
-    name: 'Standard Base Cabinet',
-    type: 'base',
-    width: 600,
-    height: 720,
-    depth: 560,
-    materials: {
-      body: 'PLY-18-4X8',
-      door: 'MDF-18-4X8',
-      shelf: 'PLY-18-4X8'
-    },
-    hardware: ['HNG-CONC-35'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Standard Wall Cabinet',
-    type: 'wall',
-    width: 600,
-    height: 720,
-    depth: 320,
-    materials: {
-      body: 'PLY-18-4X8',
-      door: 'MDF-18-4X8',
-      shelf: 'PLY-18-4X8'
-    },
-    hardware: ['HNG-CONC-35'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-const mockCabinetConfigurations = [
-  {
-    id: '1',
-    name: 'Kitchen Project A',
-    cabinets: [
-      { templateId: '1', quantity: 4, customizations: {} },
-      { templateId: '2', quantity: 6, customizations: {} }
-    ],
-    totalCost: 2500.00,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-const mockCabinetProjects = [
-  {
-    id: '1',
-    name: 'Modern Kitchen Renovation',
-    description: 'Complete kitchen cabinet set for residential project',
-    status: 'active',
-    configurations: ['1'],
-    totalCost: 2500.00,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-const mockBOMs = [
-  {
-    id: '1',
-    bomNumber: 'BOM-2024-001',
-    name: 'Kitchen Cabinet BOM',
-    version: '1.0',
-    linkedType: 'order',
-    linkedId: '1',
-    linkedNumber: 'ORD-2024-0001',
-    status: 'approved',
-    description: 'Complete BOM for kitchen cabinet project',
-    category: 'Base Cabinets',
-    estimatedTime: 24.5,
-    items: [
-      { 
-        id: '1', 
-        itemId: 'PLY-18-4X8', 
-        itemName: 'Plywood 18mm 4x8ft',
-        quantity: 10, 
-        unitCost: 52.75, 
-        totalCost: 527.50,
-        unitMeasurement: 'Sheets (sht)',
-        isOptional: false
-      },
-      { 
-        id: '2', 
-        itemId: 'MDF-18-4X8', 
-        itemName: 'MDF 18mm 4x8ft',
-        quantity: 8, 
-        unitCost: 38.90, 
-        totalCost: 311.20,
-        unitMeasurement: 'Sheets (sht)',
-        isOptional: false
-      },
-      { 
-        id: '3', 
-        itemId: 'HNG-CONC-35', 
-        itemName: 'Concealed Hinges 35mm',
-        quantity: 20, 
-        unitCost: 3.25, 
-        totalCost: 65.00,
-        unitMeasurement: 'Pieces (pcs)',
-        isOptional: false
-      }
-    ],
-    totalCost: 903.70,
-    createdBy: 'admin',
-    approvedBy: 'manager',
-    approvalDate: new Date().toISOString(),
-    notes: 'Standard kitchen cabinet configuration',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    bomNumber: 'BOM-2024-002',
-    name: 'Bathroom Vanity BOM',
-    version: '1.0',
-    linkedType: 'prototype',
-    linkedId: '1',
-    linkedNumber: 'PROTO-2024-001',
-    status: 'draft',
-    description: 'BOM for bathroom vanity prototype',
-    category: 'Vanities',
-    estimatedTime: 12.0,
-    items: [
-      { 
-        id: '4', 
-        itemId: 'MDF-18-4X8', 
-        itemName: 'MDF 18mm 4x8ft',
-        quantity: 3, 
-        unitCost: 38.90, 
-        totalCost: 116.70,
-        unitMeasurement: 'Sheets (sht)',
-        isOptional: false
-      },
-      { 
-        id: '5', 
-        itemId: 'HNG-CONC-35', 
-        itemName: 'Concealed Hinges 35mm',
-        quantity: 4, 
-        unitCost: 3.25, 
-        totalCost: 13.00,
-        unitMeasurement: 'Pieces (pcs)',
-        isOptional: true
-      }
-    ],
-    totalCost: 129.70,
-    createdBy: 'manager',
-    notes: 'Prototype testing phase',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-const mockPrototypes = [
-  {
-    id: '1',
-    prototypeNumber: 'PROTO-2024-001',
-    name: 'Prototype Cabinet A',
-    description: 'Test design for new cabinet style',
-    status: 'testing',
-    specifications: {
-      width: 600,
-      height: 720,
-      depth: 560
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    prototypeNumber: 'PROTO-2024-002',
-    name: 'Modern Wall Cabinet',
-    description: 'Sleek design for contemporary kitchens',
-    status: 'approved',
-    specifications: {
-      width: 800,
-      height: 900,
-      depth: 350
-    },
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
 // Authentication routes
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
@@ -945,6 +790,21 @@ app.patch('/api/purchase-orders/:id/approve', (req, res) => {
   } else {
     res.status(404).json({ error: 'Purchase order not found' });
   }
+});
+
+// File upload endpoint
+app.post('/api/upload', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  
+  // Return the file path that can be used to access the file
+  const filePath = `/uploads/${req.file.filename}`;
+  res.json({ 
+    success: true, 
+    filePath,
+    fileUrl: `http://localhost:${PORT}${filePath}`
+  });
 });
 
 // Cabinet Calculator routes
@@ -1331,119 +1191,6 @@ app.post('/api/cabinet-calculator/nesting', (req, res) => {
     wastePercentage: 14.5
   };
   res.json(mockNestingResult);
-});
-
-// BOM Management routes
-app.get('/api/boms', (req, res) => {
-  res.json(mockBOMs);
-});
-
-app.get('/api/boms/:id', (req, res) => {
-  const bom = mockBOMs.find(b => b.id === req.params.id);
-  if (bom) {
-    res.json(bom);
-  } else {
-    res.status(404).json({ error: 'BOM not found' });
-  }
-});
-
-app.post('/api/boms', (req, res) => {
-  const newBOM = {
-    id: Date.now().toString(),
-    ...req.body,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  mockBOMs.push(newBOM);
-  res.json(newBOM);
-});
-
-app.put('/api/boms/:id', (req, res) => {
-  const index = mockBOMs.findIndex(b => b.id === req.params.id);
-  if (index !== -1) {
-    mockBOMs[index] = {
-      ...mockBOMs[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockBOMs[index]);
-  } else {
-    res.status(404).json({ error: 'BOM not found' });
-  }
-});
-
-app.delete('/api/boms/:id', (req, res) => {
-  const index = mockBOMs.findIndex(b => b.id === req.params.id);
-  if (index !== -1) {
-    mockBOMs.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'BOM not found' });
-  }
-});
-
-// Prototype Management routes
-app.get('/api/prototypes', (req, res) => {
-  res.json(mockPrototypes);
-});
-
-app.get('/api/prototypes/:id', (req, res) => {
-  const prototype = mockPrototypes.find(p => p.id === req.params.id);
-  if (prototype) {
-    res.json(prototype);
-  } else {
-    res.status(404).json({ error: 'Prototype not found' });
-  }
-});
-
-app.post('/api/prototypes', (req, res) => {
-  const newPrototype = {
-    id: Date.now().toString(),
-    ...req.body,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  mockPrototypes.push(newPrototype);
-  res.json(newPrototype);
-});
-
-app.put('/api/prototypes/:id', (req, res) => {
-  const index = mockPrototypes.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockPrototypes[index] = {
-      ...mockPrototypes[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockPrototypes[index]);
-  } else {
-    res.status(404).json({ error: 'Prototype not found' });
-  }
-});
-
-app.delete('/api/prototypes/:id', (req, res) => {
-  const index = mockPrototypes.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockPrototypes.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Prototype not found' });
-  }
-});
-
-// User management routes
-app.get('/api/users', (req, res) => {
-  res.json(mockUsers);
-});
-
-app.post('/api/users', (req, res) => {
-  const newUser = {
-    id: Date.now().toString(),
-    ...req.body,
-    createdAt: new Date().toISOString()
-  };
-  mockUsers.push(newUser);
-  res.json(newUser);
 });
 
 // Catch-all for other API routes

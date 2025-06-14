@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CabinetTemplate } from '../../../types/cabinet';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Upload, Image as ImageIcon } from 'lucide-react';
 
 interface BasicInformationTabProps {
   template: Partial<CabinetTemplate>;
@@ -9,6 +9,8 @@ interface BasicInformationTabProps {
 
 const BasicInformationTab: React.FC<BasicInformationTabProps> = ({ template, setTemplate }) => {
   const [newFeature, setNewFeature] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(template.previewImage || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (field: string, value: any) => {
     setTemplate(prev => ({
@@ -46,6 +48,38 @@ const BasicInformationTab: React.FC<BasicInformationTabProps> = ({ template, set
       ...prev,
       features: prev.features?.filter((_, i) => i !== index)
     }));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageDataUrl = event.target?.result as string;
+      setPreviewImage(imageDataUrl);
+      setTemplate(prev => ({
+        ...prev,
+        previewImage: imageDataUrl
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   const cabinetTypes = [
@@ -128,15 +162,58 @@ const BasicInformationTab: React.FC<BasicInformationTabProps> = ({ template, set
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Preview Image URL
+            Preview Image
           </label>
-          <input
-            type="text"
-            value={template.previewImage}
-            onChange={(e) => handleChange('previewImage', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="https://example.com/image.jpg"
-          />
+          <div className="flex flex-col items-center">
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            
+            {previewImage ? (
+              <div className="relative w-full h-40 mb-2">
+                <img 
+                  src={previewImage} 
+                  alt="Cabinet preview" 
+                  className="w-full h-full object-cover rounded-lg border border-gray-300"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewImage(null);
+                    setTemplate(prev => ({
+                      ...prev,
+                      previewImage: ''
+                    }));
+                  }}
+                  className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div 
+                onClick={triggerFileInput}
+                className="w-full h-40 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
+              >
+                <ImageIcon className="w-12 h-12 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-500">Click to upload image</p>
+                <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF up to 5MB</p>
+              </div>
+            )}
+            
+            <button
+              type="button"
+              onClick={triggerFileInput}
+              className="mt-2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center"
+            >
+              <Upload className="w-4 h-4 mr-1" />
+              {previewImage ? 'Change Image' : 'Upload Image'}
+            </button>
+          </div>
         </div>
       </div>
       
