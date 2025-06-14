@@ -32,7 +32,7 @@ export class CabinetCalculatorService {
     
     // If template has defined parts, use those instead of the default calculations
     if (template.parts && template.parts.length > 0) {
-      return this.calculateCuttingListFromParts(template.parts, config);
+      return this.calculateCuttingListFromParts(template.parts, config, template);
     }
 
     // Helper function to add cutting list item
@@ -558,45 +558,96 @@ export class CabinetCalculatorService {
   }
   
   // Calculate cutting list from defined parts
-  static calculateCuttingListFromParts(parts: PartDefinition[], config: CabinetConfiguration): CuttingListItem[] {
+  static calculateCuttingListFromParts(parts: PartDefinition[], config: CabinetConfiguration, template?: CabinetTemplate): CuttingListItem[] {
     const cuttingList: CuttingListItem[] = [];
     const { width, height, depth } = config.dimensions;
-    const { doorCount, drawerCount } = config.customizations;
+    const { doorCount, drawerCount, shelfCount } = config.customizations;
     
-    // Create evaluation context
+    // Get material thickness values from template or use defaults
+    const materialThickness = template?.materialThickness || {};
+    const construction = template?.construction || {};
+    
+    // Create comprehensive evaluation context with all possible variables
     const context = {
+      // Dimensions
       width,
       height,
       depth,
+      
+      // Customizations
       doorCount,
       drawerCount,
-      hasTop: true,
-      hasBottom: true,
-      hasBack: true,
-      side: 18, // Default values
-      topBottom: 18,
-      back: 12,
-      shelf: 18,
-      door: 18,
-      drawer: 15,
-      fixedPanel: 18,
-      drawerBottom: 12,
-      uprights: 18,
-      doubleBack: 12
+      shelfCount,
+      
+      // Construction flags with defaults
+      hasTop: construction.hasTop ?? true,
+      hasBottom: construction.hasBottom ?? true,
+      hasBack: construction.hasBack ?? true,
+      hasDoubleBack: construction.hasDoubleBack ?? false,
+      hasToe: construction.hasToe ?? false,
+      hasFixedShelf: construction.hasFixedShelf ?? false,
+      isCorner: construction.isCorner ?? false,
+      hasFrontPanel: construction.hasFrontPanel ?? false,
+      hasFillerPanel: construction.hasFillerPanel ?? false,
+      hasUprights: construction.hasUprights ?? false,
+      
+      // Material thickness values with defaults
+      side: materialThickness.side ?? 18,
+      topBottom: materialThickness.topBottom ?? 18,
+      back: materialThickness.back ?? 12,
+      shelf: materialThickness.shelf ?? 18,
+      door: materialThickness.door ?? 18,
+      drawer: materialThickness.drawer ?? 15,
+      fixedPanel: materialThickness.fixedPanel ?? 18,
+      drawerBottom: materialThickness.drawerBottom ?? 12,
+      uprights: materialThickness.uprights ?? 18,
+      doubleBack: materialThickness.doubleBack ?? 12,
+      
+      // Common aliases and variations that might be used in formulas
+      Side: materialThickness.side ?? 18,
+      Top: materialThickness.topBottom ?? 18,
+      Bottom: materialThickness.topBottom ?? 18,
+      Back: materialThickness.back ?? 12,
+      Shelf: materialThickness.shelf ?? 18,
+      Door: materialThickness.door ?? 18,
+      Drawer: materialThickness.drawer ?? 15,
+      FixedPanel: materialThickness.fixedPanel ?? 18,
+      DrawerBottom: materialThickness.drawerBottom ?? 12,
+      Uprights: materialThickness.uprights ?? 18,
+      DoubleBack: materialThickness.doubleBack ?? 12,
+      
+      // Mathematical constants and functions
+      Math,
+      min: Math.min,
+      max: Math.max,
+      floor: Math.floor,
+      ceil: Math.ceil,
+      round: Math.round,
+      abs: Math.abs
     };
     
-    // Helper function to evaluate formula
+    // Helper function to evaluate formula safely
     const evaluateFormula = (formula: string): number => {
       try {
-        // Use Function constructor to create a safe evaluation function
+        // Create a safe evaluation function with all context variables
         const evalFunc = new Function(
           ...Object.keys(context),
-          `return ${formula};`
+          `"use strict"; return ${formula};`
         );
         
-        return evalFunc(...Object.values(context));
+        const result = evalFunc(...Object.values(context));
+        
+        // Ensure result is a valid number
+        if (typeof result !== 'number' || isNaN(result)) {
+          console.warn(`Formula "${formula}" returned invalid result:`, result);
+          return 0;
+        }
+        
+        return Math.max(0, result); // Ensure non-negative result
       } catch (error) {
         console.error('Error evaluating formula:', error);
+        console.error('Formula:', formula);
+        console.error('Available context variables:', Object.keys(context));
         return 0;
       }
     };
