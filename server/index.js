@@ -11,11 +11,15 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+console.log('🚀 Starting Cabinet WMS Server...');
+console.log('📍 Port:', PORT);
+console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
-  console.log('Created server/data directory');
+  console.log('📁 Created server/data directory');
 }
 
 // Configure multer for file uploads
@@ -66,16 +70,23 @@ app.use('/uploads', express.static(path.join(dataDir, 'uploads')));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  console.log('🏥 Health check requested');
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    server: 'Cabinet WMS Backend',
+    version: '1.0.0'
+  });
 });
 
 // Authentication routes
 app.post('/api/auth/login', (req, res) => {
+  console.log('🔐 Login attempt for:', req.body.username);
   const { username, password } = req.body;
   
   db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
     if (err) {
-      console.error('Database error during login:', err);
+      console.error('❌ Database error during login:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -87,6 +98,7 @@ app.post('/api/auth/login', (req, res) => {
       // Parse the JSON stored permissions
       const permissions = JSON.parse(user.permissions);
       
+      console.log('✅ Login successful for:', username);
       res.json({
         success: true,
         token: 'mock-jwt-token',
@@ -100,6 +112,7 @@ app.post('/api/auth/login', (req, res) => {
         }
       });
     } else {
+      console.log('❌ Invalid credentials for:', username);
       res.status(401).json({ error: 'Invalid credentials' });
     }
   });
@@ -115,7 +128,7 @@ app.get('/api/auth/validate', (req, res) => {
     // Return the first user (admin) for simplicity
     db.get('SELECT * FROM users WHERE id = 1', (err, user) => {
       if (err) {
-        console.error('Database error during token validation:', err);
+        console.error('❌ Database error during token validation:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -144,9 +157,10 @@ app.get('/api/auth/validate', (req, res) => {
 
 // User management routes
 app.get('/api/users', (req, res) => {
+  console.log('👥 Fetching users');
   db.all('SELECT id, username, email, role, permissions, createdAt, updatedAt FROM users', (err, rows) => {
     if (err) {
-      console.error('Error fetching users:', err);
+      console.error('❌ Error fetching users:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -156,6 +170,7 @@ app.get('/api/users', (req, res) => {
       permissions: JSON.parse(user.permissions)
     }));
     
+    console.log('✅ Users fetched:', users.length);
     res.json(users);
   });
 });
@@ -165,7 +180,7 @@ app.get('/api/users/:id', (req, res) => {
     [req.params.id], 
     (err, user) => {
       if (err) {
-        console.error('Error fetching user:', err);
+        console.error('❌ Error fetching user:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -191,7 +206,7 @@ app.post('/api/users', (req, res) => {
   // Check if username or email already exists
   db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], (err, existingUser) => {
     if (err) {
-      console.error('Error checking existing user:', err);
+      console.error('❌ Error checking existing user:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -214,7 +229,7 @@ app.post('/api/users', (req, res) => {
       [newUser.id, newUser.username, newUser.email, newUser.password, newUser.role, newUser.permissions, newUser.createdAt],
       function(err) {
         if (err) {
-          console.error('Error creating user:', err);
+          console.error('❌ Error creating user:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -244,7 +259,7 @@ app.put('/api/users/:id', (req, res) => {
   // Check if user exists
   db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
     if (err) {
-      console.error('Error checking user:', err);
+      console.error('❌ Error checking user:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -257,7 +272,7 @@ app.put('/api/users/:id', (req, res) => {
       [username, email, userId], 
       (err, existingUser) => {
         if (err) {
-          console.error('Error checking existing user:', err);
+          console.error('❌ Error checking existing user:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -273,7 +288,7 @@ app.put('/api/users/:id', (req, res) => {
           [username, email, role, permissionsJson, updatedAt, userId],
           function(err) {
             if (err) {
-              console.error('Error updating user:', err);
+              console.error('❌ Error updating user:', err);
               return res.status(500).json({ error: 'Internal server error' });
             }
             
@@ -300,7 +315,7 @@ app.delete('/api/users/:id', (req, res) => {
   // Check if user exists
   db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
     if (err) {
-      console.error('Error checking user:', err);
+      console.error('❌ Error checking user:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -310,7 +325,7 @@ app.delete('/api/users/:id', (req, res) => {
     
     db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
       if (err) {
-        console.error('Error deleting user:', err);
+        console.error('❌ Error deleting user:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -331,7 +346,7 @@ app.post('/api/users/:id/change-password', (req, res) => {
   // Check if user exists
   db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
     if (err) {
-      console.error('Error checking user:', err);
+      console.error('❌ Error checking user:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -347,7 +362,7 @@ app.post('/api/users/:id/change-password', (req, res) => {
       [newPassword, new Date().toISOString(), userId],
       function(err) {
         if (err) {
-          console.error('Error updating password:', err);
+          console.error('❌ Error updating password:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -359,17 +374,19 @@ app.post('/api/users/:id/change-password', (req, res) => {
 
 // Dashboard routes
 app.get('/api/dashboard/stats', (req, res) => {
+  console.log('📊 Dashboard stats requested');
+  
   // Get total items count
   db.get('SELECT COUNT(*) as totalItems FROM inventory_items', (err, itemsResult) => {
     if (err) {
-      console.error('Error counting inventory items:', err);
+      console.error('❌ Error counting inventory items:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
     // Get low stock items count
     db.get('SELECT COUNT(*) as lowStockItems FROM inventory_items WHERE quantity <= minStockLevel', (err, lowStockResult) => {
       if (err) {
-        console.error('Error counting low stock items:', err);
+        console.error('❌ Error counting low stock items:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -379,7 +396,7 @@ app.get('/api/dashboard/stats', (req, res) => {
       // Get open purchase orders count
       db.get('SELECT COUNT(*) as openPurchaseOrders FROM purchase_orders WHERE status IN ("pending", "approved", "ordered")', (err, poResult) => {
         if (err) {
-          console.error('Error counting purchase orders:', err);
+          console.error('❌ Error counting purchase orders:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -389,7 +406,7 @@ app.get('/api/dashboard/stats', (req, res) => {
         // Get inventory value
         db.get('SELECT SUM(totalCost) as inventoryValue FROM inventory_items', (err, valueResult) => {
           if (err) {
-            console.error('Error calculating inventory value:', err);
+            console.error('❌ Error calculating inventory value:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -402,7 +419,7 @@ app.get('/api/dashboard/stats', (req, res) => {
             { id: 5, action: 'Purchase Order Created', item: 'Plywood 18mm', timestamp: new Date(Date.now() - 14400000).toISOString() },
           ];
           
-          res.json({
+          const stats = {
             totalItems: itemsResult.totalItems,
             lowStockItems: lowStockResult.lowStockItems,
             pendingRequisitions,
@@ -410,7 +427,10 @@ app.get('/api/dashboard/stats', (req, res) => {
             monthlyExpenditure,
             inventoryValue: valueResult.inventoryValue || 0,
             recentActivity
-          });
+          };
+          
+          console.log('✅ Dashboard stats sent:', stats);
+          res.json(stats);
         });
       });
     });
@@ -419,12 +439,14 @@ app.get('/api/dashboard/stats', (req, res) => {
 
 // Inventory routes
 app.get('/api/inventory/products', (req, res) => {
+  console.log('📦 Inventory products requested');
   db.all('SELECT * FROM inventory_items', (err, rows) => {
     if (err) {
-      console.error('Error fetching inventory items:', err);
+      console.error('❌ Error fetching inventory items:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
+    console.log('✅ Inventory products sent:', rows.length);
     res.json(rows);
   });
 });
@@ -432,7 +454,7 @@ app.get('/api/inventory/products', (req, res) => {
 app.get('/api/inventory/products/:id', (req, res) => {
   db.get('SELECT * FROM inventory_items WHERE id = ?', [req.params.id], (err, item) => {
     if (err) {
-      console.error('Error fetching inventory item:', err);
+      console.error('❌ Error fetching inventory item:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -475,7 +497,7 @@ app.post('/api/inventory/products', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating inventory item:', err);
+        console.error('❌ Error creating inventory item:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -490,7 +512,7 @@ app.put('/api/inventory/products/:id', (req, res) => {
   // Check if item exists
   db.get('SELECT * FROM inventory_items WHERE id = ?', [itemId], (err, item) => {
     if (err) {
-      console.error('Error checking inventory item:', err);
+      console.error('❌ Error checking inventory item:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -537,14 +559,14 @@ app.put('/api/inventory/products/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating inventory item:', err);
+          console.error('❌ Error updating inventory item:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
         // Get the updated item
         db.get('SELECT * FROM inventory_items WHERE id = ?', [itemId], (err, updatedItem) => {
           if (err) {
-            console.error('Error fetching updated inventory item:', err);
+            console.error('❌ Error fetching updated inventory item:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -561,7 +583,7 @@ app.delete('/api/inventory/products/:id', (req, res) => {
   // Check if item exists
   db.get('SELECT * FROM inventory_items WHERE id = ?', [itemId], (err, item) => {
     if (err) {
-      console.error('Error checking inventory item:', err);
+      console.error('❌ Error checking inventory item:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -571,7 +593,7 @@ app.delete('/api/inventory/products/:id', (req, res) => {
     
     db.run('DELETE FROM inventory_items WHERE id = ?', [itemId], function(err) {
       if (err) {
-        console.error('Error deleting inventory item:', err);
+        console.error('❌ Error deleting inventory item:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -582,9 +604,10 @@ app.delete('/api/inventory/products/:id', (req, res) => {
 
 // Orders routes
 app.get('/api/orders', (req, res) => {
+  console.log('📋 Orders requested');
   db.all('SELECT * FROM orders ORDER BY createdAt DESC', (err, rows) => {
     if (err) {
-      console.error('Error fetching orders:', err);
+      console.error('❌ Error fetching orders:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -604,10 +627,11 @@ app.get('/api/orders', (req, res) => {
     
     Promise.all(promises)
       .then(ordersWithItems => {
+        console.log('✅ Orders sent:', ordersWithItems.length);
         res.json(ordersWithItems);
       })
       .catch(err => {
-        console.error('Error fetching order items:', err);
+        console.error('❌ Error fetching order items:', err);
         res.status(500).json({ error: 'Internal server error' });
       });
   });
@@ -616,7 +640,7 @@ app.get('/api/orders', (req, res) => {
 app.get('/api/orders/:id', (req, res) => {
   db.get('SELECT * FROM orders WHERE id = ?', [req.params.id], (err, order) => {
     if (err) {
-      console.error('Error fetching order:', err);
+      console.error('❌ Error fetching order:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -624,7 +648,7 @@ app.get('/api/orders/:id', (req, res) => {
       // Get order items
       db.all('SELECT * FROM order_items WHERE orderId = ?', [order.id], (err, items) => {
         if (err) {
-          console.error('Error fetching order items:', err);
+          console.error('❌ Error fetching order items:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -678,7 +702,7 @@ app.post('/api/orders', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating order:', err);
+        console.error('❌ Error creating order:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -702,7 +726,7 @@ app.post('/api/orders', (req, res) => {
         
         itemStmt.finalize(err => {
           if (err) {
-            console.error('Error inserting order items:', err);
+            console.error('❌ Error inserting order items:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -724,7 +748,7 @@ app.put('/api/orders/:id', (req, res) => {
   // Check if order exists
   db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, order) => {
     if (err) {
-      console.error('Error checking order:', err);
+      console.error('❌ Error checking order:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -776,7 +800,7 @@ app.put('/api/orders/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating order:', err);
+          console.error('❌ Error updating order:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -785,7 +809,7 @@ app.put('/api/orders/:id', (req, res) => {
           // First delete existing items
           db.run('DELETE FROM order_items WHERE orderId = ?', [orderId], function(err) {
             if (err) {
-              console.error('Error deleting order items:', err);
+              console.error('❌ Error deleting order items:', err);
               return res.status(500).json({ error: 'Internal server error' });
             }
             
@@ -808,14 +832,14 @@ app.put('/api/orders/:id', (req, res) => {
             
             itemStmt.finalize(err => {
               if (err) {
-                console.error('Error inserting order items:', err);
+                console.error('❌ Error inserting order items:', err);
                 return res.status(500).json({ error: 'Internal server error' });
               }
               
               // Get the updated order
               db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, updatedOrder) => {
                 if (err) {
-                  console.error('Error fetching updated order:', err);
+                  console.error('❌ Error fetching updated order:', err);
                   return res.status(500).json({ error: 'Internal server error' });
                 }
                 
@@ -828,14 +852,14 @@ app.put('/api/orders/:id', (req, res) => {
           // Get the updated order
           db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, updatedOrder) => {
             if (err) {
-              console.error('Error fetching updated order:', err);
+              console.error('❌ Error fetching updated order:', err);
               return res.status(500).json({ error: 'Internal server error' });
             }
             
             // Get order items
             db.all('SELECT * FROM order_items WHERE orderId = ?', [orderId], (err, items) => {
               if (err) {
-                console.error('Error fetching order items:', err);
+                console.error('❌ Error fetching order items:', err);
                 return res.status(500).json({ error: 'Internal server error' });
               }
               
@@ -855,7 +879,7 @@ app.delete('/api/orders/:id', (req, res) => {
   // Check if order exists
   db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, order) => {
     if (err) {
-      console.error('Error checking order:', err);
+      console.error('❌ Error checking order:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -866,14 +890,14 @@ app.delete('/api/orders/:id', (req, res) => {
     // Delete order items first (foreign key constraint)
     db.run('DELETE FROM order_items WHERE orderId = ?', [orderId], function(err) {
       if (err) {
-        console.error('Error deleting order items:', err);
+        console.error('❌ Error deleting order items:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
       // Then delete the order
       db.run('DELETE FROM orders WHERE id = ?', [orderId], function(err) {
         if (err) {
-          console.error('Error deleting order:', err);
+          console.error('❌ Error deleting order:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -885,12 +909,14 @@ app.delete('/api/orders/:id', (req, res) => {
 
 // Suppliers routes
 app.get('/api/suppliers', (req, res) => {
+  console.log('🏪 Suppliers requested');
   db.all('SELECT * FROM suppliers', (err, rows) => {
     if (err) {
-      console.error('Error fetching suppliers:', err);
+      console.error('❌ Error fetching suppliers:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
+    console.log('✅ Suppliers sent:', rows.length);
     res.json(rows);
   });
 });
@@ -898,7 +924,7 @@ app.get('/api/suppliers', (req, res) => {
 app.get('/api/suppliers/:id', (req, res) => {
   db.get('SELECT * FROM suppliers WHERE id = ?', [req.params.id], (err, supplier) => {
     if (err) {
-      console.error('Error fetching supplier:', err);
+      console.error('❌ Error fetching supplier:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -932,7 +958,7 @@ app.post('/api/suppliers', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating supplier:', err);
+        console.error('❌ Error creating supplier:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -947,7 +973,7 @@ app.put('/api/suppliers/:id', (req, res) => {
   // Check if supplier exists
   db.get('SELECT * FROM suppliers WHERE id = ?', [supplierId], (err, supplier) => {
     if (err) {
-      console.error('Error checking supplier:', err);
+      console.error('❌ Error checking supplier:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -977,14 +1003,14 @@ app.put('/api/suppliers/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating supplier:', err);
+          console.error('❌ Error updating supplier:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
         // Get the updated supplier
         db.get('SELECT * FROM suppliers WHERE id = ?', [supplierId], (err, updatedSupplier) => {
           if (err) {
-            console.error('Error fetching updated supplier:', err);
+            console.error('❌ Error fetching updated supplier:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -1001,7 +1027,7 @@ app.delete('/api/suppliers/:id', (req, res) => {
   // Check if supplier exists
   db.get('SELECT * FROM suppliers WHERE id = ?', [supplierId], (err, supplier) => {
     if (err) {
-      console.error('Error checking supplier:', err);
+      console.error('❌ Error checking supplier:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1011,7 +1037,7 @@ app.delete('/api/suppliers/:id', (req, res) => {
     
     db.run('DELETE FROM suppliers WHERE id = ?', [supplierId], function(err) {
       if (err) {
-        console.error('Error deleting supplier:', err);
+        console.error('❌ Error deleting supplier:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1022,9 +1048,10 @@ app.delete('/api/suppliers/:id', (req, res) => {
 
 // Departments routes
 app.get('/api/departments', (req, res) => {
+  console.log('🏢 Departments requested');
   db.all('SELECT * FROM departments', (err, rows) => {
     if (err) {
-      console.error('Error fetching departments:', err);
+      console.error('❌ Error fetching departments:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1034,6 +1061,7 @@ app.get('/api/departments', (req, res) => {
       isActive: dept.isActive === 1
     }));
     
+    console.log('✅ Departments sent:', departments.length);
     res.json(departments);
   });
 });
@@ -1041,7 +1069,7 @@ app.get('/api/departments', (req, res) => {
 app.get('/api/departments/:id', (req, res) => {
   db.get('SELECT * FROM departments WHERE id = ?', [req.params.id], (err, department) => {
     if (err) {
-      console.error('Error fetching department:', err);
+      console.error('❌ Error fetching department:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1079,7 +1107,7 @@ app.post('/api/departments', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating department:', err);
+        console.error('❌ Error creating department:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1096,7 +1124,7 @@ app.put('/api/departments/:id', (req, res) => {
   // Check if department exists
   db.get('SELECT * FROM departments WHERE id = ?', [departmentId], (err, department) => {
     if (err) {
-      console.error('Error checking department:', err);
+      console.error('❌ Error checking department:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1129,14 +1157,14 @@ app.put('/api/departments/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating department:', err);
+          console.error('❌ Error updating department:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
         // Get the updated department
         db.get('SELECT * FROM departments WHERE id = ?', [departmentId], (err, updatedDepartment) => {
           if (err) {
-            console.error('Error fetching updated department:', err);
+            console.error('❌ Error fetching updated department:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -1155,7 +1183,7 @@ app.delete('/api/departments/:id', (req, res) => {
   // Check if department exists
   db.get('SELECT * FROM departments WHERE id = ?', [departmentId], (err, department) => {
     if (err) {
-      console.error('Error checking department:', err);
+      console.error('❌ Error checking department:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1165,7 +1193,7 @@ app.delete('/api/departments/:id', (req, res) => {
     
     db.run('DELETE FROM departments WHERE id = ?', [departmentId], function(err) {
       if (err) {
-        console.error('Error deleting department:', err);
+        console.error('❌ Error deleting department:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1176,9 +1204,10 @@ app.delete('/api/departments/:id', (req, res) => {
 
 // Requesters routes
 app.get('/api/requesters', (req, res) => {
+  console.log('👤 Requesters requested');
   db.all('SELECT * FROM requesters', (err, rows) => {
     if (err) {
-      console.error('Error fetching requesters:', err);
+      console.error('❌ Error fetching requesters:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1188,6 +1217,7 @@ app.get('/api/requesters', (req, res) => {
       isActive: requester.isActive === 1
     }));
     
+    console.log('✅ Requesters sent:', requesters.length);
     res.json(requesters);
   });
 });
@@ -1195,7 +1225,7 @@ app.get('/api/requesters', (req, res) => {
 app.get('/api/requesters/:id', (req, res) => {
   db.get('SELECT * FROM requesters WHERE id = ?', [req.params.id], (err, requester) => {
     if (err) {
-      console.error('Error fetching requester:', err);
+      console.error('❌ Error fetching requester:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1234,7 +1264,7 @@ app.post('/api/requesters', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating requester:', err);
+        console.error('❌ Error creating requester:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1251,7 +1281,7 @@ app.put('/api/requesters/:id', (req, res) => {
   // Check if requester exists
   db.get('SELECT * FROM requesters WHERE id = ?', [requesterId], (err, requester) => {
     if (err) {
-      console.error('Error checking requester:', err);
+      console.error('❌ Error checking requester:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1286,14 +1316,14 @@ app.put('/api/requesters/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating requester:', err);
+          console.error('❌ Error updating requester:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
         // Get the updated requester
         db.get('SELECT * FROM requesters WHERE id = ?', [requesterId], (err, updatedRequester) => {
           if (err) {
-            console.error('Error fetching updated requester:', err);
+            console.error('❌ Error fetching updated requester:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -1312,7 +1342,7 @@ app.delete('/api/requesters/:id', (req, res) => {
   // Check if requester exists
   db.get('SELECT * FROM requesters WHERE id = ?', [requesterId], (err, requester) => {
     if (err) {
-      console.error('Error checking requester:', err);
+      console.error('❌ Error checking requester:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1322,7 +1352,7 @@ app.delete('/api/requesters/:id', (req, res) => {
     
     db.run('DELETE FROM requesters WHERE id = ?', [requesterId], function(err) {
       if (err) {
-        console.error('Error deleting requester:', err);
+        console.error('❌ Error deleting requester:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1333,9 +1363,10 @@ app.delete('/api/requesters/:id', (req, res) => {
 
 // Purchase Orders routes
 app.get('/api/purchase-orders', (req, res) => {
+  console.log('🛒 Purchase orders requested');
   db.all('SELECT * FROM purchase_orders ORDER BY createdAt DESC', (err, rows) => {
     if (err) {
-      console.error('Error fetching purchase orders:', err);
+      console.error('❌ Error fetching purchase orders:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1355,10 +1386,11 @@ app.get('/api/purchase-orders', (req, res) => {
     
     Promise.all(promises)
       .then(posWithItems => {
+        console.log('✅ Purchase orders sent:', posWithItems.length);
         res.json(posWithItems);
       })
       .catch(err => {
-        console.error('Error fetching purchase order items:', err);
+        console.error('❌ Error fetching purchase order items:', err);
         res.status(500).json({ error: 'Internal server error' });
       });
   });
@@ -1367,7 +1399,7 @@ app.get('/api/purchase-orders', (req, res) => {
 app.get('/api/purchase-orders/:id', (req, res) => {
   db.get('SELECT * FROM purchase_orders WHERE id = ?', [req.params.id], (err, po) => {
     if (err) {
-      console.error('Error fetching purchase order:', err);
+      console.error('❌ Error fetching purchase order:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1375,7 +1407,7 @@ app.get('/api/purchase-orders/:id', (req, res) => {
       // Get purchase order items
       db.all('SELECT * FROM purchase_order_items WHERE poId = ?', [po.id], (err, items) => {
         if (err) {
-          console.error('Error fetching purchase order items:', err);
+          console.error('❌ Error fetching purchase order items:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -1419,7 +1451,7 @@ app.post('/api/purchase-orders', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating purchase order:', err);
+        console.error('❌ Error creating purchase order:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1443,7 +1475,7 @@ app.post('/api/purchase-orders', (req, res) => {
         
         itemStmt.finalize(err => {
           if (err) {
-            console.error('Error inserting purchase order items:', err);
+            console.error('❌ Error inserting purchase order items:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -1465,7 +1497,7 @@ app.put('/api/purchase-orders/:id', (req, res) => {
   // Check if purchase order exists
   db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, po) => {
     if (err) {
-      console.error('Error checking purchase order:', err);
+      console.error('❌ Error checking purchase order:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1503,7 +1535,7 @@ app.put('/api/purchase-orders/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating purchase order:', err);
+          console.error('❌ Error updating purchase order:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -1512,7 +1544,7 @@ app.put('/api/purchase-orders/:id', (req, res) => {
           // First delete existing items
           db.run('DELETE FROM purchase_order_items WHERE poId = ?', [poId], function(err) {
             if (err) {
-              console.error('Error deleting purchase order items:', err);
+              console.error('❌ Error deleting purchase order items:', err);
               return res.status(500).json({ error: 'Internal server error' });
             }
             
@@ -1535,14 +1567,14 @@ app.put('/api/purchase-orders/:id', (req, res) => {
             
             itemStmt.finalize(err => {
               if (err) {
-                console.error('Error inserting purchase order items:', err);
+                console.error('❌ Error inserting purchase order items:', err);
                 return res.status(500).json({ error: 'Internal server error' });
               }
               
               // Get the updated purchase order
               db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, updatedPO) => {
                 if (err) {
-                  console.error('Error fetching updated purchase order:', err);
+                  console.error('❌ Error fetching updated purchase order:', err);
                   return res.status(500).json({ error: 'Internal server error' });
                 }
                 
@@ -1555,14 +1587,14 @@ app.put('/api/purchase-orders/:id', (req, res) => {
           // Get the updated purchase order
           db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, updatedPO) => {
             if (err) {
-              console.error('Error fetching updated purchase order:', err);
+              console.error('❌ Error fetching updated purchase order:', err);
               return res.status(500).json({ error: 'Internal server error' });
             }
             
             // Get purchase order items
             db.all('SELECT * FROM purchase_order_items WHERE poId = ?', [poId], (err, items) => {
               if (err) {
-                console.error('Error fetching purchase order items:', err);
+                console.error('❌ Error fetching purchase order items:', err);
                 return res.status(500).json({ error: 'Internal server error' });
               }
               
@@ -1582,7 +1614,7 @@ app.delete('/api/purchase-orders/:id', (req, res) => {
   // Check if purchase order exists
   db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, po) => {
     if (err) {
-      console.error('Error checking purchase order:', err);
+      console.error('❌ Error checking purchase order:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1593,14 +1625,14 @@ app.delete('/api/purchase-orders/:id', (req, res) => {
     // Delete purchase order items first (foreign key constraint)
     db.run('DELETE FROM purchase_order_items WHERE poId = ?', [poId], function(err) {
       if (err) {
-        console.error('Error deleting purchase order items:', err);
+        console.error('❌ Error deleting purchase order items:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
       // Then delete the purchase order
       db.run('DELETE FROM purchase_orders WHERE id = ?', [poId], function(err) {
         if (err) {
-          console.error('Error deleting purchase order:', err);
+          console.error('❌ Error deleting purchase order:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
@@ -1616,7 +1648,7 @@ app.patch('/api/purchase-orders/:id/approve', (req, res) => {
   // Check if purchase order exists
   db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, po) => {
     if (err) {
-      console.error('Error checking purchase order:', err);
+      console.error('❌ Error checking purchase order:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1631,21 +1663,21 @@ app.patch('/api/purchase-orders/:id/approve', (req, res) => {
       ['approved', updatedAt, poId],
       function(err) {
         if (err) {
-          console.error('Error approving purchase order:', err);
+          console.error('❌ Error approving purchase order:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
         // Get the updated purchase order
         db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, updatedPO) => {
           if (err) {
-            console.error('Error fetching updated purchase order:', err);
+            console.error('❌ Error fetching updated purchase order:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
           // Get purchase order items
           db.all('SELECT * FROM purchase_order_items WHERE poId = ?', [poId], (err, items) => {
             if (err) {
-              console.error('Error fetching purchase order items:', err);
+              console.error('❌ Error fetching purchase order items:', err);
               return res.status(500).json({ error: 'Internal server error' });
             }
             
@@ -1675,10 +1707,11 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
 
 // Cabinet Calculator routes
 app.get('/api/cabinet-calculator/templates', (req, res) => {
+  console.log('🏗️ Cabinet templates requested');
   // Read templates from database
   db.all('SELECT * FROM cabinet_templates', (err, rows) => {
     if (err) {
-      console.error('Error fetching cabinet templates:', err);
+      console.error('❌ Error fetching cabinet templates:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1698,6 +1731,7 @@ app.get('/api/cabinet-calculator/templates', (req, res) => {
       isCustom: template.isCustom === 1
     }));
     
+    console.log('✅ Cabinet templates sent:', templates.length);
     res.json(templates);
   });
 });
@@ -1753,7 +1787,7 @@ app.post('/api/cabinet-calculator/templates', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating cabinet template:', err);
+        console.error('❌ Error creating cabinet template:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1771,7 +1805,7 @@ app.put('/api/cabinet-calculator/templates/:id', (req, res) => {
   // Check if template exists
   db.get('SELECT * FROM cabinet_templates WHERE id = ?', [templateId], (err, template) => {
     if (err) {
-      console.error('Error checking cabinet template:', err);
+      console.error('❌ Error checking cabinet template:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1842,14 +1876,14 @@ app.put('/api/cabinet-calculator/templates/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating cabinet template:', err);
+          console.error('❌ Error updating cabinet template:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
         // Get the updated template
         db.get('SELECT * FROM cabinet_templates WHERE id = ?', [templateId], (err, updatedTemplate) => {
           if (err) {
-            console.error('Error fetching updated cabinet template:', err);
+            console.error('❌ Error fetching updated cabinet template:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -1882,7 +1916,7 @@ app.delete('/api/cabinet-calculator/templates/:id', (req, res) => {
   // Check if template exists
   db.get('SELECT * FROM cabinet_templates WHERE id = ?', [templateId], (err, template) => {
     if (err) {
-      console.error('Error checking cabinet template:', err);
+      console.error('❌ Error checking cabinet template:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1892,7 +1926,7 @@ app.delete('/api/cabinet-calculator/templates/:id', (req, res) => {
     
     db.run('DELETE FROM cabinet_templates WHERE id = ?', [templateId], function(err) {
       if (err) {
-        console.error('Error deleting cabinet template:', err);
+        console.error('❌ Error deleting cabinet template:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1902,10 +1936,11 @@ app.delete('/api/cabinet-calculator/templates/:id', (req, res) => {
 });
 
 app.get('/api/cabinet-calculator/configurations', (req, res) => {
+  console.log('⚙️ Cabinet configurations requested');
   // Read configurations from database
   db.all('SELECT * FROM cabinet_configurations', (err, rows) => {
     if (err) {
-      console.error('Error fetching cabinet configurations:', err);
+      console.error('❌ Error fetching cabinet configurations:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -1919,6 +1954,7 @@ app.get('/api/cabinet-calculator/configurations', (req, res) => {
       cuttingList: JSON.parse(config.cuttingList)
     }));
     
+    console.log('✅ Cabinet configurations sent:', configurations.length);
     res.json(configurations);
   });
 });
@@ -1962,7 +1998,7 @@ app.post('/api/cabinet-calculator/configurations', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating cabinet configuration:', err);
+        console.error('❌ Error creating cabinet configuration:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -1977,7 +2013,7 @@ app.put('/api/cabinet-calculator/configurations/:id', (req, res) => {
   // Check if configuration exists
   db.get('SELECT * FROM cabinet_configurations WHERE id = ?', [configId], (err, config) => {
     if (err) {
-      console.error('Error checking cabinet configuration:', err);
+      console.error('❌ Error checking cabinet configuration:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -2028,14 +2064,14 @@ app.put('/api/cabinet-calculator/configurations/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating cabinet configuration:', err);
+          console.error('❌ Error updating cabinet configuration:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
         // Get the updated configuration
         db.get('SELECT * FROM cabinet_configurations WHERE id = ?', [configId], (err, updatedConfig) => {
           if (err) {
-            console.error('Error fetching updated cabinet configuration:', err);
+            console.error('❌ Error fetching updated cabinet configuration:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -2062,7 +2098,7 @@ app.delete('/api/cabinet-calculator/configurations/:id', (req, res) => {
   // Check if configuration exists
   db.get('SELECT * FROM cabinet_configurations WHERE id = ?', [configId], (err, config) => {
     if (err) {
-      console.error('Error checking cabinet configuration:', err);
+      console.error('❌ Error checking cabinet configuration:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -2072,7 +2108,7 @@ app.delete('/api/cabinet-calculator/configurations/:id', (req, res) => {
     
     db.run('DELETE FROM cabinet_configurations WHERE id = ?', [configId], function(err) {
       if (err) {
-        console.error('Error deleting cabinet configuration:', err);
+        console.error('❌ Error deleting cabinet configuration:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -2082,10 +2118,11 @@ app.delete('/api/cabinet-calculator/configurations/:id', (req, res) => {
 });
 
 app.get('/api/cabinet-calculator/projects', (req, res) => {
+  console.log('📁 Cabinet projects requested');
   // Read projects from database
   db.all('SELECT * FROM cabinet_projects', (err, rows) => {
     if (err) {
-      console.error('Error fetching cabinet projects:', err);
+      console.error('❌ Error fetching cabinet projects:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -2096,6 +2133,7 @@ app.get('/api/cabinet-calculator/projects', (req, res) => {
       status: project.status
     }));
     
+    console.log('✅ Cabinet projects sent:', projects.length);
     res.json(projects);
   });
 });
@@ -2141,7 +2179,7 @@ app.post('/api/cabinet-calculator/projects', (req, res) => {
     ],
     function(err) {
       if (err) {
-        console.error('Error creating cabinet project:', err);
+        console.error('❌ Error creating cabinet project:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -2156,7 +2194,7 @@ app.put('/api/cabinet-calculator/projects/:id', (req, res) => {
   // Check if project exists
   db.get('SELECT * FROM cabinet_projects WHERE id = ?', [projectId], (err, project) => {
     if (err) {
-      console.error('Error checking cabinet project:', err);
+      console.error('❌ Error checking cabinet project:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -2213,14 +2251,14 @@ app.put('/api/cabinet-calculator/projects/:id', (req, res) => {
       ],
       function(err) {
         if (err) {
-          console.error('Error updating cabinet project:', err);
+          console.error('❌ Error updating cabinet project:', err);
           return res.status(500).json({ error: 'Internal server error' });
         }
         
         // Get the updated project
         db.get('SELECT * FROM cabinet_projects WHERE id = ?', [projectId], (err, updatedProject) => {
           if (err) {
-            console.error('Error fetching updated cabinet project:', err);
+            console.error('❌ Error fetching updated cabinet project:', err);
             return res.status(500).json({ error: 'Internal server error' });
           }
           
@@ -2240,7 +2278,7 @@ app.delete('/api/cabinet-calculator/projects/:id', (req, res) => {
   // Check if project exists
   db.get('SELECT * FROM cabinet_projects WHERE id = ?', [projectId], (err, project) => {
     if (err) {
-      console.error('Error checking cabinet project:', err);
+      console.error('❌ Error checking cabinet project:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
     
@@ -2250,7 +2288,7 @@ app.delete('/api/cabinet-calculator/projects/:id', (req, res) => {
     
     db.run('DELETE FROM cabinet_projects WHERE id = ?', [projectId], function(err) {
       if (err) {
-        console.error('Error deleting cabinet project:', err);
+        console.error('❌ Error deleting cabinet project:', err);
         return res.status(500).json({ error: 'Internal server error' });
       }
       
@@ -2260,6 +2298,7 @@ app.delete('/api/cabinet-calculator/projects/:id', (req, res) => {
 });
 
 app.post('/api/cabinet-calculator/nesting', (req, res) => {
+  console.log('🧩 Nesting optimization requested');
   // Mock nesting optimization response
   const { panels } = req.body;
   const mockNestingResult = {
@@ -2278,39 +2317,96 @@ app.post('/api/cabinet-calculator/nesting', (req, res) => {
     totalEfficiency: 85.5,
     wastePercentage: 14.5
   };
+  console.log('✅ Nesting result sent');
   res.json(mockNestingResult);
 });
 
 // Catch-all for other API routes
 app.use('/api/*', (req, res) => {
+  console.log('❓ Unknown API endpoint:', req.method, req.url);
   res.status(404).json({ error: 'API endpoint not found' });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
+  console.error('💥 Server error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// Database initialization check
+console.log('🔍 Checking database connection...');
+db.get('SELECT 1', (err) => {
+  if (err) {
+    console.error('❌ Database connection failed:', err);
+    process.exit(1);
+  } else {
+    console.log('✅ Database connection successful');
+  }
+});
+
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Cabinet WMS Server running on http://localhost:${PORT}`);
-  console.log(`📊 Dashboard API: http://localhost:${PORT}/api/dashboard/stats`);
-  console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth/login`);
-  console.log(`📦 Inventory API: http://localhost:${PORT}/api/inventory/products`);
-  console.log(`👥 Users API: http://localhost:${PORT}/api/users`);
-  console.log(`📋 BOM API: http://localhost:${PORT}/api/boms`);
-  console.log(`🔧 Prototypes API: http://localhost:${PORT}/api/prototypes`);
-  console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log('');
+  console.log('🎉 ===================================');
+  console.log('✅ Cabinet WMS Server is running!');
+  console.log('🌐 Server URL: http://localhost:' + PORT);
+  console.log('📊 Dashboard API: http://localhost:' + PORT + '/api/dashboard/stats');
+  console.log('🔐 Auth API: http://localhost:' + PORT + '/api/auth/login');
+  console.log('📦 Inventory API: http://localhost:' + PORT + '/api/inventory/products');
+  console.log('👥 Users API: http://localhost:' + PORT + '/api/users');
+  console.log('🏥 Health Check: http://localhost:' + PORT + '/api/health');
+  console.log('🎉 ===================================');
+  console.log('');
+});
+
+// Handle server startup errors
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use. Please try a different port.`);
+    console.error('💡 You can set a different port using: PORT=3002 npm start');
+  } else {
+    console.error('❌ Server startup error:', err);
+  }
+  process.exit(1);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  process.exit(0);
+const gracefulShutdown = (signal) => {
+  console.log(`\n🛑 Received ${signal}. Shutting down gracefully...`);
+  
+  server.close(() => {
+    console.log('✅ HTTP server closed');
+    
+    // Close database connection
+    db.close((err) => {
+      if (err) {
+        console.error('❌ Error closing database:', err);
+      } else {
+        console.log('✅ Database connection closed');
+      }
+      
+      console.log('👋 Server shutdown complete');
+      process.exit(0);
+    });
+  });
+  
+  // Force close after 10 seconds
+  setTimeout(() => {
+    console.error('❌ Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('💥 Uncaught Exception:', err);
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  process.exit(0);
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown('UNHANDLED_REJECTION');
 });
