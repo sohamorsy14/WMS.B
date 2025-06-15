@@ -213,15 +213,11 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                         textColor = 'text-purple-800';
                       }
                       
-                      // Calculate transform for rotation
-                      let transform = '';
+                      // For rotated parts
                       if (part.rotation) {
-                        // Calculate center point of the part
+                        // Calculate center point for rotation
                         const centerX = xPercent + widthPercent/2;
                         const centerY = yPercent + heightPercent/2;
-                        transform = `rotate(${part.rotation}deg)`;
-                        // Set transform origin to center of part
-                        const transformOrigin = `${centerX}% ${centerY}%`;
                         
                         return (
                           <div
@@ -232,8 +228,8 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                               top: `${yPercent}%`,
                               width: `${widthPercent}%`,
                               height: `${heightPercent}%`,
-                              transform: transform,
-                              transformOrigin: transformOrigin,
+                              transform: `rotate(${part.rotation}deg)`,
+                              transformOrigin: `${centerX}% ${centerY}%`,
                               zIndex: index + 1
                             }}
                             title={`Part ${index + 1}: ${part.length} × ${part.width}mm${part.grain ? `, Grain: ${part.grain}` : ''}`}

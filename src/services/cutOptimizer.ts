@@ -23,37 +23,33 @@ export class CutOptimizer {
     thickness: number
   ): NestingResult {
     // Clone the cutting list to avoid modifying the original
-    const parts = [...cuttingList].map(item => ({
-      ...item,
-      // Create multiple instances based on quantity
-      instances: Array(item.quantity).fill(0).map((_, i) => ({
-        id: `${item.id}-${i}`,
-        length: item.length,
-        width: item.width,
-        grain: item.grain,
-        partName: item.partName
-      }))
-    })).flatMap(item => item.instances);
+    const parts = [...cuttingList].flatMap(item => {
+      const instances = [];
+      for (let i = 0; i < item.quantity; i++) {
+        instances.push({
+          id: `${item.id}-${i}`,
+          partId: item.id,
+          partName: item.partName,
+          length: item.length,
+          width: item.width,
+          grain: item.grain,
+          edgeBanding: item.edgeBanding
+        });
+      }
+      return instances;
+    });
     
-    // Sort parts by area (largest first) and then by grain direction
+    // Sort parts by area (largest first)
     parts.sort((a, b) => {
-      // First sort by area (largest first)
       const areaA = a.length * a.width;
       const areaB = b.length * b.width;
-      if (areaB !== areaA) return areaB - areaA;
-      
-      // Then prioritize parts with grain direction
-      if (a.grain !== 'none' && b.grain === 'none') return -1;
-      if (a.grain === 'none' && b.grain !== 'none') return 1;
-      
-      // Then sort by the longer dimension
-      return Math.max(b.length, b.width) - Math.max(a.length, a.width);
+      return areaB - areaA;
     });
     
     // Initialize the result
     const nestedParts: NestingPart[] = [];
     let usedArea = 0;
-    let currentSheet = 1;
+    let sheetCount = 1;
     
     // Create a representation of the sheet
     const sheet = {
@@ -65,70 +61,72 @@ export class CutOptimizer {
     
     // Process each part
     for (const part of parts) {
-      // Determine if we need to rotate the part based on grain direction
-      let shouldRotate = false;
-      let canRotate = false;
+      // Determine if we should try to rotate the part based on grain direction
+      let bestFit = null;
+      let bestWaste = Infinity;
       
-      // For length grain, the part's length should align with sheet length (2440mm)
-      if (part.grain === 'length') {
-        // If part's width is longer than its length, we should rotate
-        // But only if the rotated part fits within the sheet
-        if (part.width > part.length && part.width <= sheetSize.length && part.length <= sheetSize.width) {
-          shouldRotate = true;
-          canRotate = true;
-        }
-      } 
-      // For width grain, the part's width should align with sheet length (2440mm)
-      else if (part.grain === 'width') {
-        // If part's length is longer than its width, we should rotate
-        // But only if the rotated part fits within the sheet
-        if (part.length > part.width && part.length <= sheetSize.width && part.width <= sheetSize.length) {
-          shouldRotate = true;
-          canRotate = true;
+      // Try normal orientation
+      const normalFit = this.tryFitPart(sheet, part.length, part.width, part.grain, false);
+      if (normalFit) {
+        const waste = normalFit.waste;
+        if (waste < bestWaste) {
+          bestFit = { ...normalFit, rotated: false };
+          bestWaste = waste;
         }
       }
-      // For no grain, we can rotate freely for best fit
-      else {
-        canRotate = true;
+      
+      // Try rotated orientation if grain allows
+      if (part.grain === 'none') {
+        const rotatedFit = this.tryFitPart(sheet, part.width, part.length, part.grain, true);
+        if (rotatedFit) {
+          const waste = rotatedFit.waste;
+          if (waste < bestWaste) {
+            bestFit = { ...rotatedFit, rotated: true };
+            bestWaste = waste;
+          }
+        }
       }
       
-      // Try to fit the part in the current orientation
-      let placed = this.findPositionForPart(sheet, part.length, part.width, part.grain, shouldRotate);
-      
-      // If not placed and we can rotate, try the other orientation
-      if (!placed && canRotate && part.grain === 'none') {
-        placed = this.findPositionForPart(sheet, part.width, part.length, part.grain, !shouldRotate);
-      }
-      
-      // If still not placed, try a new sheet
-      if (!placed) {
-        currentSheet++;
+      // If no fit found, start a new sheet
+      if (!bestFit) {
+        sheetCount++;
         sheet.freeRects = [{ x: 0, y: 0, width: sheetSize.width, length: sheetSize.length }];
         
         // Try again with the new sheet
-        placed = this.findPositionForPart(sheet, part.length, part.width, part.grain, shouldRotate);
-        
-        // If still not placed and we can rotate, try the other orientation
-        if (!placed && canRotate && part.grain === 'none') {
-          placed = this.findPositionForPart(sheet, part.width, part.length, part.grain, !shouldRotate);
+        const normalFit = this.tryFitPart(sheet, part.length, part.width, part.grain, false);
+        if (normalFit) {
+          bestFit = { ...normalFit, rotated: false };
+        } else if (part.grain === 'none') {
+          const rotatedFit = this.tryFitPart(sheet, part.width, part.length, part.grain, true);
+          if (rotatedFit) {
+            bestFit = { ...rotatedFit, rotated: true };
+          }
         }
         
         // If still can't place, skip this part (shouldn't happen with a new sheet)
-        if (!placed) {
-          console.error(`Failed to place part ${part.id} (${part.partName}) even on a new sheet`);
+        if (!bestFit) {
+          console.error(`Failed to place part ${part.partName} even on a new sheet`);
           continue;
         }
       }
       
+      // Place the part
+      const { rect, x, y, rotated } = bestFit;
+      const partLength = rotated ? part.width : part.length;
+      const partWidth = rotated ? part.length : part.width;
+      
+      // Update free rectangles
+      this.placePart(sheet, rect, x, y, partLength, partWidth);
+      
       // Add the placed part to the result
       nestedParts.push({
         id: part.id,
-        partId: part.id.split('-')[0], // Extract the original part ID
-        x: placed.x,
-        y: placed.y,
-        length: placed.rotated ? part.width : part.length,
-        width: placed.rotated ? part.length : part.width,
-        rotation: placed.rotated ? 90 : 0,
+        partId: part.partId,
+        x,
+        y,
+        length: partLength,
+        width: partWidth,
+        rotation: rotated ? 90 : 0,
         grain: part.grain
       });
       
@@ -137,7 +135,7 @@ export class CutOptimizer {
     }
     
     // Calculate total area and efficiency
-    const totalArea = sheetSize.length * sheetSize.width * currentSheet;
+    const totalArea = sheetSize.length * sheetSize.width * sheetCount;
     const efficiency = (usedArea / totalArea) * 100;
     
     return {
@@ -149,32 +147,39 @@ export class CutOptimizer {
       efficiency,
       wasteArea: totalArea - usedArea,
       totalArea,
-      sheetCount: currentSheet
+      sheetCount
     };
   }
   
   /**
-   * Find a position for a part within the sheet
+   * Try to fit a part in the sheet
    * 
    * @param sheet - The sheet with free rectangles
    * @param partLength - Length of the part
    * @param partWidth - Width of the part
    * @param grain - Grain direction of the part
-   * @param rotated - Whether the part should be rotated
-   * @returns Position where the part can be placed, or null if it can't be placed
+   * @param rotated - Whether the part is rotated
+   * @returns Best fit position or null if can't fit
    */
-  private static findPositionForPart(
-    sheet: { length: number; width: number; freeRects: Array<{ x: number; y: number; length: number; width: number }> },
+  private static tryFitPart(
+    sheet: { freeRects: Array<{ x: number; y: number; length: number; width: number }> },
     partLength: number,
     partWidth: number,
     grain: 'length' | 'width' | 'none',
-    rotated: boolean = false
-  ): { x: number; y: number; rotated: boolean } | null {
-    // If rotated, swap dimensions
-    const actualLength = rotated ? partWidth : partLength;
-    const actualWidth = rotated ? partLength : partWidth;
+    rotated: boolean
+  ): { rect: any; x: number; y: number; waste: number } | null {
+    // Check if the part can be placed with respect to grain direction
+    if (grain === 'length' && rotated) {
+      // For length grain, the part's length should align with sheet length
+      // If rotated, the part's width becomes its length, which should align with grain
+      return null;
+    } else if (grain === 'width' && !rotated) {
+      // For width grain, the part's width should align with sheet length
+      // If not rotated, the part's width should align with grain
+      return null;
+    }
     
-    // Check if the part fits in any free rectangle
+    // Find the best position using the Best Short Side Fit (BSSF) algorithm
     let bestRect = null;
     let bestShortSideFit = Number.MAX_VALUE;
     let bestPosition = null;
@@ -183,26 +188,20 @@ export class CutOptimizer {
       const rect = sheet.freeRects[i];
       
       // Check if the part fits in the rectangle
-      if (rect.length >= actualLength && rect.width >= actualWidth) {
-        const remainingLength = rect.length - actualLength;
-        const remainingWidth = rect.width - actualWidth;
+      if (rect.length >= partLength && rect.width >= partWidth) {
+        const remainingLength = rect.length - partLength;
+        const remainingWidth = rect.width - partWidth;
         const shortSideFit = Math.min(remainingLength, remainingWidth);
         
         if (bestRect === null || shortSideFit < bestShortSideFit) {
           bestRect = rect;
           bestShortSideFit = shortSideFit;
-          bestPosition = { x: rect.x, y: rect.y, rotated };
+          bestPosition = { rect, x: rect.x, y: rect.y, waste: shortSideFit };
         }
       }
     }
     
-    // If a position was found, update the free rectangles
-    if (bestRect && bestPosition) {
-      this.placePart(sheet, bestRect, bestPosition.x, bestPosition.y, actualLength, actualWidth);
-      return bestPosition;
-    }
-    
-    return null;
+    return bestPosition;
   }
   
   /**
