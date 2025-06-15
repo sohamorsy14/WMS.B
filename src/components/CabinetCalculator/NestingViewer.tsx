@@ -7,18 +7,21 @@ interface NestingViewerProps {
   onOptimize: () => void;
   onExportNesting: (result: NestingResult) => void;
   isOptimizing: boolean;
+  selectedTechnology?: string;
+  onTechnologyChange?: (technology: string) => void;
 }
 
 const NestingViewer: React.FC<NestingViewerProps> = ({ 
   nestingResults, 
   onOptimize, 
   onExportNesting,
-  isOptimizing 
+  isOptimizing,
+  selectedTechnology = 'rectpack2d',
+  onTechnologyChange
 }) => {
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [selectedSheetSize, setSelectedSheetSize] = useState<string>('2440x1220');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('all');
-  const [selectedTechnology, setSelectedTechnology] = useState<string>('rectpack2d');
   const [showTechInfo, setShowTechInfo] = useState<boolean>(false);
 
   const formatCurrency = (amount: number) => {
@@ -58,16 +61,16 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
   ];
 
   const technologies = [
-    { value: 'rectpack2d', label: 'RectPack2D', description: 'Specialized rectangle packing algorithm library' },
-    { value: 'binpacking', label: 'BinPacking.js', description: '2D bin packing optimization library' },
-    { value: 'd3js', label: 'D3.js', description: 'Data visualization library with powerful layout algorithms' },
-    { value: 'fabricjs', label: 'Fabric.js', description: 'Interactive object model on canvas with pattern support' },
-    { value: 'cutlist', label: 'CutList Optimizer', description: 'Specialized woodworking cut optimization' },
-    { value: 'svgrenderer', label: 'SVG-based Custom Renderer', description: 'Direct SVG rendering with precise control over grain patterns' },
-    { value: 'canvasrenderer', label: 'Canvas-based Visualization', description: 'HTML5 Canvas for more complex rendering with grain textures' },
-    { value: 'cssgrid', label: 'CSS Grid with Pattern Overlays', description: 'For simpler visualization with CSS patterns' },
-    { value: 'webglrenderer', label: 'WebGL-based Renderer', description: 'For high-performance visualization with texture patterns' },
-    { value: 'reactkonva', label: 'React-Konva', description: 'Canvas rendering for React with pattern support' }
+    { value: 'rectpack2d', label: 'RectPack2D', description: 'Specialized rectangle packing algorithm library optimized for woodworking. Prioritizes efficient material usage while respecting grain direction.' },
+    { value: 'binpacking', label: 'BinPacking.js', description: '2D bin packing optimization library with support for multiple bin sizes and rotation constraints. Focuses on minimizing waste.' },
+    { value: 'd3js', label: 'D3.js', description: 'Data visualization library with powerful layout algorithms. Uses force-directed placement for more organic layouts.' },
+    { value: 'fabricjs', label: 'Fabric.js', description: 'Interactive object model on canvas with pattern support. Allows for more flexible part placement with rotation.' },
+    { value: 'cutlist', label: 'CutList Optimizer', description: 'Specialized woodworking cut optimization algorithm that prioritizes straight cuts and minimizes waste. Industry standard for cabinet making.' },
+    { value: 'svgrenderer', label: 'SVG-based Custom Renderer', description: 'Direct SVG rendering with precise control over grain patterns. Optimized for visual clarity of grain direction.' },
+    { value: 'canvasrenderer', label: 'Canvas-based Visualization', description: 'HTML5 Canvas for more complex rendering with grain textures. Better performance for complex layouts.' },
+    { value: 'cssgrid', label: 'CSS Grid with Pattern Overlays', description: 'For simpler visualization with CSS patterns. Focuses on grid-based layouts for easier cutting.' },
+    { value: 'webglrenderer', label: 'WebGL-based Renderer', description: 'For high-performance visualization with texture patterns. Best for very large cutting lists.' },
+    { value: 'reactkonva', label: 'React-Konva', description: 'Canvas rendering for React with pattern support. Balances performance and visual quality.' }
   ];
 
   const totalSheets = nestingResults.reduce((sum, result) => sum + result.sheetCount, 0);
@@ -76,7 +79,10 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
     : 0;
 
   const handleOptimizeWithSettings = () => {
-    // In a real implementation, this would pass the selected sheet size, material, and technology to the optimization function
+    // Pass the selected technology to the parent component
+    if (onTechnologyChange) {
+      onTechnologyChange(selectedTechnology);
+    }
     onOptimize();
   };
 
@@ -114,7 +120,13 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
             <div className="relative">
               <select
                 value={selectedTechnology}
-                onChange={(e) => setSelectedTechnology(e.target.value)}
+                onChange={(e) => {
+                  const newTech = e.target.value;
+                  if (onTechnologyChange) {
+                    onTechnologyChange(newTech);
+                  }
+                  setSelectedTechnology(newTech);
+                }}
                 className="px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               >
                 {technologies.map(tech => (
