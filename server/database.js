@@ -802,35 +802,6 @@ function seedDefaultPurchaseOrders() {
     }
   ];
 
-  const stmt = db.prepare(`
-    INSERT INTO purchase_orders (
-      id, poNumber, supplier, status, subtotal, tax, total,
-      orderDate, expectedDelivery, notes, createdAt, updatedAt
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  defaultPOs.forEach(po => {
-    stmt.run(
-      po.id,
-      po.poNumber,
-      po.supplier,
-      po.status,
-      po.subtotal,
-      po.tax,
-      po.total,
-      po.orderDate,
-      po.expectedDelivery,
-      po.notes,
-      po.createdAt,
-      po.updatedAt
-    );
-  });
-
-  stmt.finalize();
-  console.log('Default purchase orders seeded');
-
-  // Seed purchase order items
   const defaultPOItems = [
     {
       id: '1',
@@ -861,25 +832,86 @@ function seedDefaultPurchaseOrders() {
     }
   ];
 
-  const itemStmt = db.prepare(`
-    INSERT INTO purchase_order_items (id, poId, itemId, itemName, quantity, unitCost, totalCost)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
+  // Use db.serialize to ensure sequential execution and wrap in transaction
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION;', (err) => {
+      if (err) {
+        console.error('Error starting transaction:', err.message);
+        return;
+      }
 
-  defaultPOItems.forEach(item => {
-    itemStmt.run(
-      item.id,
-      item.poId,
-      item.itemId,
-      item.itemName,
-      item.quantity,
-      item.unitCost,
-      item.totalCost
-    );
+      // Insert purchase orders first
+      const poStmt = db.prepare(`
+        INSERT INTO purchase_orders (
+          id, poNumber, supplier, status, subtotal, tax, total,
+          orderDate, expectedDelivery, notes, createdAt, updatedAt
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      defaultPOs.forEach(po => {
+        poStmt.run(
+          po.id,
+          po.poNumber,
+          po.supplier,
+          po.status,
+          po.subtotal,
+          po.tax,
+          po.total,
+          po.orderDate,
+          po.expectedDelivery,
+          po.notes,
+          po.createdAt,
+          po.updatedAt
+        );
+      });
+
+      poStmt.finalize((err) => {
+        if (err) {
+          console.error('Error inserting purchase orders:', err.message);
+          db.run('ROLLBACK;');
+          return;
+        }
+
+        // Insert purchase order items after purchase orders are committed
+        const itemStmt = db.prepare(`
+          INSERT INTO purchase_order_items (id, poId, itemId, itemName, quantity, unitCost, totalCost)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        defaultPOItems.forEach(item => {
+          itemStmt.run(
+            item.id,
+            item.poId,
+            item.itemId,
+            item.itemName,
+            item.quantity,
+            item.unitCost,
+            item.totalCost
+          );
+        });
+
+        itemStmt.finalize((err) => {
+          if (err) {
+            console.error('Error inserting purchase order items:', err.message);
+            db.run('ROLLBACK;');
+            return;
+          }
+
+          // Commit the transaction
+          db.run('COMMIT;', (err) => {
+            if (err) {
+              console.error('Error committing transaction:', err.message);
+              db.run('ROLLBACK;');
+            } else {
+              console.log('Default purchase orders seeded');
+              console.log('Default purchase order items seeded');
+            }
+          });
+        });
+      });
+    });
   });
-
-  itemStmt.finalize();
-  console.log('Default purchase order items seeded');
 }
 
 // Export database connection
