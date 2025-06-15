@@ -10,7 +10,6 @@ import Settings from './pages/Settings';
 import Requisitions from './pages/Requisitions';
 import OrderManagement from './pages/OrderManagement';
 import ReportManagement from './pages/ReportManagement';
-import PurchaseOrderManagement from './pages/PurchaseOrderManagement';
 import CabinetCalculator from './pages/CabinetCalculator';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 
@@ -43,7 +42,6 @@ const AppRoutes: React.FC = () => {
                 <Route path="/requisitions" element={<Requisitions />} />
                 <Route path="/orders" element={<OrderManagement />} />
                 <Route path="/reports" element={<ReportManagement />} />
-                <Route path="/purchase-orders" element={<PurchaseOrderManagement />} />
                 <Route path="/cabinet-calculator" element={<CabinetCalculator />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>
