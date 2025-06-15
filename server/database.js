@@ -1,10 +1,13 @@
-const sqlite3 = require('sqlite3').verbose();
-const fs = require('fs');
-const path = require('path');
-require('dotenv').config();
+import sqlite3_module from 'sqlite3';
+import fs from 'fs';
+import path from 'path';
+import dotenv from 'dotenv';
+
+const sqlite3 = sqlite3_module.verbose();
+dotenv.config();
 
 // Get database path from environment variables or use default
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'data', 'cabinet_wms.db');
+const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'server', 'data', 'cabinet_wms.db');
 
 // Ensure the directory exists
 const dbDir = path.dirname(dbPath);
@@ -915,4 +918,4 @@ function seedDefaultPurchaseOrders() {
 }
 
 // Export database connection
-module.exports = db;
+export default db;

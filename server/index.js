@@ -1,12 +1,14 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
-const db = require('./database');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
+import db from './database.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,7 +18,7 @@ console.log('📍 Port:', PORT);
 console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
 
 // Ensure data directory exists
-const dataDir = path.join(__dirname, 'data');
+const dataDir = path.join(process.cwd(), 'server', 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
   console.log('📁 Created server/data directory');
