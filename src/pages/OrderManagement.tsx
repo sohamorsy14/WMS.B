@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Eye, Calendar, User, Building, DollarSign, Clock, AlertCircle, CheckCircle, XCircle, Layers } from 'lucide-react';
-import { Order, BOM } from '../types';
-import { orderService, bomService, departmentService, requesterService } from '../services/api';
+import { Plus, Edit, Trash2, Search, Eye, Calendar, User, Building, DollarSign, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Order } from '../types';
+import { orderService, departmentService, requesterService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Common/Modal';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
@@ -25,7 +25,6 @@ interface OrderFormData {
 const OrderManagement: React.FC = () => {
   const { user, hasPermission } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [boms, setBoms] = useState<BOM[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [requesters, setRequesters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +36,6 @@ const OrderManagement: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orderBoms, setOrderBoms] = useState<BOM[]>([]);
   const [formData, setFormData] = useState<OrderFormData>({
     orderNumber: '',
     customerName: '',
@@ -77,7 +75,6 @@ const OrderManagement: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-    fetchBoms();
     fetchDepartments();
     fetchRequesters();
   }, []);
@@ -91,15 +88,6 @@ const OrderManagement: React.FC = () => {
       toast.error('Failed to load orders');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchBoms = async () => {
-    try {
-      const data = await bomService.getAll();
-      setBoms(data);
-    } catch (error) {
-      console.error('Failed to fetch BOMs:', error);
     }
   };
 
@@ -181,7 +169,7 @@ const OrderManagement: React.FC = () => {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm('Are you sure you want to delete this order? This will also affect linked BOMs.')) return;
+    if (!confirm('Are you sure you want to delete this order?')) return;
 
     try {
       await orderService.delete(orderId);
@@ -230,14 +218,6 @@ const OrderManagement: React.FC = () => {
 
   const openViewModal = async (order: Order) => {
     setSelectedOrder(order);
-    // Fetch BOMs linked to this order
-    try {
-      const linkedBoms = await bomService.getByLinkedId('order', order.id);
-      setOrderBoms(linkedBoms);
-    } catch (error) {
-      console.error('Failed to fetch linked BOMs:', error);
-      setOrderBoms([]);
-    }
     setIsViewModalOpen(true);
   };
 
@@ -430,9 +410,6 @@ const OrderManagement: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  BOMs
-                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -502,12 +479,6 @@ const OrderManagement: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Layers className="w-4 h-4 text-gray-400 mr-1" />
-                        <span className="text-sm text-gray-900">{order.bomCount || 0}</span>
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
@@ -977,7 +948,6 @@ const OrderManagement: React.FC = () => {
         onClose={() => {
           setIsViewModalOpen(false);
           setSelectedOrder(null);
-          setOrderBoms([]);
         }}
         title="Order Details"
         size="xl"
@@ -1058,37 +1028,6 @@ const OrderManagement: React.FC = () => {
                 </div>
               </div>
             )}
-
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Linked BOMs ({orderBoms.length})</h4>
-              {orderBoms.length > 0 ? (
-                <div className="space-y-2">
-                  {orderBoms.map((bom) => (
-                    <div key={bom.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <div className="font-medium text-gray-900">{bom.bomNumber}</div>
-                        <div className="text-sm text-gray-600">{bom.name}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-gray-900">${bom.totalCost.toFixed(2)}</div>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          bom.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          bom.status === 'in_production' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {bom.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Layers className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p>No BOMs linked to this order yet</p>
-                </div>
-              )}
-            </div>
           </div>
         )}
       </Modal>

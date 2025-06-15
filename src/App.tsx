@@ -9,8 +9,6 @@ import Inventory from './pages/Inventory';
 import Settings from './pages/Settings';
 import Requisitions from './pages/Requisitions';
 import OrderManagement from './pages/OrderManagement';
-import BOMManagement from './pages/BOMManagement';
-import PrototypeManagement from './pages/PrototypeManagement';
 import ReportManagement from './pages/ReportManagement';
 import PurchaseOrderManagement from './pages/PurchaseOrderManagement';
 import CabinetCalculator from './pages/CabinetCalculator';
@@ -44,8 +42,6 @@ const AppRoutes: React.FC = () => {
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/requisitions" element={<Requisitions />} />
                 <Route path="/orders" element={<OrderManagement />} />
-                <Route path="/boms" element={<BOMManagement />} />
-                <Route path="/prototypes" element={<PrototypeManagement />} />
                 <Route path="/reports" element={<ReportManagement />} />
                 <Route path="/purchase-orders" element={<PurchaseOrderManagement />} />
                 <Route path="/cabinet-calculator" element={<CabinetCalculator />} />
