@@ -716,6 +716,67 @@ app.get('/api/auth/validate', (req, res) => {
   }
 });
 
+// User management routes
+app.get('/api/users', (req, res) => {
+  res.json(mockUsers);
+});
+
+app.get('/api/users/:id', (req, res) => {
+  const user = mockUsers.find(u => u.id === req.params.id);
+  if (user) {
+    res.json(user);
+  } else {
+    res.status(404).json({ error: 'User not found' });
+  }
+});
+
+app.post('/api/users', (req, res) => {
+  const newUser = {
+    id: Date.now().toString(),
+    ...req.body,
+    createdAt: new Date().toISOString()
+  };
+  mockUsers.push(newUser);
+  res.json(newUser);
+});
+
+app.put('/api/users/:id', (req, res) => {
+  const index = mockUsers.findIndex(u => u.id === req.params.id);
+  if (index !== -1) {
+    mockUsers[index] = {
+      ...mockUsers[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockUsers[index]);
+  } else {
+    res.status(404).json({ error: 'User not found' });
+  }
+});
+
+app.delete('/api/users/:id', (req, res) => {
+  const index = mockUsers.findIndex(u => u.id === req.params.id);
+  if (index !== -1) {
+    mockUsers.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'User not found' });
+  }
+});
+
+app.post('/api/users/:id/change-password', (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const user = mockUsers.find(u => u.id === req.params.id);
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  // In a real app, you would verify the current password
+  // For this mock, we'll just simulate success
+  res.json({ success: true, message: 'Password changed successfully' });
+});
+
 // Dashboard routes
 app.get('/api/dashboard/stats', (req, res) => {
   res.json(mockDashboardStats);
@@ -1572,6 +1633,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Dashboard API: http://localhost:${PORT}/api/dashboard/stats`);
   console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth/login`);
   console.log(`📦 Inventory API: http://localhost:${PORT}/api/inventory/products`);
+  console.log(`👥 Users API: http://localhost:${PORT}/api/users`);
   console.log(`📋 BOM API: http://localhost:${PORT}/api/boms`);
   console.log(`🔧 Prototypes API: http://localhost:${PORT}/api/prototypes`);
   console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
