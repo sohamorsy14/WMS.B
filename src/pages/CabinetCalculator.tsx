@@ -31,6 +31,7 @@ const CabinetCalculator: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSheetSize, setSelectedSheetSize] = useState<string>('2440x1220');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('all');
+  const [selectedTechnology, setSelectedTechnology] = useState<string>('rectpack2d');
   
   useEffect(() => {
     // Load saved configurations and templates
@@ -136,7 +137,7 @@ const CabinetCalculator: React.FC = () => {
       
       setNestingResults(results);
       setActiveTab('nesting');
-      toast.success('Nesting optimization completed');
+      toast.success(`Nesting optimization completed using ${selectedTechnology}`);
     } catch (error) {
       console.error('Nesting optimization error:', error);
       toast.error('Failed to optimize nesting');

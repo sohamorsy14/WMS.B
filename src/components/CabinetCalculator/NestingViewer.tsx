@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NestingResult } from '../../types/cabinet';
-import { Package, Maximize, BarChart3, RefreshCw, Download, Settings } from 'lucide-react';
+import { Package, Maximize, BarChart3, RefreshCw, Download, Settings, Info } from 'lucide-react';
 
 interface NestingViewerProps {
   nestingResults: NestingResult[];
@@ -18,6 +18,8 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [selectedSheetSize, setSelectedSheetSize] = useState<string>('2440x1220');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('all');
+  const [selectedTechnology, setSelectedTechnology] = useState<string>('rectpack2d');
+  const [showTechInfo, setShowTechInfo] = useState<boolean>(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -55,13 +57,26 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
     { value: 'Material 3', label: 'Material 3' }
   ];
 
+  const technologies = [
+    { value: 'rectpack2d', label: 'RectPack2D', description: 'Specialized rectangle packing algorithm library' },
+    { value: 'binpacking', label: 'BinPacking.js', description: '2D bin packing optimization library' },
+    { value: 'd3js', label: 'D3.js', description: 'Data visualization library with powerful layout algorithms' },
+    { value: 'fabricjs', label: 'Fabric.js', description: 'Interactive object model on canvas with pattern support' },
+    { value: 'cutlist', label: 'CutList Optimizer', description: 'Specialized woodworking cut optimization' },
+    { value: 'svgrenderer', label: 'SVG-based Custom Renderer', description: 'Direct SVG rendering with precise control over grain patterns' },
+    { value: 'canvasrenderer', label: 'Canvas-based Visualization', description: 'HTML5 Canvas for more complex rendering with grain textures' },
+    { value: 'cssgrid', label: 'CSS Grid with Pattern Overlays', description: 'For simpler visualization with CSS patterns' },
+    { value: 'webglrenderer', label: 'WebGL-based Renderer', description: 'For high-performance visualization with texture patterns' },
+    { value: 'reactkonva', label: 'React-Konva', description: 'Canvas rendering for React with pattern support' }
+  ];
+
   const totalSheets = nestingResults.reduce((sum, result) => sum + result.sheetCount, 0);
   const averageEfficiency = nestingResults.length > 0 
     ? nestingResults.reduce((sum, result) => sum + result.efficiency, 0) / nestingResults.length
     : 0;
 
   const handleOptimizeWithSettings = () => {
-    // In a real implementation, this would pass the selected sheet size and material to the optimization function
+    // In a real implementation, this would pass the selected sheet size, material, and technology to the optimization function
     onOptimize();
   };
 
@@ -94,6 +109,27 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
               ))}
             </select>
           </div>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">Technology:</label>
+            <div className="relative">
+              <select
+                value={selectedTechnology}
+                onChange={(e) => setSelectedTechnology(e.target.value)}
+                className="px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                {technologies.map(tech => (
+                  <option key={tech.value} value={tech.value}>{tech.label}</option>
+                ))}
+              </select>
+              <button 
+                onClick={() => setShowTechInfo(!showTechInfo)}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                title="Technology Information"
+              >
+                <Info className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
           <button
             onClick={handleOptimizeWithSettings}
             disabled={isOptimizing}
@@ -113,6 +149,34 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Technology Info Panel */}
+      {showTechInfo && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-medium text-gray-900">Technology Information</h3>
+            <button 
+              onClick={() => setShowTechInfo(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {technologies.map(tech => (
+              <div 
+                key={tech.value} 
+                className={`p-3 rounded-lg border ${selectedTechnology === tech.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+              >
+                <h4 className="font-medium text-gray-900">{tech.label}</h4>
+                <p className="text-sm text-gray-600 mt-1">{tech.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -213,6 +277,13 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                         textColor = 'text-purple-800';
                       }
                       
+                      // If grain direction is violated, show warning color
+                      if (part.grainViolated) {
+                        bgColor = 'bg-yellow-100';
+                        borderColor = 'border-yellow-500';
+                        textColor = 'text-yellow-800';
+                      }
+                      
                       // For rotated parts
                       if (part.rotation) {
                         // Calculate center point for rotation
@@ -277,6 +348,10 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                     <div className="w-3 h-3 bg-gray-100 border border-gray-500 mr-1"></div>
                     <span>No Grain</span>
                   </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-yellow-100 border border-yellow-500 mr-1"></div>
+                    <span>Grain Violated</span>
+                  </div>
                 </div>
               </div>
 
@@ -311,6 +386,7 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Rotation</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grain</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -325,6 +401,17 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                               {part.grain === 'length' ? 'Grain with Length' : 
                                part.grain === 'width' ? 'Grain with Width' : 
                                'No Grain'}
+                            </td>
+                            <td className="px-3 py-2">
+                              {part.grainViolated ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  Grain Violated
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Optimal
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))}
