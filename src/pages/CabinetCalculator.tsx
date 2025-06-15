@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { cabinetTemplates } from '../data/cabinetTemplates';
 import { CabinetTemplate, CabinetConfiguration, CabinetProject, NestingResult } from '../types/cabinet';
 import { CabinetCalculatorService, CabinetStorageService } from '../services/cabinetCalculator';
+import { CutOptimizer } from '../services/cutOptimizer';
 import CabinetCatalog from '../components/CabinetCalculator/CabinetCatalog';
 import CabinetConfigurator from '../components/CabinetCalculator/CabinetConfigurator';
 import NestingViewer from '../components/CabinetCalculator/NestingViewer';
@@ -126,8 +127,8 @@ const CabinetCalculator: React.FC = () => {
         }
       }
 
-      // Call the optimizeNesting method with sheet size and material type
-      const results = await CabinetCalculatorService.optimizeNesting(
+      // Use CutOptimizer instead of the old optimization method
+      const results = CutOptimizer.optimizeNesting(
         currentConfiguration.cuttingList,
         sheetSize,
         selectedMaterial !== 'all' ? selectedMaterial : undefined

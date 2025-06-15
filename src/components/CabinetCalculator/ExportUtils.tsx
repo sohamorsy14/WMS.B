@@ -263,10 +263,16 @@ export const exportNestingSVG = (result: NestingResult) => {
       strokeColor = "#673AB7";
     }
     
-    // Apply rotation transform if needed
-    const transformOrigin = `${part.x + part.length/2} ${part.y + part.width/2}`;
-    const transform = part.rotation ? `transform="rotate(${part.rotation} ${transformOrigin})"` : '';
+    // Calculate transform for rotation
+    let transform = '';
+    if (part.rotation) {
+      // Calculate center point of the part
+      const centerX = part.x + part.length/2;
+      const centerY = part.y + part.width/2;
+      transform = `transform="rotate(${part.rotation} ${centerX} ${centerY})"`;
+    }
     
+    // Add part rectangle
     svg += `<g ${transform}>`;
     svg += `<rect x="${part.x}" y="${part.y}" width="${part.length}" height="${part.width}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1"/>`;
     svg += `<text x="${part.x + part.length/2}" y="${part.y + part.width/2}" font-family="Arial" font-size="12" text-anchor="middle" dominant-baseline="middle">${index + 1}</text>`;
