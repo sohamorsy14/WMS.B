@@ -532,6 +532,157 @@ const mockBOMs = [
         notes: 'Door and drawer hinges'
       }
     ]
+  },
+  {
+    id: '3',
+    bomNumber: 'BOM-2024-0003',
+    name: 'Standard Kitchen Upper Cabinet',
+    linkedType: 'prototype',
+    linkedId: '1',
+    version: '1.0',
+    status: 'approved',
+    description: 'Standard upper cabinet for kitchen applications',
+    category: 'Upper Cabinet',
+    totalCost: 95.25,
+    laborHours: 2.5,
+    createdBy: 'John Smith',
+    approvedBy: 'Sarah Johnson',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    items: [
+      {
+        id: '1',
+        itemId: 'PLY-18-4X8',
+        itemName: 'Plywood 18mm 4x8ft',
+        quantity: 0.3,
+        unitCost: 52.75,
+        totalCost: 15.83,
+        category: 'Panels',
+        notes: 'Cabinet sides and shelves'
+      },
+      {
+        id: '2',
+        itemId: 'HNG-CONC-35',
+        itemName: 'Concealed Hinges 35mm',
+        quantity: 2,
+        unitCost: 3.25,
+        totalCost: 6.50,
+        category: 'Hardware',
+        notes: 'Door hinges'
+      }
+    ]
+  },
+  {
+    id: '4',
+    bomNumber: 'BOM-2024-0004',
+    name: 'Modern Bathroom Vanity',
+    linkedType: 'prototype',
+    linkedId: '2',
+    version: '1.0',
+    status: 'draft',
+    description: 'Modern style bathroom vanity with soft-close drawers',
+    category: 'Vanity',
+    totalCost: 220.50,
+    laborHours: 6.0,
+    createdBy: 'Emily Davis',
+    approvedBy: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    items: [
+      {
+        id: '1',
+        itemId: 'PLY-18-4X8',
+        itemName: 'Plywood 18mm 4x8ft',
+        quantity: 0.8,
+        unitCost: 52.75,
+        totalCost: 42.20,
+        category: 'Panels',
+        notes: 'Cabinet carcass and drawers'
+      },
+      {
+        id: '2',
+        itemId: 'HNG-CONC-35',
+        itemName: 'Concealed Hinges 35mm',
+        quantity: 6,
+        unitCost: 3.25,
+        totalCost: 19.50,
+        category: 'Hardware',
+        notes: 'Door and drawer hinges'
+      }
+    ]
+  }
+];
+
+// Mock prototypes data
+const mockPrototypes = [
+  {
+    id: '1',
+    name: 'Standard Kitchen Upper Cabinet',
+    code: 'SKU-001',
+    category: 'Upper Cabinet',
+    description: 'Standard upper cabinet design for kitchen applications',
+    dimensions: {
+      width: 600,
+      height: 720,
+      depth: 350
+    },
+    materials: ['Plywood 18mm', 'Concealed Hinges'],
+    status: 'active',
+    version: '1.0',
+    createdBy: 'John Smith',
+    approvedBy: 'Sarah Johnson',
+    estimatedCost: 95.25,
+    laborHours: 2.5,
+    bomCount: 1,
+    notes: 'Standard design suitable for most kitchen layouts',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    name: 'Modern Bathroom Vanity',
+    code: 'SKU-002',
+    category: 'Vanity',
+    description: 'Modern style bathroom vanity with soft-close drawers',
+    dimensions: {
+      width: 900,
+      height: 850,
+      depth: 450
+    },
+    materials: ['Plywood 18mm', 'Soft-close Hinges', 'Drawer Slides'],
+    status: 'draft',
+    version: '1.0',
+    createdBy: 'Emily Davis',
+    approvedBy: null,
+    estimatedCost: 220.50,
+    laborHours: 6.0,
+    bomCount: 1,
+    notes: 'Modern design with premium hardware',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '3',
+    name: 'Custom Base Cabinet',
+    code: 'SKU-003',
+    category: 'Base Cabinet',
+    description: 'Customizable base cabinet for various applications',
+    dimensions: {
+      width: 800,
+      height: 900,
+      depth: 600
+    },
+    materials: ['MDF 18mm', 'Standard Hinges'],
+    status: 'active',
+    version: '2.0',
+    createdBy: 'Mike Wilson',
+    approvedBy: 'John Smith',
+    estimatedCost: 150.75,
+    laborHours: 4.0,
+    bomCount: 0,
+    notes: 'Flexible design for custom applications',
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];
 
@@ -684,6 +835,14 @@ app.get('/api/boms', (req, res) => {
   res.json(boms);
 });
 
+app.get('/api/boms/linked/:linkedType/:linkedId', (req, res) => {
+  const { linkedType, linkedId } = req.params;
+  const linkedBOMs = mockBOMs.filter(bom => 
+    bom.linkedType === linkedType && bom.linkedId === linkedId
+  );
+  res.json(linkedBOMs);
+});
+
 app.get('/api/boms/:id', (req, res) => {
   const bom = mockBOMs.find(b => b.id === req.params.id);
   if (bom) {
@@ -730,6 +889,56 @@ app.delete('/api/boms/:id', (req, res) => {
     res.json({ success: true });
   } else {
     res.status(404).json({ error: 'BOM not found' });
+  }
+});
+
+// Prototypes routes
+app.get('/api/prototypes', (req, res) => {
+  res.json(mockPrototypes);
+});
+
+app.get('/api/prototypes/:id', (req, res) => {
+  const prototype = mockPrototypes.find(p => p.id === req.params.id);
+  if (prototype) {
+    res.json(prototype);
+  } else {
+    res.status(404).json({ error: 'Prototype not found' });
+  }
+});
+
+app.post('/api/prototypes', (req, res) => {
+  const newPrototype = {
+    id: Date.now().toString(),
+    ...req.body,
+    bomCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockPrototypes.push(newPrototype);
+  res.json(newPrototype);
+});
+
+app.put('/api/prototypes/:id', (req, res) => {
+  const index = mockPrototypes.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockPrototypes[index] = {
+      ...mockPrototypes[index],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockPrototypes[index]);
+  } else {
+    res.status(404).json({ error: 'Prototype not found' });
+  }
+});
+
+app.delete('/api/prototypes/:id', (req, res) => {
+  const index = mockPrototypes.findIndex(p => p.id === req.params.id);
+  if (index !== -1) {
+    mockPrototypes.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Prototype not found' });
   }
 });
 
@@ -1364,6 +1573,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth/login`);
   console.log(`📦 Inventory API: http://localhost:${PORT}/api/inventory/products`);
   console.log(`📋 BOM API: http://localhost:${PORT}/api/boms`);
+  console.log(`🔧 Prototypes API: http://localhost:${PORT}/api/prototypes`);
   console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
 });
 
