@@ -30,7 +30,8 @@ export class CutOptimizer {
         id: `${item.id}-${i}`,
         length: item.length,
         width: item.width,
-        grain: item.grain
+        grain: item.grain,
+        partName: item.partName
       }))
     })).flatMap(item => item.instances);
     
@@ -64,12 +65,39 @@ export class CutOptimizer {
     
     // Process each part
     for (const part of parts) {
-      // Try to fit the part in the current orientation
-      let placed = this.findPositionForPart(sheet, part.length, part.width, part.grain);
+      // Determine if we need to rotate the part based on grain direction
+      let shouldRotate = false;
+      let canRotate = false;
       
-      // If not placed and grain allows rotation, try rotated
-      if (!placed && part.grain === 'none') {
-        placed = this.findPositionForPart(sheet, part.width, part.length, part.grain, true);
+      // For length grain, the part's length should align with sheet length (2440mm)
+      if (part.grain === 'length') {
+        // If part's width is longer than its length, we should rotate
+        // But only if the rotated part fits within the sheet
+        if (part.width > part.length && part.width <= sheetSize.length && part.length <= sheetSize.width) {
+          shouldRotate = true;
+          canRotate = true;
+        }
+      } 
+      // For width grain, the part's width should align with sheet length (2440mm)
+      else if (part.grain === 'width') {
+        // If part's length is longer than its width, we should rotate
+        // But only if the rotated part fits within the sheet
+        if (part.length > part.width && part.length <= sheetSize.width && part.width <= sheetSize.length) {
+          shouldRotate = true;
+          canRotate = true;
+        }
+      }
+      // For no grain, we can rotate freely for best fit
+      else {
+        canRotate = true;
+      }
+      
+      // Try to fit the part in the current orientation
+      let placed = this.findPositionForPart(sheet, part.length, part.width, part.grain, shouldRotate);
+      
+      // If not placed and we can rotate, try the other orientation
+      if (!placed && canRotate && part.grain === 'none') {
+        placed = this.findPositionForPart(sheet, part.width, part.length, part.grain, !shouldRotate);
       }
       
       // If still not placed, try a new sheet
@@ -78,16 +106,16 @@ export class CutOptimizer {
         sheet.freeRects = [{ x: 0, y: 0, width: sheetSize.width, length: sheetSize.length }];
         
         // Try again with the new sheet
-        placed = this.findPositionForPart(sheet, part.length, part.width, part.grain);
+        placed = this.findPositionForPart(sheet, part.length, part.width, part.grain, shouldRotate);
         
-        // If still not placed and grain allows rotation, try rotated
-        if (!placed && part.grain === 'none') {
-          placed = this.findPositionForPart(sheet, part.width, part.length, part.grain, true);
+        // If still not placed and we can rotate, try the other orientation
+        if (!placed && canRotate && part.grain === 'none') {
+          placed = this.findPositionForPart(sheet, part.width, part.length, part.grain, !shouldRotate);
         }
         
         // If still can't place, skip this part (shouldn't happen with a new sheet)
         if (!placed) {
-          console.error(`Failed to place part ${part.id} even on a new sheet`);
+          console.error(`Failed to place part ${part.id} (${part.partName}) even on a new sheet`);
           continue;
         }
       }
@@ -132,7 +160,7 @@ export class CutOptimizer {
    * @param partLength - Length of the part
    * @param partWidth - Width of the part
    * @param grain - Grain direction of the part
-   * @param rotated - Whether the part is rotated
+   * @param rotated - Whether the part should be rotated
    * @returns Position where the part can be placed, or null if it can't be placed
    */
   private static findPositionForPart(
@@ -142,18 +170,11 @@ export class CutOptimizer {
     grain: 'length' | 'width' | 'none',
     rotated: boolean = false
   ): { x: number; y: number; rotated: boolean } | null {
-    // Check if the part can be placed with respect to grain direction
-    if (grain === 'length' && rotated) {
-      // For length grain, the part's length should align with sheet length (2440mm)
-      // If rotated, the part's width becomes its length, which should align with sheet length
-      if (partWidth > sheet.length) return null;
-    } else if (grain === 'width' && !rotated) {
-      // For width grain, the part's width should align with sheet length (2440mm)
-      // If not rotated, the part's width should align with sheet length
-      if (partWidth > sheet.length) return null;
-    }
+    // If rotated, swap dimensions
+    const actualLength = rotated ? partWidth : partLength;
+    const actualWidth = rotated ? partLength : partWidth;
     
-    // Find the best position using the Best Short Side Fit (BSSF) algorithm
+    // Check if the part fits in any free rectangle
     let bestRect = null;
     let bestShortSideFit = Number.MAX_VALUE;
     let bestPosition = null;
@@ -162,9 +183,9 @@ export class CutOptimizer {
       const rect = sheet.freeRects[i];
       
       // Check if the part fits in the rectangle
-      if (rect.length >= partLength && rect.width >= partWidth) {
-        const remainingLength = rect.length - partLength;
-        const remainingWidth = rect.width - partWidth;
+      if (rect.length >= actualLength && rect.width >= actualWidth) {
+        const remainingLength = rect.length - actualLength;
+        const remainingWidth = rect.width - actualWidth;
         const shortSideFit = Math.min(remainingLength, remainingWidth);
         
         if (bestRect === null || shortSideFit < bestShortSideFit) {
@@ -177,7 +198,7 @@ export class CutOptimizer {
     
     // If a position was found, update the free rectangles
     if (bestRect && bestPosition) {
-      this.placePart(sheet, bestRect, bestPosition.x, bestPosition.y, partLength, partWidth);
+      this.placePart(sheet, bestRect, bestPosition.x, bestPosition.y, actualLength, actualWidth);
       return bestPosition;
     }
     

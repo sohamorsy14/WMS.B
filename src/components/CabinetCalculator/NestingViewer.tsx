@@ -204,17 +204,44 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                       let textColor = 'text-gray-800';
                       
                       if (part.grain === 'length') {
-                        bgColor = 'bg-green-100';
-                        borderColor = 'border-green-500';
-                        textColor = 'text-green-800';
+                        bgColor = 'bg-blue-100';
+                        borderColor = 'border-blue-500';
+                        textColor = 'text-blue-800';
                       } else if (part.grain === 'width') {
                         bgColor = 'bg-purple-100';
                         borderColor = 'border-purple-500';
                         textColor = 'text-purple-800';
                       }
                       
-                      // Calculate transform origin for rotation
-                      const transformOrigin = `${xPercent + widthPercent/2}% ${yPercent + heightPercent/2}%`;
+                      // Calculate transform for rotation
+                      let transform = '';
+                      if (part.rotation) {
+                        // Calculate center point of the part
+                        const centerX = xPercent + widthPercent/2;
+                        const centerY = yPercent + heightPercent/2;
+                        transform = `rotate(${part.rotation}deg)`;
+                        // Set transform origin to center of part
+                        const transformOrigin = `${centerX}% ${centerY}%`;
+                        
+                        return (
+                          <div
+                            key={part.id}
+                            className={`absolute border ${borderColor} ${bgColor} bg-opacity-50 flex items-center justify-center text-xs font-medium ${textColor}`}
+                            style={{
+                              left: `${xPercent}%`,
+                              top: `${yPercent}%`,
+                              width: `${widthPercent}%`,
+                              height: `${heightPercent}%`,
+                              transform: transform,
+                              transformOrigin: transformOrigin,
+                              zIndex: index + 1
+                            }}
+                            title={`Part ${index + 1}: ${part.length} × ${part.width}mm${part.grain ? `, Grain: ${part.grain}` : ''}`}
+                          >
+                            {index + 1}
+                          </div>
+                        );
+                      }
                       
                       return (
                         <div
@@ -225,8 +252,6 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                             top: `${yPercent}%`,
                             width: `${widthPercent}%`,
                             height: `${heightPercent}%`,
-                            transform: part.rotation ? `rotate(${part.rotation}deg)` : 'none',
-                            transformOrigin: transformOrigin,
                             zIndex: index + 1
                           }}
                           title={`Part ${index + 1}: ${part.length} × ${part.width}mm${part.grain ? `, Grain: ${part.grain}` : ''}`}
@@ -245,7 +270,7 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                 {/* Grain direction legend */}
                 <div className="mt-2 flex justify-center space-x-4 text-xs">
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-100 border border-green-500 mr-1"></div>
+                    <div className="w-3 h-3 bg-blue-100 border border-blue-500 mr-1"></div>
                     <span>Grain with Length</span>
                   </div>
                   <div className="flex items-center">
