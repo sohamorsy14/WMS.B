@@ -16,6 +16,31 @@ if (!fs.existsSync(dbDir)) {
   console.log(`Created database directory: ${dbDir}`);
 }
 
+// Retry mechanism for database operations
+const retryDatabaseOperation = (operation, maxRetries = 5, delay = 100) => {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    
+    const attempt = () => {
+      attempts++;
+      operation((err, result) => {
+        if (err) {
+          if (err.code === 'SQLITE_BUSY' && attempts < maxRetries) {
+            console.log(`Database busy, retrying attempt ${attempts}/${maxRetries}...`);
+            setTimeout(attempt, delay * attempts); // Exponential backoff
+            return;
+          }
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    };
+    
+    attempt();
+  });
+};
+
 // Create database connection
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -23,8 +48,26 @@ const db = new sqlite3.Database(dbPath, (err) => {
   } else {
     console.log(`Connected to SQLite database at ${dbPath}`);
     
-    // Configure busy timeout to handle concurrent access - increased to 10 seconds
-    db.configure('busyTimeout', 10000);
+    // Configure busy timeout to handle concurrent access - increased to 30 seconds
+    db.configure('busyTimeout', 30000);
+    
+    // Set WAL mode for better concurrency
+    db.run('PRAGMA journal_mode = WAL;', (err) => {
+      if (err) {
+        console.error('Error setting WAL mode:', err.message);
+      } else {
+        console.log('Database set to WAL mode for better concurrency');
+      }
+    });
+    
+    // Set synchronous mode to NORMAL for better performance
+    db.run('PRAGMA synchronous = NORMAL;', (err) => {
+      if (err) {
+        console.error('Error setting synchronous mode:', err.message);
+      } else {
+        console.log('Database synchronous mode set to NORMAL');
+      }
+    });
     
     initializeDatabase();
   }
@@ -54,13 +97,17 @@ function initializeDatabase() {
         console.error('Error creating users table:', err.message);
       } else {
         console.log('Users table initialized');
-        // Check if we need to seed default users
-        db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
-          if (err) {
-            console.error('Error checking users count:', err.message);
-          } else if (row.count === 0) {
+        // Check if we need to seed default users with retry mechanism
+        retryDatabaseOperation((callback) => {
+          db.get('SELECT COUNT(*) as count FROM users', callback);
+        })
+        .then((row) => {
+          if (row.count === 0) {
             seedDefaultUsers();
           }
+        })
+        .catch((err) => {
+          console.error('Error checking users count:', err.message);
         });
       }
     });
@@ -88,13 +135,17 @@ function initializeDatabase() {
         console.error('Error creating inventory_items table:', err.message);
       } else {
         console.log('Inventory items table initialized');
-        // Check if we need to seed default inventory items
-        db.get('SELECT COUNT(*) as count FROM inventory_items', (err, row) => {
-          if (err) {
-            console.error('Error checking inventory items count:', err.message);
-          } else if (row.count === 0) {
+        // Check if we need to seed default inventory items with retry mechanism
+        retryDatabaseOperation((callback) => {
+          db.get('SELECT COUNT(*) as count FROM inventory_items', callback);
+        })
+        .then((row) => {
+          if (row.count === 0) {
             seedDefaultInventoryItems();
           }
+        })
+        .catch((err) => {
+          console.error('Error checking inventory items count:', err.message);
         });
       }
     });
@@ -116,13 +167,17 @@ function initializeDatabase() {
         console.error('Error creating suppliers table:', err.message);
       } else {
         console.log('Suppliers table initialized');
-        // Check if we need to seed default suppliers
-        db.get('SELECT COUNT(*) as count FROM suppliers', (err, row) => {
-          if (err) {
-            console.error('Error checking suppliers count:', err.message);
-          } else if (row.count === 0) {
+        // Check if we need to seed default suppliers with retry mechanism
+        retryDatabaseOperation((callback) => {
+          db.get('SELECT COUNT(*) as count FROM suppliers', callback);
+        })
+        .then((row) => {
+          if (row.count === 0) {
             seedDefaultSuppliers();
           }
+        })
+        .catch((err) => {
+          console.error('Error checking suppliers count:', err.message);
         });
       }
     });
@@ -145,13 +200,17 @@ function initializeDatabase() {
         console.error('Error creating departments table:', err.message);
       } else {
         console.log('Departments table initialized');
-        // Check if we need to seed default departments
-        db.get('SELECT COUNT(*) as count FROM departments', (err, row) => {
-          if (err) {
-            console.error('Error checking departments count:', err.message);
-          } else if (row.count === 0) {
+        // Check if we need to seed default departments with retry mechanism
+        retryDatabaseOperation((callback) => {
+          db.get('SELECT COUNT(*) as count FROM departments', callback);
+        })
+        .then((row) => {
+          if (row.count === 0) {
             seedDefaultDepartments();
           }
+        })
+        .catch((err) => {
+          console.error('Error checking departments count:', err.message);
         });
       }
     });
@@ -175,13 +234,17 @@ function initializeDatabase() {
         console.error('Error creating requesters table:', err.message);
       } else {
         console.log('Requesters table initialized');
-        // Check if we need to seed default requesters
-        db.get('SELECT COUNT(*) as count FROM requesters', (err, row) => {
-          if (err) {
-            console.error('Error checking requesters count:', err.message);
-          } else if (row.count === 0) {
+        // Check if we need to seed default requesters with retry mechanism
+        retryDatabaseOperation((callback) => {
+          db.get('SELECT COUNT(*) as count FROM requesters', callback);
+        })
+        .then((row) => {
+          if (row.count === 0) {
             seedDefaultRequesters();
           }
+        })
+        .catch((err) => {
+          console.error('Error checking requesters count:', err.message);
         });
       }
     });
@@ -207,13 +270,17 @@ function initializeDatabase() {
         console.error('Error creating purchase_orders table:', err.message);
       } else {
         console.log('Purchase orders table initialized');
-        // Check if we need to seed default purchase orders
-        db.get('SELECT COUNT(*) as count FROM purchase_orders', (err, row) => {
-          if (err) {
-            console.error('Error checking purchase orders count:', err.message);
-          } else if (row.count === 0) {
+        // Check if we need to seed default purchase orders with retry mechanism
+        retryDatabaseOperation((callback) => {
+          db.get('SELECT COUNT(*) as count FROM purchase_orders', callback);
+        })
+        .then((row) => {
+          if (row.count === 0) {
             seedDefaultPurchaseOrders();
           }
+        })
+        .catch((err) => {
+          console.error('Error checking purchase orders count:', err.message);
         });
       }
     });
