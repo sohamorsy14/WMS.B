@@ -64,6 +64,7 @@ export class CutOptimizer {
       // Determine if we should try to rotate the part based on grain direction
       let bestFit = null;
       let bestWaste = Infinity;
+      let grainViolated = false;
       
       // Try normal orientation
       const normalFit = this.tryFitPart(sheet, part.length, part.width, part.grain, false);
@@ -87,12 +88,37 @@ export class CutOptimizer {
         }
       }
       
+      // If no fit found respecting grain, try violating grain direction
+      if (!bestFit) {
+        // Try normal orientation ignoring grain
+        const normalFitIgnoreGrain = this.tryFitPartIgnoreGrain(sheet, part.length, part.width);
+        if (normalFitIgnoreGrain) {
+          const waste = normalFitIgnoreGrain.waste;
+          if (waste < bestWaste) {
+            bestFit = { ...normalFitIgnoreGrain, rotated: false };
+            bestWaste = waste;
+            grainViolated = part.grain !== 'none';
+          }
+        }
+        
+        // Try rotated orientation ignoring grain
+        const rotatedFitIgnoreGrain = this.tryFitPartIgnoreGrain(sheet, part.width, part.length);
+        if (rotatedFitIgnoreGrain) {
+          const waste = rotatedFitIgnoreGrain.waste;
+          if (waste < bestWaste) {
+            bestFit = { ...rotatedFitIgnoreGrain, rotated: true };
+            bestWaste = waste;
+            grainViolated = part.grain !== 'none';
+          }
+        }
+      }
+      
       // If no fit found, start a new sheet
       if (!bestFit) {
         sheetCount++;
         sheet.freeRects = [{ x: 0, y: 0, width: sheetSize.width, length: sheetSize.length }];
         
-        // Try again with the new sheet
+        // Try again with the new sheet, respecting grain first
         const normalFit = this.tryFitPart(sheet, part.length, part.width, part.grain, false);
         if (normalFit) {
           bestFit = { ...normalFit, rotated: false };
@@ -103,9 +129,24 @@ export class CutOptimizer {
           }
         }
         
-        // If still can't place, skip this part (shouldn't happen with a new sheet)
+        // If still can't place respecting grain, try ignoring grain
         if (!bestFit) {
-          console.error(`Failed to place part ${part.partName} even on a new sheet`);
+          const normalFitIgnoreGrain = this.tryFitPartIgnoreGrain(sheet, part.length, part.width);
+          if (normalFitIgnoreGrain) {
+            bestFit = { ...normalFitIgnoreGrain, rotated: false };
+            grainViolated = part.grain !== 'none';
+          } else {
+            const rotatedFitIgnoreGrain = this.tryFitPartIgnoreGrain(sheet, part.width, part.length);
+            if (rotatedFitIgnoreGrain) {
+              bestFit = { ...rotatedFitIgnoreGrain, rotated: true };
+              grainViolated = part.grain !== 'none';
+            }
+          }
+        }
+        
+        // If still can't place, this part is too large for the sheet
+        if (!bestFit) {
+          console.warn(`Part ${part.partName} (${part.length}x${part.width}) is too large for sheet (${sheetSize.length}x${sheetSize.width}). Skipping.`);
           continue;
         }
       }
@@ -119,7 +160,7 @@ export class CutOptimizer {
       this.placePart(sheet, rect, x, y, partLength, partWidth);
       
       // Add the placed part to the result
-      nestedParts.push({
+      const nestingPart: NestingPart = {
         id: part.id,
         partId: part.partId,
         x,
@@ -128,7 +169,14 @@ export class CutOptimizer {
         width: partWidth,
         rotation: rotated ? 90 : 0,
         grain: part.grain
-      });
+      };
+      
+      // Add grain violation flag if applicable
+      if (grainViolated) {
+        nestingPart.grainViolated = true;
+      }
+      
+      nestedParts.push(nestingPart);
       
       // Update used area
       usedArea += part.length * part.width;
@@ -179,6 +227,44 @@ export class CutOptimizer {
       return null;
     }
     
+    // Find the best position using the Best Short Side Fit (BSSF) algorithm
+    let bestRect = null;
+    let bestShortSideFit = Number.MAX_VALUE;
+    let bestPosition = null;
+    
+    for (let i = 0; i < sheet.freeRects.length; i++) {
+      const rect = sheet.freeRects[i];
+      
+      // Check if the part fits in the rectangle
+      if (rect.length >= partLength && rect.width >= partWidth) {
+        const remainingLength = rect.length - partLength;
+        const remainingWidth = rect.width - partWidth;
+        const shortSideFit = Math.min(remainingLength, remainingWidth);
+        
+        if (bestRect === null || shortSideFit < bestShortSideFit) {
+          bestRect = rect;
+          bestShortSideFit = shortSideFit;
+          bestPosition = { rect, x: rect.x, y: rect.y, waste: shortSideFit };
+        }
+      }
+    }
+    
+    return bestPosition;
+  }
+  
+  /**
+   * Try to fit a part in the sheet ignoring grain direction
+   * 
+   * @param sheet - The sheet with free rectangles
+   * @param partLength - Length of the part
+   * @param partWidth - Width of the part
+   * @returns Best fit position or null if can't fit
+   */
+  private static tryFitPartIgnoreGrain(
+    sheet: { freeRects: Array<{ x: number; y: number; length: number; width: number }> },
+    partLength: number,
+    partWidth: number
+  ): { rect: any; x: number; y: number; waste: number } | null {
     // Find the best position using the Best Short Side Fit (BSSF) algorithm
     let bestRect = null;
     let bestShortSideFit = Number.MAX_VALUE;

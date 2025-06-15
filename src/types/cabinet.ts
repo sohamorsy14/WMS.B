@@ -189,6 +189,7 @@ export interface NestingPart {
   length: number;
   width: number;
   grain?: 'length' | 'width' | 'none';
+  grainViolated?: boolean;
 }
 
 export interface CabinetProject {
