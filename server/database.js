@@ -22,6 +22,10 @@ const db = new sqlite3.Database(dbPath, (err) => {
     console.error('Error connecting to database:', err.message);
   } else {
     console.log(`Connected to SQLite database at ${dbPath}`);
+    
+    // Configure busy timeout to handle concurrent access
+    db.configure('busyTimeout', 5000);
+    
     initializeDatabase();
   }
 });
