@@ -905,7 +905,7 @@ export class CutOptimizer {
     partWidth: number,
     grain: 'length' | 'width' | 'none',
     rotated: boolean = false
-  ): { rect: any; x: number; y: number; rotated: boolean } | null {
+  ): { x: number; y: number; rotated: boolean } | null {
     // Check if the part can be placed with respect to grain direction
     if (grain === 'length' && rotated) {
       // For length grain, the part's length should align with sheet length (2440mm)
@@ -934,9 +934,14 @@ export class CutOptimizer {
         if (bestRect === null || shortSideFit < bestShortSideFit) {
           bestRect = rect;
           bestShortSideFit = shortSideFit;
-          bestPosition = { rect, x: rect.x, y: rect.y, rotated };
+          bestPosition = { x: rect.x, y: rect.y, rotated };
         }
       }
+    }
+    
+    // If a position was found, update the free rectangles
+    if (bestPosition && bestRect) {
+      this.placePart(sheet, bestRect, bestPosition.x, bestPosition.y, partLength, partWidth);
     }
     
     return bestPosition;

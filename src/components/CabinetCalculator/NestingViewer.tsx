@@ -41,8 +41,8 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
   };
 
   const sheetSizes = [
-    { value: '2440x1220', label: '2440 × 1220mm (4×8ft)' },
-    { value: '3050x1525', label: '3050 × 1525mm (5×10ft)' },
+    { value: '2440x1220', label: '2440 × 1220mm' },
+    { value: '3050x1525', label: '3050 × 1525mm' },
     { value: '2100x2800', label: '2100 × 2800mm' },
     { value: '1520x1520', label: '1520 × 1520mm' },
     { value: '2100x2100', label: '2100 × 2100mm' },
