@@ -5,6 +5,7 @@ const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const db = require('./database');
 require('dotenv').config();
 
 const app = express();
@@ -68,648 +69,73 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Mock data for development
-const mockDashboardStats = {
-  totalItems: 1247,
-  lowStockItems: 23,
-  pendingRequisitions: 8,
-  openPurchaseOrders: 12,
-  monthlyExpenditure: 67000,
-  inventoryValue: 350000,
-  recentActivity: [
-    { id: 1, action: 'Product Added', item: 'Kitchen Cabinet Set A', timestamp: new Date().toISOString() },
-    { id: 2, action: 'Stock Updated', item: 'Bathroom Vanity B', timestamp: new Date(Date.now() - 3600000).toISOString() },
-    { id: 3, action: 'Order Completed', item: 'Living Room Cabinet C', timestamp: new Date(Date.now() - 7200000).toISOString() },
-    { id: 4, action: 'Requisition Approved', item: 'Hardware Supplies', timestamp: new Date(Date.now() - 10800000).toISOString() },
-    { id: 5, action: 'Purchase Order Created', item: 'Plywood 18mm', timestamp: new Date(Date.now() - 14400000).toISOString() },
-  ]
-};
-
-const mockInventoryItems = [
-  {
-    id: '1',
-    itemId: 'PLY-18-4X8',
-    name: 'Plywood 18mm 4x8ft',
-    category: 'Panels',
-    subCategory: 'Cabinet Body',
-    quantity: 45,
-    unitCost: 52.75,
-    totalCost: 2373.75,
-    location: 'A-1-01',
-    supplier: 'Wood Supply Co.',
-    unitMeasurement: 'Sheets (sht)',
-    minStockLevel: 10,
-    maxStockLevel: 100,
-    lastUpdated: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    itemId: 'MDF-18-4X8',
-    name: 'MDF 18mm 4x8ft',
-    category: 'Panels',
-    subCategory: 'Cabinet Body',
-    quantity: 32,
-    unitCost: 38.90,
-    totalCost: 1244.80,
-    location: 'A-1-02',
-    supplier: 'Wood Supply Co.',
-    unitMeasurement: 'Sheets (sht)',
-    minStockLevel: 8,
-    maxStockLevel: 80,
-    lastUpdated: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    itemId: 'HNG-CONC-35',
-    name: 'Concealed Hinges 35mm',
-    category: 'Hardware',
-    subCategory: 'Door Hardware',
-    quantity: 485,
-    unitCost: 3.25,
-    totalCost: 1576.25,
-    location: 'B-1-01',
-    supplier: 'Hardware Plus',
-    unitMeasurement: 'Pieces (pcs)',
-    minStockLevel: 100,
-    maxStockLevel: 1000,
-    lastUpdated: new Date().toISOString(),
-  }
-];
-
-const mockUsers = [
-  {
-    id: '1',
-    username: 'admin',
-    email: 'admin@cabinet-wms.com',
-    role: 'admin',
-    permissions: ['*'],
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    username: 'manager',
-    email: 'manager@cabinet-wms.com',
-    role: 'manager',
-    permissions: ['dashboard.view', 'inventory.view', 'requisitions.*', 'purchase_orders.*'],
-    createdAt: new Date().toISOString()
-  }
-];
-
-// Mock suppliers data
-const mockSuppliers = [
-  {
-    id: '1',
-    name: 'Wood Supply Co.',
-    contactPerson: 'John Anderson',
-    phone: '(555) 123-4567',
-    email: 'orders@woodsupply.com',
-    address: '123 Industrial Blvd, Manufacturing City, MC 12345',
-    isActive: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Hardware Plus',
-    contactPerson: 'Sarah Mitchell',
-    phone: '(555) 987-6543',
-    email: 'sales@hardwareplus.com',
-    address: '456 Hardware Ave, Supply Town, ST 67890',
-    isActive: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Laminate Plus',
-    contactPerson: 'Mike Johnson',
-    phone: '(555) 456-7890',
-    email: 'info@laminateplus.com',
-    address: '789 Laminate Dr, Finish City, FC 11111',
-    isActive: true,
-    createdAt: new Date().toISOString()
-  }
-];
-
-// Mock departments data
-const mockDepartments = [
-  {
-    id: '1',
-    name: 'Production',
-    code: 'PROD',
-    description: 'Manufacturing and production operations',
-    manager: 'John Smith',
-    budget: 150000,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Quality Control',
-    code: 'QC',
-    description: 'Quality assurance and testing',
-    manager: 'Sarah Johnson',
-    budget: 75000,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Warehouse',
-    code: 'WH',
-    description: 'Storage and inventory management',
-    manager: 'Mike Wilson',
-    budget: 100000,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '4',
-    name: 'Design',
-    code: 'DES',
-    description: 'Product design and development',
-    manager: 'Emily Davis',
-    budget: 120000,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '5',
-    name: 'Maintenance',
-    code: 'MAINT',
-    description: 'Equipment and facility maintenance',
-    manager: 'Robert Brown',
-    budget: 80000,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-// Mock requesters data
-const mockRequesters = [
-  {
-    id: '1',
-    name: 'John Smith',
-    position: 'Production Manager',
-    department: 'Production',
-    email: 'john.smith@cabinet-wms.com',
-    phone: '(555) 123-4567',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Sarah Johnson',
-    position: 'Quality Control Lead',
-    department: 'Quality Control',
-    email: 'sarah.johnson@cabinet-wms.com',
-    phone: '(555) 234-5678',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Mike Wilson',
-    position: 'Warehouse Supervisor',
-    department: 'Warehouse',
-    email: 'mike.wilson@cabinet-wms.com',
-    phone: '(555) 345-6789',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '4',
-    name: 'Emily Davis',
-    position: 'Design Lead',
-    department: 'Design',
-    email: 'emily.davis@cabinet-wms.com',
-    phone: '(555) 456-7890',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '5',
-    name: 'Robert Brown',
-    position: 'Maintenance Technician',
-    department: 'Maintenance',
-    email: 'robert.brown@cabinet-wms.com',
-    phone: '(555) 567-8901',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-// Mock orders data
-const mockOrders = [
-  {
-    id: '1',
-    orderNumber: 'ORD-2024-0001',
-    customerName: 'Johnson Kitchen Renovation',
-    customerEmail: 'johnson@email.com',
-    customerPhone: '(555) 123-4567',
-    customerContact: 'johnson@email.com',
-    orderType: 'production',
-    priority: 'medium',
-    status: 'confirmed',
-    orderDate: new Date().toISOString(),
-    dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-    deliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-    description: 'Kitchen renovation project',
-    notes: 'Kitchen renovation project',
-    estimatedCost: 2500.00,
-    actualCost: 0,
-    assignedTo: 'John Smith',
-    department: 'Production',
-    bomCount: 1,
-    items: [
-      {
-        id: '1',
-        itemId: 'PLY-18-4X8',
-        itemName: 'Plywood 18mm 4x8ft',
-        quantity: 10,
-        unitCost: 52.75,
-        totalCost: 527.50
-      }
-    ],
-    subtotal: 527.50,
-    tax: 52.75,
-    total: 580.25,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    orderNumber: 'ORD-2024-0002',
-    customerName: 'Smith Bathroom Remodel',
-    customerEmail: 'smith@email.com',
-    customerPhone: '(555) 987-6543',
-    customerContact: 'smith@email.com',
-    orderType: 'custom',
-    priority: 'high',
-    status: 'pending',
-    orderDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-    deliveryDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-    description: 'Bathroom vanity project',
-    notes: 'Bathroom vanity project',
-    estimatedCost: 1500.00,
-    actualCost: 0,
-    assignedTo: 'Sarah Johnson',
-    department: 'Design',
-    bomCount: 0,
-    items: [
-      {
-        id: '2',
-        itemId: 'MDF-18-4X8',
-        itemName: 'MDF 18mm 4x8ft',
-        quantity: 5,
-        unitCost: 38.90,
-        totalCost: 194.50
-      }
-    ],
-    subtotal: 194.50,
-    tax: 19.45,
-    total: 213.95,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-// Mock purchase orders data
-const mockPurchaseOrders = [
-  {
-    id: '1',
-    poNumber: 'PO-2024-0001',
-    supplier: 'Wood Supply Co.',
-    status: 'approved',
-    items: [
-      {
-        id: '1',
-        itemId: 'PLY-18-4X8',
-        itemName: 'Plywood 18mm 4x8ft',
-        quantity: 50,
-        unitCost: 52.75,
-        totalCost: 2637.50
-      },
-      {
-        id: '2',
-        itemId: 'MDF-18-4X8',
-        itemName: 'MDF 18mm 4x8ft',
-        quantity: 30,
-        unitCost: 38.90,
-        totalCost: 1167.00
-      }
-    ],
-    subtotal: 3804.50,
-    tax: 380.45,
-    total: 4184.95,
-    orderDate: new Date().toISOString(),
-    expectedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    notes: 'Urgent delivery required for production schedule',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    poNumber: 'PO-2024-0002',
-    supplier: 'Hardware Plus',
-    status: 'pending',
-    items: [
-      {
-        id: '3',
-        itemId: 'HNG-CONC-35',
-        itemName: 'Concealed Hinges 35mm',
-        quantity: 200,
-        unitCost: 3.25,
-        totalCost: 650.00
-      }
-    ],
-    subtotal: 650.00,
-    tax: 65.00,
-    total: 715.00,
-    orderDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    expectedDelivery: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-    notes: 'Standard delivery terms',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-// Mock BOMs data
-const mockBOMs = [
-  {
-    id: '1',
-    bomNumber: 'BOM-2024-0001',
-    name: 'Kitchen Base Cabinet 24"',
-    orderId: '1',
-    orderNumber: 'ORD-2024-0001',
-    version: '1.0',
-    status: 'approved',
-    description: 'Standard 24" base cabinet with single door',
-    category: 'Base Cabinet',
-    totalCost: 125.50,
-    laborHours: 3.5,
-    createdBy: 'John Smith',
-    approvedBy: 'Sarah Johnson',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    items: [
-      {
-        id: '1',
-        itemId: 'PLY-18-4X8',
-        itemName: 'Plywood 18mm 4x8ft',
-        quantity: 0.5,
-        unitCost: 52.75,
-        totalCost: 26.38,
-        category: 'Panels',
-        notes: 'Cabinet sides and bottom'
-      },
-      {
-        id: '2',
-        itemId: 'MDF-18-4X8',
-        itemName: 'MDF 18mm 4x8ft',
-        quantity: 0.25,
-        unitCost: 38.90,
-        totalCost: 9.73,
-        category: 'Panels',
-        notes: 'Cabinet back panel'
-      },
-      {
-        id: '3',
-        itemId: 'HNG-CONC-35',
-        itemName: 'Concealed Hinges 35mm',
-        quantity: 2,
-        unitCost: 3.25,
-        totalCost: 6.50,
-        category: 'Hardware',
-        notes: 'Door hinges'
-      }
-    ]
-  },
-  {
-    id: '2',
-    bomNumber: 'BOM-2024-0002',
-    name: 'Bathroom Vanity 36"',
-    orderId: '2',
-    orderNumber: 'ORD-2024-0002',
-    version: '1.0',
-    status: 'draft',
-    description: 'Custom 36" bathroom vanity with drawers',
-    category: 'Vanity',
-    totalCost: 185.75,
-    laborHours: 5.0,
-    createdBy: 'Emily Davis',
-    approvedBy: null,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    items: [
-      {
-        id: '1',
-        itemId: 'PLY-18-4X8',
-        itemName: 'Plywood 18mm 4x8ft',
-        quantity: 0.75,
-        unitCost: 52.75,
-        totalCost: 39.56,
-        category: 'Panels',
-        notes: 'Cabinet carcass'
-      },
-      {
-        id: '2',
-        itemId: 'HNG-CONC-35',
-        itemName: 'Concealed Hinges 35mm',
-        quantity: 4,
-        unitCost: 3.25,
-        totalCost: 13.00,
-        category: 'Hardware',
-        notes: 'Door and drawer hinges'
-      }
-    ]
-  },
-  {
-    id: '3',
-    bomNumber: 'BOM-2024-0003',
-    name: 'Standard Kitchen Upper Cabinet',
-    linkedType: 'prototype',
-    linkedId: '1',
-    version: '1.0',
-    status: 'approved',
-    description: 'Standard upper cabinet for kitchen applications',
-    category: 'Upper Cabinet',
-    totalCost: 95.25,
-    laborHours: 2.5,
-    createdBy: 'John Smith',
-    approvedBy: 'Sarah Johnson',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    items: [
-      {
-        id: '1',
-        itemId: 'PLY-18-4X8',
-        itemName: 'Plywood 18mm 4x8ft',
-        quantity: 0.3,
-        unitCost: 52.75,
-        totalCost: 15.83,
-        category: 'Panels',
-        notes: 'Cabinet sides and shelves'
-      },
-      {
-        id: '2',
-        itemId: 'HNG-CONC-35',
-        itemName: 'Concealed Hinges 35mm',
-        quantity: 2,
-        unitCost: 3.25,
-        totalCost: 6.50,
-        category: 'Hardware',
-        notes: 'Door hinges'
-      }
-    ]
-  },
-  {
-    id: '4',
-    bomNumber: 'BOM-2024-0004',
-    name: 'Modern Bathroom Vanity',
-    linkedType: 'prototype',
-    linkedId: '2',
-    version: '1.0',
-    status: 'draft',
-    description: 'Modern style bathroom vanity with soft-close drawers',
-    category: 'Vanity',
-    totalCost: 220.50,
-    laborHours: 6.0,
-    createdBy: 'Emily Davis',
-    approvedBy: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    items: [
-      {
-        id: '1',
-        itemId: 'PLY-18-4X8',
-        itemName: 'Plywood 18mm 4x8ft',
-        quantity: 0.8,
-        unitCost: 52.75,
-        totalCost: 42.20,
-        category: 'Panels',
-        notes: 'Cabinet carcass and drawers'
-      },
-      {
-        id: '2',
-        itemId: 'HNG-CONC-35',
-        itemName: 'Concealed Hinges 35mm',
-        quantity: 6,
-        unitCost: 3.25,
-        totalCost: 19.50,
-        category: 'Hardware',
-        notes: 'Door and drawer hinges'
-      }
-    ]
-  }
-];
-
-// Mock prototypes data
-const mockPrototypes = [
-  {
-    id: '1',
-    name: 'Standard Kitchen Upper Cabinet',
-    code: 'SKU-001',
-    category: 'Upper Cabinet',
-    description: 'Standard upper cabinet design for kitchen applications',
-    dimensions: {
-      width: 600,
-      height: 720,
-      depth: 350
-    },
-    materials: ['Plywood 18mm', 'Concealed Hinges'],
-    status: 'active',
-    version: '1.0',
-    createdBy: 'John Smith',
-    approvedBy: 'Sarah Johnson',
-    estimatedCost: 95.25,
-    laborHours: 2.5,
-    bomCount: 1,
-    notes: 'Standard design suitable for most kitchen layouts',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Modern Bathroom Vanity',
-    code: 'SKU-002',
-    category: 'Vanity',
-    description: 'Modern style bathroom vanity with soft-close drawers',
-    dimensions: {
-      width: 900,
-      height: 850,
-      depth: 450
-    },
-    materials: ['Plywood 18mm', 'Soft-close Hinges', 'Drawer Slides'],
-    status: 'draft',
-    version: '1.0',
-    createdBy: 'Emily Davis',
-    approvedBy: null,
-    estimatedCost: 220.50,
-    laborHours: 6.0,
-    bomCount: 1,
-    notes: 'Modern design with premium hardware',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Custom Base Cabinet',
-    code: 'SKU-003',
-    category: 'Base Cabinet',
-    description: 'Customizable base cabinet for various applications',
-    dimensions: {
-      width: 800,
-      height: 900,
-      depth: 600
-    },
-    materials: ['MDF 18mm', 'Standard Hinges'],
-    status: 'active',
-    version: '2.0',
-    createdBy: 'Mike Wilson',
-    approvedBy: 'John Smith',
-    estimatedCost: 150.75,
-    laborHours: 4.0,
-    bomCount: 0,
-    notes: 'Flexible design for custom applications',
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
 // Authentication routes
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
   
-  const user = mockUsers.find(u => u.username === username);
-  
-  if (user && ((username === 'admin' && password === 'admin123') || 
-               (username === 'manager' && password === 'manager123'))) {
-    res.json({
-      success: true,
-      token: 'mock-jwt-token',
-      user
-    });
-  } else {
-    res.status(401).json({ error: 'Invalid credentials' });
-  }
+  db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
+    if (err) {
+      console.error('Database error during login:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (user && ((username === 'admin' && password === 'admin123') || 
+                (username === 'manager' && password === 'manager123'))) {
+      // In a real app, you would verify the password hash
+      // For this demo, we're using plain text comparison for the default users
+      
+      // Parse the JSON stored permissions
+      const permissions = JSON.parse(user.permissions);
+      
+      res.json({
+        success: true,
+        token: 'mock-jwt-token',
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          permissions: permissions,
+          createdAt: user.createdAt
+        }
+      });
+    } else {
+      res.status(401).json({ error: 'Invalid credentials' });
+    }
+  });
 });
 
 app.get('/api/auth/validate', (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
   if (token === 'mock-jwt-token') {
-    res.json({
-      user: mockUsers[0]
+    // In a real app, you would verify the JWT token
+    // For this demo, we're just checking if it's our mock token
+    
+    // Return the first user (admin) for simplicity
+    db.get('SELECT * FROM users WHERE id = 1', (err, user) => {
+      if (err) {
+        console.error('Database error during token validation:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      if (user) {
+        // Parse the JSON stored permissions
+        const permissions = JSON.parse(user.permissions);
+        
+        res.json({
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            permissions: permissions,
+            createdAt: user.createdAt
+          }
+        });
+      } else {
+        res.status(401).json({ error: 'Invalid token' });
+      }
     });
   } else {
     res.status(401).json({ error: 'Invalid token' });
@@ -718,82 +144,304 @@ app.get('/api/auth/validate', (req, res) => {
 
 // User management routes
 app.get('/api/users', (req, res) => {
-  res.json(mockUsers);
+  db.all('SELECT id, username, email, role, permissions, createdAt, updatedAt FROM users', (err, rows) => {
+    if (err) {
+      console.error('Error fetching users:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    // Parse the JSON stored permissions for each user
+    const users = rows.map(user => ({
+      ...user,
+      permissions: JSON.parse(user.permissions)
+    }));
+    
+    res.json(users);
+  });
 });
 
 app.get('/api/users/:id', (req, res) => {
-  const user = mockUsers.find(u => u.id === req.params.id);
-  if (user) {
-    res.json(user);
-  } else {
-    res.status(404).json({ error: 'User not found' });
-  }
+  db.get('SELECT id, username, email, role, permissions, createdAt, updatedAt FROM users WHERE id = ?', 
+    [req.params.id], 
+    (err, user) => {
+      if (err) {
+        console.error('Error fetching user:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      if (user) {
+        // Parse the JSON stored permissions
+        user.permissions = JSON.parse(user.permissions);
+        res.json(user);
+      } else {
+        res.status(404).json({ error: 'User not found' });
+      }
+    }
+  );
 });
 
 app.post('/api/users', (req, res) => {
-  const newUser = {
-    id: Date.now().toString(),
-    ...req.body,
-    createdAt: new Date().toISOString()
-  };
-  mockUsers.push(newUser);
-  res.json(newUser);
+  const { username, email, password, role, permissions } = req.body;
+  
+  // Validate required fields
+  if (!username || !email || !password || !role) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  // Check if username or email already exists
+  db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], (err, existingUser) => {
+    if (err) {
+      console.error('Error checking existing user:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (existingUser) {
+      return res.status(409).json({ error: 'Username or email already exists' });
+    }
+    
+    const newUser = {
+      id: Date.now().toString(),
+      username,
+      email,
+      password, // In a real app, this would be hashed
+      role,
+      permissions: JSON.stringify(permissions || []),
+      createdAt: new Date().toISOString()
+    };
+    
+    db.run(
+      'INSERT INTO users (id, username, email, password, role, permissions, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [newUser.id, newUser.username, newUser.email, newUser.password, newUser.role, newUser.permissions, newUser.createdAt],
+      function(err) {
+        if (err) {
+          console.error('Error creating user:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Return the created user (without password)
+        res.status(201).json({
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role,
+          permissions: permissions || [],
+          createdAt: newUser.createdAt
+        });
+      }
+    );
+  });
 });
 
 app.put('/api/users/:id', (req, res) => {
-  const index = mockUsers.findIndex(u => u.id === req.params.id);
-  if (index !== -1) {
-    mockUsers[index] = {
-      ...mockUsers[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockUsers[index]);
-  } else {
-    res.status(404).json({ error: 'User not found' });
+  const { username, email, role, permissions } = req.body;
+  const userId = req.params.id;
+  
+  // Validate required fields
+  if (!username || !email || !role) {
+    return res.status(400).json({ error: 'Missing required fields' });
   }
+  
+  // Check if user exists
+  db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err) {
+      console.error('Error checking user:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Check if username or email already exists for another user
+    db.get('SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?', 
+      [username, email, userId], 
+      (err, existingUser) => {
+        if (err) {
+          console.error('Error checking existing user:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        if (existingUser) {
+          return res.status(409).json({ error: 'Username or email already exists' });
+        }
+        
+        const updatedAt = new Date().toISOString();
+        const permissionsJson = JSON.stringify(permissions || []);
+        
+        db.run(
+          'UPDATE users SET username = ?, email = ?, role = ?, permissions = ?, updatedAt = ? WHERE id = ?',
+          [username, email, role, permissionsJson, updatedAt, userId],
+          function(err) {
+            if (err) {
+              console.error('Error updating user:', err);
+              return res.status(500).json({ error: 'Internal server error' });
+            }
+            
+            // Return the updated user
+            res.json({
+              id: userId,
+              username,
+              email,
+              role,
+              permissions: permissions || [],
+              createdAt: user.createdAt,
+              updatedAt
+            });
+          }
+        );
+      }
+    );
+  });
 });
 
 app.delete('/api/users/:id', (req, res) => {
-  const index = mockUsers.findIndex(u => u.id === req.params.id);
-  if (index !== -1) {
-    mockUsers.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'User not found' });
-  }
+  const userId = req.params.id;
+  
+  // Check if user exists
+  db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err) {
+      console.error('Error checking user:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
+      if (err) {
+        console.error('Error deleting user:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.json({ success: true });
+    });
+  });
 });
 
 app.post('/api/users/:id/change-password', (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  const user = mockUsers.find(u => u.id === req.params.id);
+  const userId = req.params.id;
   
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+  // Validate required fields
+  if (!newPassword) {
+    return res.status(400).json({ error: 'New password is required' });
   }
   
-  // In a real app, you would verify the current password
-  // For this mock, we'll just simulate success
-  res.json({ success: true, message: 'Password changed successfully' });
+  // Check if user exists
+  db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err) {
+      console.error('Error checking user:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // In a real app, you would verify the current password
+    // For this demo, we'll just update the password
+    
+    db.run(
+      'UPDATE users SET password = ?, updatedAt = ? WHERE id = ?',
+      [newPassword, new Date().toISOString(), userId],
+      function(err) {
+        if (err) {
+          console.error('Error updating password:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        res.json({ success: true, message: 'Password changed successfully' });
+      }
+    );
+  });
 });
 
 // Dashboard routes
 app.get('/api/dashboard/stats', (req, res) => {
-  res.json(mockDashboardStats);
+  // Get total items count
+  db.get('SELECT COUNT(*) as totalItems FROM inventory_items', (err, itemsResult) => {
+    if (err) {
+      console.error('Error counting inventory items:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    // Get low stock items count
+    db.get('SELECT COUNT(*) as lowStockItems FROM inventory_items WHERE quantity <= minStockLevel', (err, lowStockResult) => {
+      if (err) {
+        console.error('Error counting low stock items:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      // Get pending requisitions count (mock for now)
+      const pendingRequisitions = 8;
+      
+      // Get open purchase orders count
+      db.get('SELECT COUNT(*) as openPurchaseOrders FROM purchase_orders WHERE status IN ("pending", "approved", "ordered")', (err, poResult) => {
+        if (err) {
+          console.error('Error counting purchase orders:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get monthly expenditure (mock for now)
+        const monthlyExpenditure = 67000;
+        
+        // Get inventory value
+        db.get('SELECT SUM(totalCost) as inventoryValue FROM inventory_items', (err, valueResult) => {
+          if (err) {
+            console.error('Error calculating inventory value:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          // Get recent activity (mock for now)
+          const recentActivity = [
+            { id: 1, action: 'Product Added', item: 'Kitchen Cabinet Set A', timestamp: new Date().toISOString() },
+            { id: 2, action: 'Stock Updated', item: 'Bathroom Vanity B', timestamp: new Date(Date.now() - 3600000).toISOString() },
+            { id: 3, action: 'Order Completed', item: 'Living Room Cabinet C', timestamp: new Date(Date.now() - 7200000).toISOString() },
+            { id: 4, action: 'Requisition Approved', item: 'Hardware Supplies', timestamp: new Date(Date.now() - 10800000).toISOString() },
+            { id: 5, action: 'Purchase Order Created', item: 'Plywood 18mm', timestamp: new Date(Date.now() - 14400000).toISOString() },
+          ];
+          
+          res.json({
+            totalItems: itemsResult.totalItems,
+            lowStockItems: lowStockResult.lowStockItems,
+            pendingRequisitions,
+            openPurchaseOrders: poResult.openPurchaseOrders,
+            monthlyExpenditure,
+            inventoryValue: valueResult.inventoryValue || 0,
+            recentActivity
+          });
+        });
+      });
+    });
+  });
 });
 
 // Inventory routes
 app.get('/api/inventory/products', (req, res) => {
-  res.json(mockInventoryItems);
+  db.all('SELECT * FROM inventory_items', (err, rows) => {
+    if (err) {
+      console.error('Error fetching inventory items:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    res.json(rows);
+  });
 });
 
 app.get('/api/inventory/products/:id', (req, res) => {
-  const item = mockInventoryItems.find(i => i.id === req.params.id);
-  if (item) {
-    res.json(item);
-  } else {
-    res.status(404).json({ error: 'Item not found' });
-  }
+  db.get('SELECT * FROM inventory_items WHERE id = ?', [req.params.id], (err, item) => {
+    if (err) {
+      console.error('Error fetching inventory item:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (item) {
+      res.json(item);
+    } else {
+      res.status(404).json({ error: 'Item not found' });
+    }
+  });
 });
 
 app.post('/api/inventory/products', (req, res) => {
@@ -803,416 +451,1211 @@ app.post('/api/inventory/products', (req, res) => {
     totalCost: (req.body.quantity || 0) * (req.body.unitCost || 0),
     lastUpdated: new Date().toISOString()
   };
-  mockInventoryItems.push(newItem);
-  res.json(newItem);
+  
+  db.run(
+    `INSERT INTO inventory_items (
+      id, itemId, name, category, subCategory, quantity, unitCost, totalCost,
+      location, supplier, unitMeasurement, minStockLevel, maxStockLevel, lastUpdated
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      newItem.id,
+      newItem.itemId,
+      newItem.name,
+      newItem.category,
+      newItem.subCategory,
+      newItem.quantity,
+      newItem.unitCost,
+      newItem.totalCost,
+      newItem.location,
+      newItem.supplier,
+      newItem.unitMeasurement,
+      newItem.minStockLevel,
+      newItem.maxStockLevel,
+      newItem.lastUpdated
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating inventory item:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.status(201).json(newItem);
+    }
+  );
 });
 
 app.put('/api/inventory/products/:id', (req, res) => {
-  const index = mockInventoryItems.findIndex(i => i.id === req.params.id);
-  if (index !== -1) {
-    mockInventoryItems[index] = {
-      ...mockInventoryItems[index],
-      ...req.body,
-      totalCost: (req.body.quantity || mockInventoryItems[index].quantity) * 
-                 (req.body.unitCost || mockInventoryItems[index].unitCost),
-      lastUpdated: new Date().toISOString()
-    };
-    res.json(mockInventoryItems[index]);
-  } else {
-    res.status(404).json({ error: 'Item not found' });
-  }
+  const itemId = req.params.id;
+  
+  // Check if item exists
+  db.get('SELECT * FROM inventory_items WHERE id = ?', [itemId], (err, item) => {
+    if (err) {
+      console.error('Error checking inventory item:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    const quantity = req.body.quantity !== undefined ? req.body.quantity : item.quantity;
+    const unitCost = req.body.unitCost !== undefined ? req.body.unitCost : item.unitCost;
+    const totalCost = quantity * unitCost;
+    const lastUpdated = new Date().toISOString();
+    
+    db.run(
+      `UPDATE inventory_items SET
+        itemId = COALESCE(?, itemId),
+        name = COALESCE(?, name),
+        category = COALESCE(?, category),
+        subCategory = COALESCE(?, subCategory),
+        quantity = COALESCE(?, quantity),
+        unitCost = COALESCE(?, unitCost),
+        totalCost = ?,
+        location = COALESCE(?, location),
+        supplier = COALESCE(?, supplier),
+        unitMeasurement = COALESCE(?, unitMeasurement),
+        minStockLevel = COALESCE(?, minStockLevel),
+        maxStockLevel = COALESCE(?, maxStockLevel),
+        lastUpdated = ?
+      WHERE id = ?`,
+      [
+        req.body.itemId,
+        req.body.name,
+        req.body.category,
+        req.body.subCategory,
+        req.body.quantity,
+        req.body.unitCost,
+        totalCost,
+        req.body.location,
+        req.body.supplier,
+        req.body.unitMeasurement,
+        req.body.minStockLevel,
+        req.body.maxStockLevel,
+        lastUpdated,
+        itemId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating inventory item:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get the updated item
+        db.get('SELECT * FROM inventory_items WHERE id = ?', [itemId], (err, updatedItem) => {
+          if (err) {
+            console.error('Error fetching updated inventory item:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          res.json(updatedItem);
+        });
+      }
+    );
+  });
 });
 
 app.delete('/api/inventory/products/:id', (req, res) => {
-  const index = mockInventoryItems.findIndex(i => i.id === req.params.id);
-  if (index !== -1) {
-    mockInventoryItems.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Item not found' });
-  }
+  const itemId = req.params.id;
+  
+  // Check if item exists
+  db.get('SELECT * FROM inventory_items WHERE id = ?', [itemId], (err, item) => {
+    if (err) {
+      console.error('Error checking inventory item:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    db.run('DELETE FROM inventory_items WHERE id = ?', [itemId], function(err) {
+      if (err) {
+        console.error('Error deleting inventory item:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.json({ success: true });
+    });
+  });
 });
 
 // Orders routes
 app.get('/api/orders', (req, res) => {
-  res.json(mockOrders);
+  db.all('SELECT * FROM orders ORDER BY createdAt DESC', (err, rows) => {
+    if (err) {
+      console.error('Error fetching orders:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    // Get order items for each order
+    const promises = rows.map(order => {
+      return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM order_items WHERE orderId = ?', [order.id], (err, items) => {
+          if (err) {
+            reject(err);
+          } else {
+            order.items = items;
+            resolve(order);
+          }
+        });
+      });
+    });
+    
+    Promise.all(promises)
+      .then(ordersWithItems => {
+        res.json(ordersWithItems);
+      })
+      .catch(err => {
+        console.error('Error fetching order items:', err);
+        res.status(500).json({ error: 'Internal server error' });
+      });
+  });
 });
 
 app.get('/api/orders/:id', (req, res) => {
-  const order = mockOrders.find(o => o.id === req.params.id);
-  if (order) {
-    res.json(order);
-  } else {
-    res.status(404).json({ error: 'Order not found' });
-  }
+  db.get('SELECT * FROM orders WHERE id = ?', [req.params.id], (err, order) => {
+    if (err) {
+      console.error('Error fetching order:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (order) {
+      // Get order items
+      db.all('SELECT * FROM order_items WHERE orderId = ?', [order.id], (err, items) => {
+        if (err) {
+          console.error('Error fetching order items:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        order.items = items;
+        res.json(order);
+      });
+    } else {
+      res.status(404).json({ error: 'Order not found' });
+    }
+  });
 });
 
 app.post('/api/orders', (req, res) => {
+  const { items, ...orderData } = req.body;
+  
   const newOrder = {
     id: Date.now().toString(),
-    ...req.body,
+    ...orderData,
     bomCount: 0,
     actualCost: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  mockOrders.push(newOrder);
-  res.json(newOrder);
+  
+  db.run(
+    `INSERT INTO orders (
+      id, orderNumber, customerName, customerContact, orderType, status, priority,
+      orderDate, dueDate, deliveryDate, description, notes, estimatedCost, actualCost,
+      assignedTo, department, bomCount, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      newOrder.id,
+      newOrder.orderNumber,
+      newOrder.customerName,
+      newOrder.customerContact,
+      newOrder.orderType,
+      newOrder.status,
+      newOrder.priority,
+      newOrder.orderDate,
+      newOrder.dueDate,
+      newOrder.deliveryDate,
+      newOrder.description,
+      newOrder.notes,
+      newOrder.estimatedCost,
+      newOrder.actualCost,
+      newOrder.assignedTo,
+      newOrder.department,
+      newOrder.bomCount,
+      newOrder.createdAt,
+      newOrder.updatedAt
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating order:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      // If there are items, insert them
+      if (items && items.length > 0) {
+        const itemStmt = db.prepare(
+          'INSERT INTO order_items (id, orderId, itemId, itemName, quantity, unitCost, totalCost) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        
+        items.forEach(item => {
+          itemStmt.run(
+            Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9),
+            newOrder.id,
+            item.itemId,
+            item.itemName,
+            item.quantity,
+            item.unitCost,
+            item.totalCost
+          );
+        });
+        
+        itemStmt.finalize(err => {
+          if (err) {
+            console.error('Error inserting order items:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          newOrder.items = items;
+          res.status(201).json(newOrder);
+        });
+      } else {
+        newOrder.items = [];
+        res.status(201).json(newOrder);
+      }
+    }
+  );
 });
 
 app.put('/api/orders/:id', (req, res) => {
-  const index = mockOrders.findIndex(o => o.id === req.params.id);
-  if (index !== -1) {
-    mockOrders[index] = {
-      ...mockOrders[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockOrders[index]);
-  } else {
-    res.status(404).json({ error: 'Order not found' });
-  }
+  const orderId = req.params.id;
+  const { items, ...orderData } = req.body;
+  
+  // Check if order exists
+  db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, order) => {
+    if (err) {
+      console.error('Error checking order:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    const updatedAt = new Date().toISOString();
+    
+    db.run(
+      `UPDATE orders SET
+        orderNumber = COALESCE(?, orderNumber),
+        customerName = COALESCE(?, customerName),
+        customerContact = COALESCE(?, customerContact),
+        orderType = COALESCE(?, orderType),
+        status = COALESCE(?, status),
+        priority = COALESCE(?, priority),
+        orderDate = COALESCE(?, orderDate),
+        dueDate = COALESCE(?, dueDate),
+        deliveryDate = COALESCE(?, deliveryDate),
+        completedDate = COALESCE(?, completedDate),
+        description = COALESCE(?, description),
+        notes = COALESCE(?, notes),
+        estimatedCost = COALESCE(?, estimatedCost),
+        actualCost = COALESCE(?, actualCost),
+        assignedTo = COALESCE(?, assignedTo),
+        department = COALESCE(?, department),
+        updatedAt = ?
+      WHERE id = ?`,
+      [
+        orderData.orderNumber,
+        orderData.customerName,
+        orderData.customerContact,
+        orderData.orderType,
+        orderData.status,
+        orderData.priority,
+        orderData.orderDate,
+        orderData.dueDate,
+        orderData.deliveryDate,
+        orderData.completedDate,
+        orderData.description,
+        orderData.notes,
+        orderData.estimatedCost,
+        orderData.actualCost,
+        orderData.assignedTo,
+        orderData.department,
+        updatedAt,
+        orderId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating order:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // If there are items, update them
+        if (items && items.length > 0) {
+          // First delete existing items
+          db.run('DELETE FROM order_items WHERE orderId = ?', [orderId], function(err) {
+            if (err) {
+              console.error('Error deleting order items:', err);
+              return res.status(500).json({ error: 'Internal server error' });
+            }
+            
+            // Then insert new items
+            const itemStmt = db.prepare(
+              'INSERT INTO order_items (id, orderId, itemId, itemName, quantity, unitCost, totalCost) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            );
+            
+            items.forEach(item => {
+              itemStmt.run(
+                item.id || (Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9)),
+                orderId,
+                item.itemId,
+                item.itemName,
+                item.quantity,
+                item.unitCost,
+                item.totalCost
+              );
+            });
+            
+            itemStmt.finalize(err => {
+              if (err) {
+                console.error('Error inserting order items:', err);
+                return res.status(500).json({ error: 'Internal server error' });
+              }
+              
+              // Get the updated order
+              db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, updatedOrder) => {
+                if (err) {
+                  console.error('Error fetching updated order:', err);
+                  return res.status(500).json({ error: 'Internal server error' });
+                }
+                
+                updatedOrder.items = items;
+                res.json(updatedOrder);
+              });
+            });
+          });
+        } else {
+          // Get the updated order
+          db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, updatedOrder) => {
+            if (err) {
+              console.error('Error fetching updated order:', err);
+              return res.status(500).json({ error: 'Internal server error' });
+            }
+            
+            // Get order items
+            db.all('SELECT * FROM order_items WHERE orderId = ?', [orderId], (err, items) => {
+              if (err) {
+                console.error('Error fetching order items:', err);
+                return res.status(500).json({ error: 'Internal server error' });
+              }
+              
+              updatedOrder.items = items;
+              res.json(updatedOrder);
+            });
+          });
+        }
+      }
+    );
+  });
 });
 
 app.delete('/api/orders/:id', (req, res) => {
-  const index = mockOrders.findIndex(o => o.id === req.params.id);
-  if (index !== -1) {
-    mockOrders.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Order not found' });
-  }
-});
-
-// BOM routes
-app.get('/api/boms', (req, res) => {
-  const { orderId } = req.query;
-  let boms = mockBOMs;
+  const orderId = req.params.id;
   
-  if (orderId) {
-    boms = mockBOMs.filter(bom => bom.orderId === orderId);
-  }
-  
-  res.json(boms);
-});
-
-app.get('/api/boms/linked/:linkedType/:linkedId', (req, res) => {
-  const { linkedType, linkedId } = req.params;
-  const linkedBOMs = mockBOMs.filter(bom => 
-    bom.linkedType === linkedType && bom.linkedId === linkedId
-  );
-  res.json(linkedBOMs);
-});
-
-app.get('/api/boms/:id', (req, res) => {
-  const bom = mockBOMs.find(b => b.id === req.params.id);
-  if (bom) {
-    res.json(bom);
-  } else {
-    res.status(404).json({ error: 'BOM not found' });
-  }
-});
-
-app.post('/api/boms', (req, res) => {
-  const newBOM = {
-    id: Date.now().toString(),
-    ...req.body,
-    bomNumber: req.body.bomNumber || `BOM-${new Date().getFullYear()}-${String(mockBOMs.length + 1).padStart(4, '0')}`,
-    version: req.body.version || '1.0',
-    status: req.body.status || 'draft',
-    totalCost: req.body.items?.reduce((sum, item) => sum + (item.totalCost || 0), 0) || 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  mockBOMs.push(newBOM);
-  res.json(newBOM);
-});
-
-app.put('/api/boms/:id', (req, res) => {
-  const index = mockBOMs.findIndex(b => b.id === req.params.id);
-  if (index !== -1) {
-    mockBOMs[index] = {
-      ...mockBOMs[index],
-      ...req.body,
-      totalCost: req.body.items?.reduce((sum, item) => sum + (item.totalCost || 0), 0) || mockBOMs[index].totalCost,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockBOMs[index]);
-  } else {
-    res.status(404).json({ error: 'BOM not found' });
-  }
-});
-
-app.delete('/api/boms/:id', (req, res) => {
-  const index = mockBOMs.findIndex(b => b.id === req.params.id);
-  if (index !== -1) {
-    mockBOMs.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'BOM not found' });
-  }
-});
-
-// Prototypes routes
-app.get('/api/prototypes', (req, res) => {
-  res.json(mockPrototypes);
-});
-
-app.get('/api/prototypes/:id', (req, res) => {
-  const prototype = mockPrototypes.find(p => p.id === req.params.id);
-  if (prototype) {
-    res.json(prototype);
-  } else {
-    res.status(404).json({ error: 'Prototype not found' });
-  }
-});
-
-app.post('/api/prototypes', (req, res) => {
-  const newPrototype = {
-    id: Date.now().toString(),
-    ...req.body,
-    bomCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  mockPrototypes.push(newPrototype);
-  res.json(newPrototype);
-});
-
-app.put('/api/prototypes/:id', (req, res) => {
-  const index = mockPrototypes.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockPrototypes[index] = {
-      ...mockPrototypes[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockPrototypes[index]);
-  } else {
-    res.status(404).json({ error: 'Prototype not found' });
-  }
-});
-
-app.delete('/api/prototypes/:id', (req, res) => {
-  const index = mockPrototypes.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockPrototypes.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Prototype not found' });
-  }
+  // Check if order exists
+  db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, order) => {
+    if (err) {
+      console.error('Error checking order:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Delete order items first (foreign key constraint)
+    db.run('DELETE FROM order_items WHERE orderId = ?', [orderId], function(err) {
+      if (err) {
+        console.error('Error deleting order items:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      // Then delete the order
+      db.run('DELETE FROM orders WHERE id = ?', [orderId], function(err) {
+        if (err) {
+          console.error('Error deleting order:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        res.json({ success: true });
+      });
+    });
+  });
 });
 
 // Suppliers routes
 app.get('/api/suppliers', (req, res) => {
-  res.json(mockSuppliers);
+  db.all('SELECT * FROM suppliers', (err, rows) => {
+    if (err) {
+      console.error('Error fetching suppliers:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    res.json(rows);
+  });
 });
 
 app.get('/api/suppliers/:id', (req, res) => {
-  const supplier = mockSuppliers.find(s => s.id === req.params.id);
-  if (supplier) {
-    res.json(supplier);
-  } else {
-    res.status(404).json({ error: 'Supplier not found' });
-  }
+  db.get('SELECT * FROM suppliers WHERE id = ?', [req.params.id], (err, supplier) => {
+    if (err) {
+      console.error('Error fetching supplier:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (supplier) {
+      res.json(supplier);
+    } else {
+      res.status(404).json({ error: 'Supplier not found' });
+    }
+  });
 });
 
 app.post('/api/suppliers', (req, res) => {
   const newSupplier = {
     id: Date.now().toString(),
     ...req.body,
-    isActive: req.body.isActive !== false,
+    isActive: req.body.isActive !== false ? 1 : 0,
     createdAt: new Date().toISOString()
   };
-  mockSuppliers.push(newSupplier);
-  res.json(newSupplier);
+  
+  db.run(
+    'INSERT INTO suppliers (id, name, contactPerson, phone, email, address, isActive, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      newSupplier.id,
+      newSupplier.name,
+      newSupplier.contactPerson,
+      newSupplier.phone,
+      newSupplier.email,
+      newSupplier.address,
+      newSupplier.isActive,
+      newSupplier.createdAt
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating supplier:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.status(201).json(newSupplier);
+    }
+  );
 });
 
 app.put('/api/suppliers/:id', (req, res) => {
-  const index = mockSuppliers.findIndex(s => s.id === req.params.id);
-  if (index !== -1) {
-    mockSuppliers[index] = {
-      ...mockSuppliers[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockSuppliers[index]);
-  } else {
-    res.status(404).json({ error: 'Supplier not found' });
-  }
+  const supplierId = req.params.id;
+  
+  // Check if supplier exists
+  db.get('SELECT * FROM suppliers WHERE id = ?', [supplierId], (err, supplier) => {
+    if (err) {
+      console.error('Error checking supplier:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!supplier) {
+      return res.status(404).json({ error: 'Supplier not found' });
+    }
+    
+    const isActive = req.body.isActive !== undefined ? (req.body.isActive ? 1 : 0) : supplier.isActive;
+    
+    db.run(
+      `UPDATE suppliers SET
+        name = COALESCE(?, name),
+        contactPerson = COALESCE(?, contactPerson),
+        phone = COALESCE(?, phone),
+        email = COALESCE(?, email),
+        address = COALESCE(?, address),
+        isActive = ?
+      WHERE id = ?`,
+      [
+        req.body.name,
+        req.body.contactPerson,
+        req.body.phone,
+        req.body.email,
+        req.body.address,
+        isActive,
+        supplierId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating supplier:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get the updated supplier
+        db.get('SELECT * FROM suppliers WHERE id = ?', [supplierId], (err, updatedSupplier) => {
+          if (err) {
+            console.error('Error fetching updated supplier:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          res.json(updatedSupplier);
+        });
+      }
+    );
+  });
 });
 
 app.delete('/api/suppliers/:id', (req, res) => {
-  const index = mockSuppliers.findIndex(s => s.id === req.params.id);
-  if (index !== -1) {
-    mockSuppliers.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Supplier not found' });
-  }
+  const supplierId = req.params.id;
+  
+  // Check if supplier exists
+  db.get('SELECT * FROM suppliers WHERE id = ?', [supplierId], (err, supplier) => {
+    if (err) {
+      console.error('Error checking supplier:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!supplier) {
+      return res.status(404).json({ error: 'Supplier not found' });
+    }
+    
+    db.run('DELETE FROM suppliers WHERE id = ?', [supplierId], function(err) {
+      if (err) {
+        console.error('Error deleting supplier:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.json({ success: true });
+    });
+  });
 });
 
 // Departments routes
 app.get('/api/departments', (req, res) => {
-  res.json(mockDepartments);
+  db.all('SELECT * FROM departments', (err, rows) => {
+    if (err) {
+      console.error('Error fetching departments:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    // Convert isActive from integer to boolean for frontend
+    const departments = rows.map(dept => ({
+      ...dept,
+      isActive: dept.isActive === 1
+    }));
+    
+    res.json(departments);
+  });
 });
 
 app.get('/api/departments/:id', (req, res) => {
-  const department = mockDepartments.find(d => d.id === req.params.id);
-  if (department) {
-    res.json(department);
-  } else {
-    res.status(404).json({ error: 'Department not found' });
-  }
+  db.get('SELECT * FROM departments WHERE id = ?', [req.params.id], (err, department) => {
+    if (err) {
+      console.error('Error fetching department:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (department) {
+      // Convert isActive from integer to boolean for frontend
+      department.isActive = department.isActive === 1;
+      res.json(department);
+    } else {
+      res.status(404).json({ error: 'Department not found' });
+    }
+  });
 });
 
 app.post('/api/departments', (req, res) => {
   const newDepartment = {
     id: Date.now().toString(),
     ...req.body,
-    isActive: req.body.isActive !== false,
+    isActive: req.body.isActive !== false ? 1 : 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  mockDepartments.push(newDepartment);
-  res.json(newDepartment);
+  
+  db.run(
+    'INSERT INTO departments (id, name, code, description, manager, costCenter, isActive, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      newDepartment.id,
+      newDepartment.name,
+      newDepartment.code,
+      newDepartment.description,
+      newDepartment.manager,
+      newDepartment.costCenter,
+      newDepartment.isActive,
+      newDepartment.createdAt,
+      newDepartment.updatedAt
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating department:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      // Convert isActive back to boolean for frontend
+      newDepartment.isActive = newDepartment.isActive === 1;
+      res.status(201).json(newDepartment);
+    }
+  );
 });
 
 app.put('/api/departments/:id', (req, res) => {
-  const index = mockDepartments.findIndex(d => d.id === req.params.id);
-  if (index !== -1) {
-    mockDepartments[index] = {
-      ...mockDepartments[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockDepartments[index]);
-  } else {
-    res.status(404).json({ error: 'Department not found' });
-  }
+  const departmentId = req.params.id;
+  
+  // Check if department exists
+  db.get('SELECT * FROM departments WHERE id = ?', [departmentId], (err, department) => {
+    if (err) {
+      console.error('Error checking department:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!department) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+    
+    const isActive = req.body.isActive !== undefined ? (req.body.isActive ? 1 : 0) : department.isActive;
+    const updatedAt = new Date().toISOString();
+    
+    db.run(
+      `UPDATE departments SET
+        name = COALESCE(?, name),
+        code = COALESCE(?, code),
+        description = COALESCE(?, description),
+        manager = COALESCE(?, manager),
+        costCenter = COALESCE(?, costCenter),
+        isActive = ?,
+        updatedAt = ?
+      WHERE id = ?`,
+      [
+        req.body.name,
+        req.body.code,
+        req.body.description,
+        req.body.manager,
+        req.body.costCenter,
+        isActive,
+        updatedAt,
+        departmentId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating department:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get the updated department
+        db.get('SELECT * FROM departments WHERE id = ?', [departmentId], (err, updatedDepartment) => {
+          if (err) {
+            console.error('Error fetching updated department:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          // Convert isActive from integer to boolean for frontend
+          updatedDepartment.isActive = updatedDepartment.isActive === 1;
+          res.json(updatedDepartment);
+        });
+      }
+    );
+  });
 });
 
 app.delete('/api/departments/:id', (req, res) => {
-  const index = mockDepartments.findIndex(d => d.id === req.params.id);
-  if (index !== -1) {
-    mockDepartments.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Department not found' });
-  }
+  const departmentId = req.params.id;
+  
+  // Check if department exists
+  db.get('SELECT * FROM departments WHERE id = ?', [departmentId], (err, department) => {
+    if (err) {
+      console.error('Error checking department:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!department) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+    
+    db.run('DELETE FROM departments WHERE id = ?', [departmentId], function(err) {
+      if (err) {
+        console.error('Error deleting department:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.json({ success: true });
+    });
+  });
 });
 
 // Requesters routes
 app.get('/api/requesters', (req, res) => {
-  res.json(mockRequesters);
+  db.all('SELECT * FROM requesters', (err, rows) => {
+    if (err) {
+      console.error('Error fetching requesters:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    // Convert isActive from integer to boolean for frontend
+    const requesters = rows.map(requester => ({
+      ...requester,
+      isActive: requester.isActive === 1
+    }));
+    
+    res.json(requesters);
+  });
 });
 
 app.get('/api/requesters/:id', (req, res) => {
-  const requester = mockRequesters.find(r => r.id === req.params.id);
-  if (requester) {
-    res.json(requester);
-  } else {
-    res.status(404).json({ error: 'Requester not found' });
-  }
+  db.get('SELECT * FROM requesters WHERE id = ?', [req.params.id], (err, requester) => {
+    if (err) {
+      console.error('Error fetching requester:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (requester) {
+      // Convert isActive from integer to boolean for frontend
+      requester.isActive = requester.isActive === 1;
+      res.json(requester);
+    } else {
+      res.status(404).json({ error: 'Requester not found' });
+    }
+  });
 });
 
 app.post('/api/requesters', (req, res) => {
   const newRequester = {
     id: Date.now().toString(),
     ...req.body,
-    isActive: req.body.isActive !== false,
+    isActive: req.body.isActive !== false ? 1 : 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  mockRequesters.push(newRequester);
-  res.json(newRequester);
+  
+  db.run(
+    'INSERT INTO requesters (id, name, email, employeeId, department, position, phone, isActive, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      newRequester.id,
+      newRequester.name,
+      newRequester.email,
+      newRequester.employeeId,
+      newRequester.department,
+      newRequester.position,
+      newRequester.phone,
+      newRequester.isActive,
+      newRequester.createdAt,
+      newRequester.updatedAt
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating requester:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      // Convert isActive back to boolean for frontend
+      newRequester.isActive = newRequester.isActive === 1;
+      res.status(201).json(newRequester);
+    }
+  );
 });
 
 app.put('/api/requesters/:id', (req, res) => {
-  const index = mockRequesters.findIndex(r => r.id === req.params.id);
-  if (index !== -1) {
-    mockRequesters[index] = {
-      ...mockRequesters[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockRequesters[index]);
-  } else {
-    res.status(404).json({ error: 'Requester not found' });
-  }
+  const requesterId = req.params.id;
+  
+  // Check if requester exists
+  db.get('SELECT * FROM requesters WHERE id = ?', [requesterId], (err, requester) => {
+    if (err) {
+      console.error('Error checking requester:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!requester) {
+      return res.status(404).json({ error: 'Requester not found' });
+    }
+    
+    const isActive = req.body.isActive !== undefined ? (req.body.isActive ? 1 : 0) : requester.isActive;
+    const updatedAt = new Date().toISOString();
+    
+    db.run(
+      `UPDATE requesters SET
+        name = COALESCE(?, name),
+        email = COALESCE(?, email),
+        employeeId = COALESCE(?, employeeId),
+        department = COALESCE(?, department),
+        position = COALESCE(?, position),
+        phone = COALESCE(?, phone),
+        isActive = ?,
+        updatedAt = ?
+      WHERE id = ?`,
+      [
+        req.body.name,
+        req.body.email,
+        req.body.employeeId,
+        req.body.department,
+        req.body.position,
+        req.body.phone,
+        isActive,
+        updatedAt,
+        requesterId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating requester:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get the updated requester
+        db.get('SELECT * FROM requesters WHERE id = ?', [requesterId], (err, updatedRequester) => {
+          if (err) {
+            console.error('Error fetching updated requester:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          // Convert isActive from integer to boolean for frontend
+          updatedRequester.isActive = updatedRequester.isActive === 1;
+          res.json(updatedRequester);
+        });
+      }
+    );
+  });
 });
 
 app.delete('/api/requesters/:id', (req, res) => {
-  const index = mockRequesters.findIndex(r => r.id === req.params.id);
-  if (index !== -1) {
-    mockRequesters.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Requester not found' });
-  }
+  const requesterId = req.params.id;
+  
+  // Check if requester exists
+  db.get('SELECT * FROM requesters WHERE id = ?', [requesterId], (err, requester) => {
+    if (err) {
+      console.error('Error checking requester:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!requester) {
+      return res.status(404).json({ error: 'Requester not found' });
+    }
+    
+    db.run('DELETE FROM requesters WHERE id = ?', [requesterId], function(err) {
+      if (err) {
+        console.error('Error deleting requester:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.json({ success: true });
+    });
+  });
 });
 
 // Purchase Orders routes
 app.get('/api/purchase-orders', (req, res) => {
-  res.json(mockPurchaseOrders);
+  db.all('SELECT * FROM purchase_orders ORDER BY createdAt DESC', (err, rows) => {
+    if (err) {
+      console.error('Error fetching purchase orders:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    // Get items for each purchase order
+    const promises = rows.map(po => {
+      return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM purchase_order_items WHERE poId = ?', [po.id], (err, items) => {
+          if (err) {
+            reject(err);
+          } else {
+            po.items = items;
+            resolve(po);
+          }
+        });
+      });
+    });
+    
+    Promise.all(promises)
+      .then(posWithItems => {
+        res.json(posWithItems);
+      })
+      .catch(err => {
+        console.error('Error fetching purchase order items:', err);
+        res.status(500).json({ error: 'Internal server error' });
+      });
+  });
 });
 
 app.get('/api/purchase-orders/:id', (req, res) => {
-  const po = mockPurchaseOrders.find(p => p.id === req.params.id);
-  if (po) {
-    res.json(po);
-  } else {
-    res.status(404).json({ error: 'Purchase order not found' });
-  }
+  db.get('SELECT * FROM purchase_orders WHERE id = ?', [req.params.id], (err, po) => {
+    if (err) {
+      console.error('Error fetching purchase order:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (po) {
+      // Get purchase order items
+      db.all('SELECT * FROM purchase_order_items WHERE poId = ?', [po.id], (err, items) => {
+        if (err) {
+          console.error('Error fetching purchase order items:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        po.items = items;
+        res.json(po);
+      });
+    } else {
+      res.status(404).json({ error: 'Purchase order not found' });
+    }
+  });
 });
 
 app.post('/api/purchase-orders', (req, res) => {
+  const { items, ...poData } = req.body;
+  
   const newPO = {
     id: Date.now().toString(),
-    ...req.body,
+    ...poData,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  mockPurchaseOrders.push(newPO);
-  res.json(newPO);
+  
+  db.run(
+    `INSERT INTO purchase_orders (
+      id, poNumber, supplier, status, subtotal, tax, total,
+      orderDate, expectedDelivery, notes, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      newPO.id,
+      newPO.poNumber,
+      newPO.supplier,
+      newPO.status,
+      newPO.subtotal,
+      newPO.tax,
+      newPO.total,
+      newPO.orderDate,
+      newPO.expectedDelivery,
+      newPO.notes,
+      newPO.createdAt,
+      newPO.updatedAt
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating purchase order:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      // If there are items, insert them
+      if (items && items.length > 0) {
+        const itemStmt = db.prepare(
+          'INSERT INTO purchase_order_items (id, poId, itemId, itemName, quantity, unitCost, totalCost) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        
+        items.forEach(item => {
+          itemStmt.run(
+            item.id || (Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9)),
+            newPO.id,
+            item.itemId,
+            item.itemName,
+            item.quantity,
+            item.unitCost,
+            item.totalCost
+          );
+        });
+        
+        itemStmt.finalize(err => {
+          if (err) {
+            console.error('Error inserting purchase order items:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          newPO.items = items;
+          res.status(201).json(newPO);
+        });
+      } else {
+        newPO.items = [];
+        res.status(201).json(newPO);
+      }
+    }
+  );
 });
 
 app.put('/api/purchase-orders/:id', (req, res) => {
-  const index = mockPurchaseOrders.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockPurchaseOrders[index] = {
-      ...mockPurchaseOrders[index],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockPurchaseOrders[index]);
-  } else {
-    res.status(404).json({ error: 'Purchase order not found' });
-  }
+  const poId = req.params.id;
+  const { items, ...poData } = req.body;
+  
+  // Check if purchase order exists
+  db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, po) => {
+    if (err) {
+      console.error('Error checking purchase order:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+    
+    const updatedAt = new Date().toISOString();
+    
+    db.run(
+      `UPDATE purchase_orders SET
+        poNumber = COALESCE(?, poNumber),
+        supplier = COALESCE(?, supplier),
+        status = COALESCE(?, status),
+        subtotal = COALESCE(?, subtotal),
+        tax = COALESCE(?, tax),
+        total = COALESCE(?, total),
+        orderDate = COALESCE(?, orderDate),
+        expectedDelivery = COALESCE(?, expectedDelivery),
+        notes = COALESCE(?, notes),
+        updatedAt = ?
+      WHERE id = ?`,
+      [
+        poData.poNumber,
+        poData.supplier,
+        poData.status,
+        poData.subtotal,
+        poData.tax,
+        poData.total,
+        poData.orderDate,
+        poData.expectedDelivery,
+        poData.notes,
+        updatedAt,
+        poId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating purchase order:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // If there are items, update them
+        if (items && items.length > 0) {
+          // First delete existing items
+          db.run('DELETE FROM purchase_order_items WHERE poId = ?', [poId], function(err) {
+            if (err) {
+              console.error('Error deleting purchase order items:', err);
+              return res.status(500).json({ error: 'Internal server error' });
+            }
+            
+            // Then insert new items
+            const itemStmt = db.prepare(
+              'INSERT INTO purchase_order_items (id, poId, itemId, itemName, quantity, unitCost, totalCost) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            );
+            
+            items.forEach(item => {
+              itemStmt.run(
+                item.id || (Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9)),
+                poId,
+                item.itemId,
+                item.itemName,
+                item.quantity,
+                item.unitCost,
+                item.totalCost
+              );
+            });
+            
+            itemStmt.finalize(err => {
+              if (err) {
+                console.error('Error inserting purchase order items:', err);
+                return res.status(500).json({ error: 'Internal server error' });
+              }
+              
+              // Get the updated purchase order
+              db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, updatedPO) => {
+                if (err) {
+                  console.error('Error fetching updated purchase order:', err);
+                  return res.status(500).json({ error: 'Internal server error' });
+                }
+                
+                updatedPO.items = items;
+                res.json(updatedPO);
+              });
+            });
+          });
+        } else {
+          // Get the updated purchase order
+          db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, updatedPO) => {
+            if (err) {
+              console.error('Error fetching updated purchase order:', err);
+              return res.status(500).json({ error: 'Internal server error' });
+            }
+            
+            // Get purchase order items
+            db.all('SELECT * FROM purchase_order_items WHERE poId = ?', [poId], (err, items) => {
+              if (err) {
+                console.error('Error fetching purchase order items:', err);
+                return res.status(500).json({ error: 'Internal server error' });
+              }
+              
+              updatedPO.items = items;
+              res.json(updatedPO);
+            });
+          });
+        }
+      }
+    );
+  });
 });
 
 app.delete('/api/purchase-orders/:id', (req, res) => {
-  const index = mockPurchaseOrders.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockPurchaseOrders.splice(index, 1);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Purchase order not found' });
-  }
+  const poId = req.params.id;
+  
+  // Check if purchase order exists
+  db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, po) => {
+    if (err) {
+      console.error('Error checking purchase order:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+    
+    // Delete purchase order items first (foreign key constraint)
+    db.run('DELETE FROM purchase_order_items WHERE poId = ?', [poId], function(err) {
+      if (err) {
+        console.error('Error deleting purchase order items:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      // Then delete the purchase order
+      db.run('DELETE FROM purchase_orders WHERE id = ?', [poId], function(err) {
+        if (err) {
+          console.error('Error deleting purchase order:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        res.json({ success: true });
+      });
+    });
+  });
 });
 
 app.patch('/api/purchase-orders/:id/approve', (req, res) => {
-  const index = mockPurchaseOrders.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    mockPurchaseOrders[index] = {
-      ...mockPurchaseOrders[index],
-      status: 'approved',
-      updatedAt: new Date().toISOString()
-    };
-    res.json(mockPurchaseOrders[index]);
-  } else {
-    res.status(404).json({ error: 'Purchase order not found' });
-  }
+  const poId = req.params.id;
+  
+  // Check if purchase order exists
+  db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, po) => {
+    if (err) {
+      console.error('Error checking purchase order:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+    
+    const updatedAt = new Date().toISOString();
+    
+    db.run(
+      'UPDATE purchase_orders SET status = ?, updatedAt = ? WHERE id = ?',
+      ['approved', updatedAt, poId],
+      function(err) {
+        if (err) {
+          console.error('Error approving purchase order:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get the updated purchase order
+        db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId], (err, updatedPO) => {
+          if (err) {
+            console.error('Error fetching updated purchase order:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          // Get purchase order items
+          db.all('SELECT * FROM purchase_order_items WHERE poId = ?', [poId], (err, items) => {
+            if (err) {
+              console.error('Error fetching purchase order items:', err);
+              return res.status(500).json({ error: 'Internal server error' });
+            }
+            
+            updatedPO.items = items;
+            res.json(updatedPO);
+          });
+        });
+      }
+    );
+  });
 });
 
 // File upload endpoint
@@ -1232,280 +1675,432 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
 
 // Cabinet Calculator routes
 app.get('/api/cabinet-calculator/templates', (req, res) => {
-  // Read templates from localStorage file if it exists
-  const templatesFilePath = path.join(dataDir, 'cabinet_templates.json');
-  let templates = [];
-  
-  if (fs.existsSync(templatesFilePath)) {
-    try {
-      const data = fs.readFileSync(templatesFilePath, 'utf8');
-      templates = JSON.parse(data);
-      console.log(`Loaded ${templates.length} templates from file`);
-    } catch (error) {
-      console.error('Error reading templates file:', error);
+  // Read templates from database
+  db.all('SELECT * FROM cabinet_templates', (err, rows) => {
+    if (err) {
+      console.error('Error fetching cabinet templates:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  res.json(templates);
+    
+    // Parse JSON fields
+    const templates = rows.map(template => ({
+      ...template,
+      defaultDimensions: JSON.parse(template.defaultDimensions),
+      minDimensions: JSON.parse(template.minDimensions),
+      maxDimensions: JSON.parse(template.maxDimensions),
+      features: JSON.parse(template.features),
+      construction: template.construction ? JSON.parse(template.construction) : undefined,
+      materialThickness: JSON.parse(template.materialThickness),
+      hardware: JSON.parse(template.hardware),
+      parts: template.parts ? JSON.parse(template.parts) : undefined,
+      hardwareItems: template.hardwareItems ? JSON.parse(template.hardwareItems) : undefined,
+      isActive: template.isActive === 1,
+      isCustom: template.isCustom === 1
+    }));
+    
+    res.json(templates);
+  });
 });
 
 app.post('/api/cabinet-calculator/templates', (req, res) => {
-  const templatesFilePath = path.join(dataDir, 'cabinet_templates.json');
-  let templates = [];
-  
-  // Load existing templates
-  if (fs.existsSync(templatesFilePath)) {
-    try {
-      const data = fs.readFileSync(templatesFilePath, 'utf8');
-      templates = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading templates file:', error);
-    }
-  }
-  
-  // Add new template
   const newTemplate = {
     ...req.body,
     id: req.body.id || `template-${Date.now()}`,
+    isActive: req.body.isActive !== false ? 1 : 0,
+    isCustom: req.body.isCustom !== false ? 1 : 0,
     createdAt: new Date().toISOString()
   };
   
-  templates.push(newTemplate);
+  // Stringify JSON fields
+  const templateToSave = {
+    ...newTemplate,
+    defaultDimensions: JSON.stringify(newTemplate.defaultDimensions),
+    minDimensions: JSON.stringify(newTemplate.minDimensions),
+    maxDimensions: JSON.stringify(newTemplate.maxDimensions),
+    features: JSON.stringify(newTemplate.features || []),
+    construction: newTemplate.construction ? JSON.stringify(newTemplate.construction) : null,
+    materialThickness: JSON.stringify(newTemplate.materialThickness),
+    hardware: JSON.stringify(newTemplate.hardware),
+    parts: newTemplate.parts ? JSON.stringify(newTemplate.parts) : null,
+    hardwareItems: newTemplate.hardwareItems ? JSON.stringify(newTemplate.hardwareItems) : null
+  };
   
-  // Save templates back to file
-  try {
-    fs.writeFileSync(templatesFilePath, JSON.stringify(templates, null, 2));
-    console.log(`Saved template ${newTemplate.id} to file`);
-    res.json(newTemplate);
-  } catch (error) {
-    console.error('Error writing templates file:', error);
-    res.status(500).json({ error: 'Failed to save template' });
-  }
+  db.run(
+    `INSERT INTO cabinet_templates (
+      id, name, type, category, defaultDimensions, minDimensions, maxDimensions,
+      previewImage, description, features, construction, materialThickness, hardware,
+      parts, hardwareItems, isActive, isCustom, createdAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      templateToSave.id,
+      templateToSave.name,
+      templateToSave.type,
+      templateToSave.category,
+      templateToSave.defaultDimensions,
+      templateToSave.minDimensions,
+      templateToSave.maxDimensions,
+      templateToSave.previewImage,
+      templateToSave.description,
+      templateToSave.features,
+      templateToSave.construction,
+      templateToSave.materialThickness,
+      templateToSave.hardware,
+      templateToSave.parts,
+      templateToSave.hardwareItems,
+      templateToSave.isActive,
+      templateToSave.isCustom,
+      templateToSave.createdAt
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating cabinet template:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      // Convert isActive and isCustom back to boolean for frontend
+      newTemplate.isActive = newTemplate.isActive === 1;
+      newTemplate.isCustom = newTemplate.isCustom === 1;
+      res.status(201).json(newTemplate);
+    }
+  );
 });
 
 app.put('/api/cabinet-calculator/templates/:id', (req, res) => {
-  const templatesFilePath = path.join(dataDir, 'cabinet_templates.json');
-  let templates = [];
+  const templateId = req.params.id;
   
-  // Load existing templates
-  if (fs.existsSync(templatesFilePath)) {
-    try {
-      const data = fs.readFileSync(templatesFilePath, 'utf8');
-      templates = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading templates file:', error);
-      return res.status(500).json({ error: 'Failed to read templates' });
+  // Check if template exists
+  db.get('SELECT * FROM cabinet_templates WHERE id = ?', [templateId], (err, template) => {
+    if (err) {
+      console.error('Error checking cabinet template:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  // Find and update template
-  const index = templates.findIndex(t => t.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Template not found' });
-  }
-  
-  templates[index] = {
-    ...templates[index],
-    ...req.body,
-    updatedAt: new Date().toISOString()
-  };
-  
-  // Save templates back to file
-  try {
-    fs.writeFileSync(templatesFilePath, JSON.stringify(templates, null, 2));
-    console.log(`Updated template ${req.params.id}`);
-    res.json(templates[index]);
-  } catch (error) {
-    console.error('Error writing templates file:', error);
-    res.status(500).json({ error: 'Failed to update template' });
-  }
+    
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    
+    const updatedTemplate = {
+      ...req.body,
+      isActive: req.body.isActive !== undefined ? (req.body.isActive ? 1 : 0) : template.isActive,
+      isCustom: req.body.isCustom !== undefined ? (req.body.isCustom ? 1 : 0) : template.isCustom,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Stringify JSON fields
+    const templateToSave = {
+      ...updatedTemplate,
+      defaultDimensions: JSON.stringify(updatedTemplate.defaultDimensions),
+      minDimensions: JSON.stringify(updatedTemplate.minDimensions),
+      maxDimensions: JSON.stringify(updatedTemplate.maxDimensions),
+      features: JSON.stringify(updatedTemplate.features || []),
+      construction: updatedTemplate.construction ? JSON.stringify(updatedTemplate.construction) : null,
+      materialThickness: JSON.stringify(updatedTemplate.materialThickness),
+      hardware: JSON.stringify(updatedTemplate.hardware),
+      parts: updatedTemplate.parts ? JSON.stringify(updatedTemplate.parts) : null,
+      hardwareItems: updatedTemplate.hardwareItems ? JSON.stringify(updatedTemplate.hardwareItems) : null
+    };
+    
+    db.run(
+      `UPDATE cabinet_templates SET
+        name = COALESCE(?, name),
+        type = COALESCE(?, type),
+        category = COALESCE(?, category),
+        defaultDimensions = COALESCE(?, defaultDimensions),
+        minDimensions = COALESCE(?, minDimensions),
+        maxDimensions = COALESCE(?, maxDimensions),
+        previewImage = COALESCE(?, previewImage),
+        description = COALESCE(?, description),
+        features = COALESCE(?, features),
+        construction = ?,
+        materialThickness = COALESCE(?, materialThickness),
+        hardware = COALESCE(?, hardware),
+        parts = ?,
+        hardwareItems = ?,
+        isActive = ?,
+        isCustom = ?,
+        updatedAt = ?
+      WHERE id = ?`,
+      [
+        templateToSave.name,
+        templateToSave.type,
+        templateToSave.category,
+        templateToSave.defaultDimensions,
+        templateToSave.minDimensions,
+        templateToSave.maxDimensions,
+        templateToSave.previewImage,
+        templateToSave.description,
+        templateToSave.features,
+        templateToSave.construction,
+        templateToSave.materialThickness,
+        templateToSave.hardware,
+        templateToSave.parts,
+        templateToSave.hardwareItems,
+        templateToSave.isActive,
+        templateToSave.isCustom,
+        templateToSave.updatedAt,
+        templateId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating cabinet template:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get the updated template
+        db.get('SELECT * FROM cabinet_templates WHERE id = ?', [templateId], (err, updatedTemplate) => {
+          if (err) {
+            console.error('Error fetching updated cabinet template:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          // Parse JSON fields
+          const parsedTemplate = {
+            ...updatedTemplate,
+            defaultDimensions: JSON.parse(updatedTemplate.defaultDimensions),
+            minDimensions: JSON.parse(updatedTemplate.minDimensions),
+            maxDimensions: JSON.parse(updatedTemplate.maxDimensions),
+            features: JSON.parse(updatedTemplate.features),
+            construction: updatedTemplate.construction ? JSON.parse(updatedTemplate.construction) : undefined,
+            materialThickness: JSON.parse(updatedTemplate.materialThickness),
+            hardware: JSON.parse(updatedTemplate.hardware),
+            parts: updatedTemplate.parts ? JSON.parse(updatedTemplate.parts) : undefined,
+            hardwareItems: updatedTemplate.hardwareItems ? JSON.parse(updatedTemplate.hardwareItems) : undefined,
+            isActive: updatedTemplate.isActive === 1,
+            isCustom: updatedTemplate.isCustom === 1
+          };
+          
+          res.json(parsedTemplate);
+        });
+      }
+    );
+  });
 });
 
 app.delete('/api/cabinet-calculator/templates/:id', (req, res) => {
-  const templatesFilePath = path.join(dataDir, 'cabinet_templates.json');
-  let templates = [];
+  const templateId = req.params.id;
   
-  // Load existing templates
-  if (fs.existsSync(templatesFilePath)) {
-    try {
-      const data = fs.readFileSync(templatesFilePath, 'utf8');
-      templates = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading templates file:', error);
-      return res.status(500).json({ error: 'Failed to read templates' });
+  // Check if template exists
+  db.get('SELECT * FROM cabinet_templates WHERE id = ?', [templateId], (err, template) => {
+    if (err) {
+      console.error('Error checking cabinet template:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  // Filter out the template to delete
-  const filteredTemplates = templates.filter(t => t.id !== req.params.id);
-  
-  if (filteredTemplates.length === templates.length) {
-    return res.status(404).json({ error: 'Template not found' });
-  }
-  
-  // Save templates back to file
-  try {
-    fs.writeFileSync(templatesFilePath, JSON.stringify(filteredTemplates, null, 2));
-    console.log(`Deleted template ${req.params.id}`);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error writing templates file:', error);
-    res.status(500).json({ error: 'Failed to delete template' });
-  }
+    
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    
+    db.run('DELETE FROM cabinet_templates WHERE id = ?', [templateId], function(err) {
+      if (err) {
+        console.error('Error deleting cabinet template:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.json({ success: true });
+    });
+  });
 });
 
 app.get('/api/cabinet-calculator/configurations', (req, res) => {
-  // Read configurations from file if it exists
-  const configurationsFilePath = path.join(dataDir, 'cabinet_configurations.json');
-  let configurations = [];
-  
-  if (fs.existsSync(configurationsFilePath)) {
-    try {
-      const data = fs.readFileSync(configurationsFilePath, 'utf8');
-      configurations = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading configurations file:', error);
+  // Read configurations from database
+  db.all('SELECT * FROM cabinet_configurations', (err, rows) => {
+    if (err) {
+      console.error('Error fetching cabinet configurations:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  res.json(configurations);
+    
+    // Parse JSON fields
+    const configurations = rows.map(config => ({
+      ...config,
+      dimensions: JSON.parse(config.dimensions),
+      customizations: JSON.parse(config.customizations),
+      materials: JSON.parse(config.materials),
+      hardware: JSON.parse(config.hardware),
+      cuttingList: JSON.parse(config.cuttingList)
+    }));
+    
+    res.json(configurations);
+  });
 });
 
 app.post('/api/cabinet-calculator/configurations', (req, res) => {
-  const configurationsFilePath = path.join(dataDir, 'cabinet_configurations.json');
-  let configurations = [];
-  
-  // Load existing configurations
-  if (fs.existsSync(configurationsFilePath)) {
-    try {
-      const data = fs.readFileSync(configurationsFilePath, 'utf8');
-      configurations = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading configurations file:', error);
-    }
-  }
-  
-  // Add new configuration
-  const newConfiguration = {
+  const newConfig = {
     ...req.body,
     id: req.body.id || `config-${Date.now()}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
   
-  configurations.push(newConfiguration);
+  // Stringify JSON fields
+  const configToSave = {
+    ...newConfig,
+    dimensions: JSON.stringify(newConfig.dimensions),
+    customizations: JSON.stringify(newConfig.customizations),
+    materials: JSON.stringify(newConfig.materials),
+    hardware: JSON.stringify(newConfig.hardware),
+    cuttingList: JSON.stringify(newConfig.cuttingList)
+  };
   
-  // Save configurations back to file
-  try {
-    fs.writeFileSync(configurationsFilePath, JSON.stringify(configurations, null, 2));
-    res.json(newConfiguration);
-  } catch (error) {
-    console.error('Error writing configurations file:', error);
-    res.status(500).json({ error: 'Failed to save configuration' });
-  }
+  db.run(
+    `INSERT INTO cabinet_configurations (
+      id, templateId, name, dimensions, customizations, materials, hardware,
+      cuttingList, totalCost, laborCost, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      configToSave.id,
+      configToSave.templateId,
+      configToSave.name,
+      configToSave.dimensions,
+      configToSave.customizations,
+      configToSave.materials,
+      configToSave.hardware,
+      configToSave.cuttingList,
+      configToSave.totalCost,
+      configToSave.laborCost,
+      configToSave.createdAt,
+      configToSave.updatedAt
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating cabinet configuration:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.status(201).json(newConfig);
+    }
+  );
 });
 
 app.put('/api/cabinet-calculator/configurations/:id', (req, res) => {
-  const configurationsFilePath = path.join(dataDir, 'cabinet_configurations.json');
-  let configurations = [];
+  const configId = req.params.id;
   
-  // Load existing configurations
-  if (fs.existsSync(configurationsFilePath)) {
-    try {
-      const data = fs.readFileSync(configurationsFilePath, 'utf8');
-      configurations = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading configurations file:', error);
-      return res.status(500).json({ error: 'Failed to read configurations' });
+  // Check if configuration exists
+  db.get('SELECT * FROM cabinet_configurations WHERE id = ?', [configId], (err, config) => {
+    if (err) {
+      console.error('Error checking cabinet configuration:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  // Find and update configuration
-  const index = configurations.findIndex(c => c.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Configuration not found' });
-  }
-  
-  configurations[index] = {
-    ...configurations[index],
-    ...req.body,
-    updatedAt: new Date().toISOString()
-  };
-  
-  // Save configurations back to file
-  try {
-    fs.writeFileSync(configurationsFilePath, JSON.stringify(configurations, null, 2));
-    res.json(configurations[index]);
-  } catch (error) {
-    console.error('Error writing configurations file:', error);
-    res.status(500).json({ error: 'Failed to update configuration' });
-  }
+    
+    if (!config) {
+      return res.status(404).json({ error: 'Configuration not found' });
+    }
+    
+    const updatedConfig = {
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Stringify JSON fields
+    const configToSave = {
+      ...updatedConfig,
+      dimensions: JSON.stringify(updatedConfig.dimensions),
+      customizations: JSON.stringify(updatedConfig.customizations),
+      materials: JSON.stringify(updatedConfig.materials),
+      hardware: JSON.stringify(updatedConfig.hardware),
+      cuttingList: JSON.stringify(updatedConfig.cuttingList)
+    };
+    
+    db.run(
+      `UPDATE cabinet_configurations SET
+        templateId = COALESCE(?, templateId),
+        name = COALESCE(?, name),
+        dimensions = COALESCE(?, dimensions),
+        customizations = COALESCE(?, customizations),
+        materials = COALESCE(?, materials),
+        hardware = COALESCE(?, hardware),
+        cuttingList = COALESCE(?, cuttingList),
+        totalCost = COALESCE(?, totalCost),
+        laborCost = COALESCE(?, laborCost),
+        updatedAt = ?
+      WHERE id = ?`,
+      [
+        configToSave.templateId,
+        configToSave.name,
+        configToSave.dimensions,
+        configToSave.customizations,
+        configToSave.materials,
+        configToSave.hardware,
+        configToSave.cuttingList,
+        configToSave.totalCost,
+        configToSave.laborCost,
+        configToSave.updatedAt,
+        configId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating cabinet configuration:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get the updated configuration
+        db.get('SELECT * FROM cabinet_configurations WHERE id = ?', [configId], (err, updatedConfig) => {
+          if (err) {
+            console.error('Error fetching updated cabinet configuration:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          // Parse JSON fields
+          const parsedConfig = {
+            ...updatedConfig,
+            dimensions: JSON.parse(updatedConfig.dimensions),
+            customizations: JSON.parse(updatedConfig.customizations),
+            materials: JSON.parse(updatedConfig.materials),
+            hardware: JSON.parse(updatedConfig.hardware),
+            cuttingList: JSON.parse(updatedConfig.cuttingList)
+          };
+          
+          res.json(parsedConfig);
+        });
+      }
+    );
+  });
 });
 
 app.delete('/api/cabinet-calculator/configurations/:id', (req, res) => {
-  const configurationsFilePath = path.join(dataDir, 'cabinet_configurations.json');
-  let configurations = [];
+  const configId = req.params.id;
   
-  // Load existing configurations
-  if (fs.existsSync(configurationsFilePath)) {
-    try {
-      const data = fs.readFileSync(configurationsFilePath, 'utf8');
-      configurations = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading configurations file:', error);
-      return res.status(500).json({ error: 'Failed to read configurations' });
+  // Check if configuration exists
+  db.get('SELECT * FROM cabinet_configurations WHERE id = ?', [configId], (err, config) => {
+    if (err) {
+      console.error('Error checking cabinet configuration:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  // Filter out the configuration to delete
-  const filteredConfigurations = configurations.filter(c => c.id !== req.params.id);
-  
-  if (filteredConfigurations.length === configurations.length) {
-    return res.status(404).json({ error: 'Configuration not found' });
-  }
-  
-  // Save configurations back to file
-  try {
-    fs.writeFileSync(configurationsFilePath, JSON.stringify(filteredConfigurations, null, 2));
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error writing configurations file:', error);
-    res.status(500).json({ error: 'Failed to delete configuration' });
-  }
+    
+    if (!config) {
+      return res.status(404).json({ error: 'Configuration not found' });
+    }
+    
+    db.run('DELETE FROM cabinet_configurations WHERE id = ?', [configId], function(err) {
+      if (err) {
+        console.error('Error deleting cabinet configuration:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.json({ success: true });
+    });
+  });
 });
 
 app.get('/api/cabinet-calculator/projects', (req, res) => {
-  // Read projects from file if it exists
-  const projectsFilePath = path.join(dataDir, 'cabinet_projects.json');
-  let projects = [];
-  
-  if (fs.existsSync(projectsFilePath)) {
-    try {
-      const data = fs.readFileSync(projectsFilePath, 'utf8');
-      projects = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading projects file:', error);
+  // Read projects from database
+  db.all('SELECT * FROM cabinet_projects', (err, rows) => {
+    if (err) {
+      console.error('Error fetching cabinet projects:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  res.json(projects);
+    
+    // Parse JSON fields
+    const projects = rows.map(project => ({
+      ...project,
+      configurations: JSON.parse(project.configurations),
+      status: project.status
+    }));
+    
+    res.json(projects);
+  });
 });
 
 app.post('/api/cabinet-calculator/projects', (req, res) => {
-  const projectsFilePath = path.join(dataDir, 'cabinet_projects.json');
-  let projects = [];
-  
-  // Load existing projects
-  if (fs.existsSync(projectsFilePath)) {
-    try {
-      const data = fs.readFileSync(projectsFilePath, 'utf8');
-      projects = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading projects file:', error);
-    }
-  }
-  
-  // Add new project
   const newProject = {
     ...req.body,
     id: req.body.id || `project-${Date.now()}`,
@@ -1513,85 +2108,155 @@ app.post('/api/cabinet-calculator/projects', (req, res) => {
     updatedAt: new Date().toISOString()
   };
   
-  projects.push(newProject);
+  // Stringify JSON fields
+  const projectToSave = {
+    ...newProject,
+    configurations: JSON.stringify(newProject.configurations)
+  };
   
-  // Save projects back to file
-  try {
-    fs.writeFileSync(projectsFilePath, JSON.stringify(projects, null, 2));
-    res.json(newProject);
-  } catch (error) {
-    console.error('Error writing projects file:', error);
-    res.status(500).json({ error: 'Failed to save project' });
-  }
+  db.run(
+    `INSERT INTO cabinet_projects (
+      id, name, description, customerName, customerContact, configurations,
+      totalMaterialCost, totalHardwareCost, totalLaborCost, subtotal, tax, total,
+      estimatedDays, status, notes, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      projectToSave.id,
+      projectToSave.name,
+      projectToSave.description,
+      projectToSave.customerName,
+      projectToSave.customerContact,
+      projectToSave.configurations,
+      projectToSave.totalMaterialCost,
+      projectToSave.totalHardwareCost,
+      projectToSave.totalLaborCost,
+      projectToSave.subtotal,
+      projectToSave.tax,
+      projectToSave.total,
+      projectToSave.estimatedDays,
+      projectToSave.status,
+      projectToSave.notes,
+      projectToSave.createdAt,
+      projectToSave.updatedAt
+    ],
+    function(err) {
+      if (err) {
+        console.error('Error creating cabinet project:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.status(201).json(newProject);
+    }
+  );
 });
 
 app.put('/api/cabinet-calculator/projects/:id', (req, res) => {
-  const projectsFilePath = path.join(dataDir, 'cabinet_projects.json');
-  let projects = [];
+  const projectId = req.params.id;
   
-  // Load existing projects
-  if (fs.existsSync(projectsFilePath)) {
-    try {
-      const data = fs.readFileSync(projectsFilePath, 'utf8');
-      projects = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading projects file:', error);
-      return res.status(500).json({ error: 'Failed to read projects' });
+  // Check if project exists
+  db.get('SELECT * FROM cabinet_projects WHERE id = ?', [projectId], (err, project) => {
+    if (err) {
+      console.error('Error checking cabinet project:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  // Find and update project
-  const index = projects.findIndex(p => p.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Project not found' });
-  }
-  
-  projects[index] = {
-    ...projects[index],
-    ...req.body,
-    updatedAt: new Date().toISOString()
-  };
-  
-  // Save projects back to file
-  try {
-    fs.writeFileSync(projectsFilePath, JSON.stringify(projects, null, 2));
-    res.json(projects[index]);
-  } catch (error) {
-    console.error('Error writing projects file:', error);
-    res.status(500).json({ error: 'Failed to update project' });
-  }
+    
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    const updatedProject = {
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Stringify JSON fields
+    const projectToSave = {
+      ...updatedProject,
+      configurations: JSON.stringify(updatedProject.configurations)
+    };
+    
+    db.run(
+      `UPDATE cabinet_projects SET
+        name = COALESCE(?, name),
+        description = COALESCE(?, description),
+        customerName = COALESCE(?, customerName),
+        customerContact = COALESCE(?, customerContact),
+        configurations = COALESCE(?, configurations),
+        totalMaterialCost = COALESCE(?, totalMaterialCost),
+        totalHardwareCost = COALESCE(?, totalHardwareCost),
+        totalLaborCost = COALESCE(?, totalLaborCost),
+        subtotal = COALESCE(?, subtotal),
+        tax = COALESCE(?, tax),
+        total = COALESCE(?, total),
+        estimatedDays = COALESCE(?, estimatedDays),
+        status = COALESCE(?, status),
+        notes = COALESCE(?, notes),
+        updatedAt = ?
+      WHERE id = ?`,
+      [
+        projectToSave.name,
+        projectToSave.description,
+        projectToSave.customerName,
+        projectToSave.customerContact,
+        projectToSave.configurations,
+        projectToSave.totalMaterialCost,
+        projectToSave.totalHardwareCost,
+        projectToSave.totalLaborCost,
+        projectToSave.subtotal,
+        projectToSave.tax,
+        projectToSave.total,
+        projectToSave.estimatedDays,
+        projectToSave.status,
+        projectToSave.notes,
+        projectToSave.updatedAt,
+        projectId
+      ],
+      function(err) {
+        if (err) {
+          console.error('Error updating cabinet project:', err);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+        
+        // Get the updated project
+        db.get('SELECT * FROM cabinet_projects WHERE id = ?', [projectId], (err, updatedProject) => {
+          if (err) {
+            console.error('Error fetching updated cabinet project:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+          
+          // Parse JSON fields
+          updatedProject.configurations = JSON.parse(updatedProject.configurations);
+          
+          res.json(updatedProject);
+        });
+      }
+    );
+  });
 });
 
 app.delete('/api/cabinet-calculator/projects/:id', (req, res) => {
-  const projectsFilePath = path.join(dataDir, 'cabinet_projects.json');
-  let projects = [];
+  const projectId = req.params.id;
   
-  // Load existing projects
-  if (fs.existsSync(projectsFilePath)) {
-    try {
-      const data = fs.readFileSync(projectsFilePath, 'utf8');
-      projects = JSON.parse(data);
-    } catch (error) {
-      console.error('Error reading projects file:', error);
-      return res.status(500).json({ error: 'Failed to read projects' });
+  // Check if project exists
+  db.get('SELECT * FROM cabinet_projects WHERE id = ?', [projectId], (err, project) => {
+    if (err) {
+      console.error('Error checking cabinet project:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
-  
-  // Filter out the project to delete
-  const filteredProjects = projects.filter(p => p.id !== req.params.id);
-  
-  if (filteredProjects.length === projects.length) {
-    return res.status(404).json({ error: 'Project not found' });
-  }
-  
-  // Save projects back to file
-  try {
-    fs.writeFileSync(projectsFilePath, JSON.stringify(filteredProjects, null, 2));
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error writing projects file:', error);
-    res.status(500).json({ error: 'Failed to delete project' });
-  }
+    
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    db.run('DELETE FROM cabinet_projects WHERE id = ?', [projectId], function(err) {
+      if (err) {
+        console.error('Error deleting cabinet project:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      
+      res.json({ success: true });
+    });
+  });
 });
 
 app.post('/api/cabinet-calculator/nesting', (req, res) => {
@@ -1602,8 +2267,8 @@ app.post('/api/cabinet-calculator/nesting', (req, res) => {
       {
         id: 1,
         material: 'PLY-18-4X8',
-        width: 2440,
-        height: 1220,
+        width: 1220,
+        height: 2440,
         thickness: 18,
         panels: panels?.slice(0, Math.ceil(panels.length / 2)) || [],
         efficiency: 85.5
