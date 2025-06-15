@@ -443,6 +443,98 @@ const mockPurchaseOrders = [
   }
 ];
 
+// Mock BOMs data
+const mockBOMs = [
+  {
+    id: '1',
+    bomNumber: 'BOM-2024-0001',
+    name: 'Kitchen Base Cabinet 24"',
+    orderId: '1',
+    orderNumber: 'ORD-2024-0001',
+    version: '1.0',
+    status: 'approved',
+    description: 'Standard 24" base cabinet with single door',
+    category: 'Base Cabinet',
+    totalCost: 125.50,
+    laborHours: 3.5,
+    createdBy: 'John Smith',
+    approvedBy: 'Sarah Johnson',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    items: [
+      {
+        id: '1',
+        itemId: 'PLY-18-4X8',
+        itemName: 'Plywood 18mm 4x8ft',
+        quantity: 0.5,
+        unitCost: 52.75,
+        totalCost: 26.38,
+        category: 'Panels',
+        notes: 'Cabinet sides and bottom'
+      },
+      {
+        id: '2',
+        itemId: 'MDF-18-4X8',
+        itemName: 'MDF 18mm 4x8ft',
+        quantity: 0.25,
+        unitCost: 38.90,
+        totalCost: 9.73,
+        category: 'Panels',
+        notes: 'Cabinet back panel'
+      },
+      {
+        id: '3',
+        itemId: 'HNG-CONC-35',
+        itemName: 'Concealed Hinges 35mm',
+        quantity: 2,
+        unitCost: 3.25,
+        totalCost: 6.50,
+        category: 'Hardware',
+        notes: 'Door hinges'
+      }
+    ]
+  },
+  {
+    id: '2',
+    bomNumber: 'BOM-2024-0002',
+    name: 'Bathroom Vanity 36"',
+    orderId: '2',
+    orderNumber: 'ORD-2024-0002',
+    version: '1.0',
+    status: 'draft',
+    description: 'Custom 36" bathroom vanity with drawers',
+    category: 'Vanity',
+    totalCost: 185.75,
+    laborHours: 5.0,
+    createdBy: 'Emily Davis',
+    approvedBy: null,
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    items: [
+      {
+        id: '1',
+        itemId: 'PLY-18-4X8',
+        itemName: 'Plywood 18mm 4x8ft',
+        quantity: 0.75,
+        unitCost: 52.75,
+        totalCost: 39.56,
+        category: 'Panels',
+        notes: 'Cabinet carcass'
+      },
+      {
+        id: '2',
+        itemId: 'HNG-CONC-35',
+        itemName: 'Concealed Hinges 35mm',
+        quantity: 4,
+        unitCost: 3.25,
+        totalCost: 13.00,
+        category: 'Hardware',
+        notes: 'Door and drawer hinges'
+      }
+    ]
+  }
+];
+
 // Authentication routes
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
@@ -577,6 +669,67 @@ app.delete('/api/orders/:id', (req, res) => {
     res.json({ success: true });
   } else {
     res.status(404).json({ error: 'Order not found' });
+  }
+});
+
+// BOM routes
+app.get('/api/boms', (req, res) => {
+  const { orderId } = req.query;
+  let boms = mockBOMs;
+  
+  if (orderId) {
+    boms = mockBOMs.filter(bom => bom.orderId === orderId);
+  }
+  
+  res.json(boms);
+});
+
+app.get('/api/boms/:id', (req, res) => {
+  const bom = mockBOMs.find(b => b.id === req.params.id);
+  if (bom) {
+    res.json(bom);
+  } else {
+    res.status(404).json({ error: 'BOM not found' });
+  }
+});
+
+app.post('/api/boms', (req, res) => {
+  const newBOM = {
+    id: Date.now().toString(),
+    ...req.body,
+    bomNumber: req.body.bomNumber || `BOM-${new Date().getFullYear()}-${String(mockBOMs.length + 1).padStart(4, '0')}`,
+    version: req.body.version || '1.0',
+    status: req.body.status || 'draft',
+    totalCost: req.body.items?.reduce((sum, item) => sum + (item.totalCost || 0), 0) || 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  mockBOMs.push(newBOM);
+  res.json(newBOM);
+});
+
+app.put('/api/boms/:id', (req, res) => {
+  const index = mockBOMs.findIndex(b => b.id === req.params.id);
+  if (index !== -1) {
+    mockBOMs[index] = {
+      ...mockBOMs[index],
+      ...req.body,
+      totalCost: req.body.items?.reduce((sum, item) => sum + (item.totalCost || 0), 0) || mockBOMs[index].totalCost,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(mockBOMs[index]);
+  } else {
+    res.status(404).json({ error: 'BOM not found' });
+  }
+});
+
+app.delete('/api/boms/:id', (req, res) => {
+  const index = mockBOMs.findIndex(b => b.id === req.params.id);
+  if (index !== -1) {
+    mockBOMs.splice(index, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'BOM not found' });
   }
 });
 
@@ -1210,6 +1363,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Dashboard API: http://localhost:${PORT}/api/dashboard/stats`);
   console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth/login`);
   console.log(`📦 Inventory API: http://localhost:${PORT}/api/inventory/products`);
+  console.log(`📋 BOM API: http://localhost:${PORT}/api/boms`);
   console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
 });
 
