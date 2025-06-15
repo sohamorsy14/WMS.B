@@ -4,10 +4,10 @@ import {
   LayoutDashboard, 
   Package, 
   FileText, 
+  ShoppingCart, 
   Calculator,
   LogOut,
   Settings,
-  ClipboardList,
   BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -25,8 +25,8 @@ const Sidebar: React.FC = () => {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/', permission: 'dashboard.view' },
     { icon: Package, label: 'Inventory', path: '/inventory', permission: 'inventory.view' },
     { icon: FileText, label: 'Requisitions', path: '/requisitions', permission: 'requisitions.view' },
-    { icon: ClipboardList, label: 'Orders', path: '/orders', permission: 'orders.view' },
     { icon: BarChart3, label: 'Reports', path: '/reports', permission: 'inventory.view' },
+    { icon: ShoppingCart, label: 'Purchase Orders', path: '/purchase-orders', permission: 'purchase_orders.view' },
     { icon: Calculator, label: 'Cabinet Calculator', path: '/cabinet-calculator', permission: 'cabinet_calc.view' },
     { icon: Settings, label: 'Settings', path: '/settings', permission: 'users.view,requisitions.create' },
   ];

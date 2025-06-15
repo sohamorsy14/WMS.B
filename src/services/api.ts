@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { InventoryItem, Requisition, PurchaseOrder, DashboardStats, Requester, Department, Order, CostCenter, Report, InventoryValuation, PurchaseHistory, Supplier } from '../types';
+import { InventoryItem, Requisition, DashboardStats, Requester, Department, CostCenter, Report, InventoryValuation, PurchaseHistory, Supplier, PurchaseOrder, PurchaseOrderItem } from '../types';
 import { CabinetConfiguration, CabinetProject } from '../types/cabinet';
 
 // Simplified API URL resolution using Vite's environment detection
@@ -62,45 +62,18 @@ api.interceptors.response.use(
 
 // Cabinet Calculator API service
 export const cabinetService = {
-  async createOrder(project: CabinetProject): Promise<Order> {
+  async createProject(project: CabinetProject): Promise<CabinetProject> {
     try {
-      const response = await api.post('/orders', {
-        orderNumber: `ORD-${Date.now().toString().slice(-6)}`,
-        customerName: project.customerName,
-        customerContact: project.customerContact,
-        orderType: 'production',
-        status: 'draft',
-        priority: 'medium',
-        orderDate: new Date().toISOString(),
-        dueDate: new Date(Date.now() + project.estimatedDays * 24 * 60 * 60 * 1000).toISOString(),
-        description: project.description || `Cabinet order for ${project.customerName}`,
-        notes: project.notes,
-        estimatedCost: project.total,
-        actualCost: 0
-      });
+      const response = await api.post('/cabinet-projects', project);
       return response.data;
     } catch (error) {
-      console.error('Failed to create order:', error);
+      console.error('Failed to create project:', error);
       
       // Return mock data if server is unavailable
       if (isServerUnavailable(error)) {
         return {
-          id: `order-${Date.now()}`,
-          orderNumber: `ORD-${Date.now().toString().slice(-6)}`,
-          customerName: project.customerName,
-          customerContact: project.customerContact,
-          orderType: 'production',
-          status: 'draft',
-          priority: 'medium',
-          orderDate: new Date().toISOString(),
-          dueDate: new Date(Date.now() + project.estimatedDays * 24 * 60 * 60 * 1000).toISOString(),
-          description: project.description || `Cabinet order for ${project.customerName}`,
-          notes: project.notes,
-          estimatedCost: project.total,
-          actualCost: 0,
-          bomCount: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          ...project,
+          id: `project-${Date.now()}`
         };
       }
       
@@ -1129,122 +1102,6 @@ export const reportService = {
       // Return mock data if server is unavailable
       if (isServerUnavailable(error)) {
         return [];
-      }
-      
-      throw error;
-    }
-  },
-};
-
-export const orderService = {
-  async getAll(): Promise<Order[]> {
-    try {
-      const response = await api.get('/orders');
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
-      
-      // Return mock data if server is unavailable
-      if (isServerUnavailable(error)) {
-        return [
-          {
-            id: '1',
-            orderNumber: 'ORD-2024-001',
-            customerName: 'ABC Kitchen Renovations',
-            customerContact: 'John Doe - (555) 123-4567',
-            orderType: 'production',
-            status: 'in_progress',
-            priority: 'high',
-            orderDate: new Date().toISOString(),
-            dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-            description: 'Complete kitchen cabinet set - Modern style',
-            estimatedCost: 15000,
-            actualCost: 0,
-            assignedTo: 'John Smith',
-            department: 'Production',
-            bomCount: 3,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: '2',
-            orderNumber: 'ORD-2024-002',
-            customerName: 'XYZ Home Builders',
-            customerContact: 'Jane Smith - (555) 987-6543',
-            orderType: 'custom',
-            status: 'confirmed',
-            priority: 'medium',
-            orderDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-            description: 'Custom bathroom vanity with matching mirror cabinet',
-            estimatedCost: 8500,
-            actualCost: 0,
-            assignedTo: 'Sarah Johnson',
-            department: 'Assembly',
-            bomCount: 2,
-            createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        ];
-      }
-      
-      throw error;
-    }
-  },
-
-  async create(order: Partial<Order>): Promise<Order> {
-    try {
-      const response = await api.post('/orders', order);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to create order:', error);
-      
-      // Return mock data if server is unavailable
-      if (isServerUnavailable(error)) {
-        return {
-          id: Date.now().toString(),
-          ...order,
-          bomCount: 0,
-          actualCost: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        } as Order;
-      }
-      
-      throw error;
-    }
-  },
-
-  async update(id: string, order: Partial<Order>): Promise<Order> {
-    try {
-      const response = await api.put(`/orders/${id}`, order);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to update order:', error);
-      
-      // Return mock data if server is unavailable
-      if (isServerUnavailable(error)) {
-        return {
-          id,
-          ...order,
-          updatedAt: new Date().toISOString()
-        } as Order;
-      }
-      
-      throw error;
-    }
-  },
-
-  async delete(id: string): Promise<void> {
-    try {
-      await api.delete(`/orders/${id}`);
-    } catch (error) {
-      console.error('Failed to delete order:', error);
-      
-      // Just log if server is unavailable
-      if (isServerUnavailable(error)) {
-        console.log('Order deleted (mock)');
-        return;
       }
       
       throw error;
