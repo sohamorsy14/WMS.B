@@ -32,292 +32,295 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 // Initialize database tables if they don't exist
 function initializeDatabase() {
-  // Enable foreign keys
-  db.run('PRAGMA foreign_keys = ON');
+  // Serialize all database operations to prevent concurrency issues
+  db.serialize(() => {
+    // Enable foreign keys
+    db.run('PRAGMA foreign_keys = ON');
 
-  // Create users table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      username TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT NOT NULL,
-      permissions TEXT NOT NULL,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating users table:', err.message);
-    } else {
-      console.log('Users table initialized');
-      // Check if we need to seed default users
-      db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
-        if (err) {
-          console.error('Error checking users count:', err.message);
-        } else if (row.count === 0) {
-          seedDefaultUsers();
-        }
-      });
-    }
-  });
+    // Create users table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL,
+        permissions TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating users table:', err.message);
+      } else {
+        console.log('Users table initialized');
+        // Check if we need to seed default users
+        db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
+          if (err) {
+            console.error('Error checking users count:', err.message);
+          } else if (row.count === 0) {
+            seedDefaultUsers();
+          }
+        });
+      }
+    });
 
-  // Create inventory_items table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS inventory_items (
-      id TEXT PRIMARY KEY,
-      itemId TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      subCategory TEXT,
-      quantity REAL NOT NULL,
-      unitCost REAL NOT NULL,
-      totalCost REAL NOT NULL,
-      location TEXT,
-      supplier TEXT,
-      unitMeasurement TEXT,
-      minStockLevel REAL,
-      maxStockLevel REAL,
-      lastUpdated TEXT NOT NULL
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating inventory_items table:', err.message);
-    } else {
-      console.log('Inventory items table initialized');
-      // Check if we need to seed default inventory items
-      db.get('SELECT COUNT(*) as count FROM inventory_items', (err, row) => {
-        if (err) {
-          console.error('Error checking inventory items count:', err.message);
-        } else if (row.count === 0) {
-          seedDefaultInventoryItems();
-        }
-      });
-    }
-  });
+    // Create inventory_items table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS inventory_items (
+        id TEXT PRIMARY KEY,
+        itemId TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        subCategory TEXT,
+        quantity REAL NOT NULL,
+        unitCost REAL NOT NULL,
+        totalCost REAL NOT NULL,
+        location TEXT,
+        supplier TEXT,
+        unitMeasurement TEXT,
+        minStockLevel REAL,
+        maxStockLevel REAL,
+        lastUpdated TEXT NOT NULL
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating inventory_items table:', err.message);
+      } else {
+        console.log('Inventory items table initialized');
+        // Check if we need to seed default inventory items
+        db.get('SELECT COUNT(*) as count FROM inventory_items', (err, row) => {
+          if (err) {
+            console.error('Error checking inventory items count:', err.message);
+          } else if (row.count === 0) {
+            seedDefaultInventoryItems();
+          }
+        });
+      }
+    });
 
-  // Create suppliers table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS suppliers (
-      id TEXT PRIMARY KEY,
-      name TEXT UNIQUE NOT NULL,
-      contactPerson TEXT,
-      phone TEXT,
-      email TEXT,
-      address TEXT,
-      isActive INTEGER NOT NULL DEFAULT 1,
-      createdAt TEXT NOT NULL
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating suppliers table:', err.message);
-    } else {
-      console.log('Suppliers table initialized');
-      // Check if we need to seed default suppliers
-      db.get('SELECT COUNT(*) as count FROM suppliers', (err, row) => {
-        if (err) {
-          console.error('Error checking suppliers count:', err.message);
-        } else if (row.count === 0) {
-          seedDefaultSuppliers();
-        }
-      });
-    }
-  });
+    // Create suppliers table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id TEXT PRIMARY KEY,
+        name TEXT UNIQUE NOT NULL,
+        contactPerson TEXT,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        isActive INTEGER NOT NULL DEFAULT 1,
+        createdAt TEXT NOT NULL
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating suppliers table:', err.message);
+      } else {
+        console.log('Suppliers table initialized');
+        // Check if we need to seed default suppliers
+        db.get('SELECT COUNT(*) as count FROM suppliers', (err, row) => {
+          if (err) {
+            console.error('Error checking suppliers count:', err.message);
+          } else if (row.count === 0) {
+            seedDefaultSuppliers();
+          }
+        });
+      }
+    });
 
-  // Create departments table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS departments (
-      id TEXT PRIMARY KEY,
-      name TEXT UNIQUE NOT NULL,
-      code TEXT UNIQUE NOT NULL,
-      description TEXT,
-      manager TEXT,
-      costCenter TEXT,
-      isActive INTEGER NOT NULL DEFAULT 1,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating departments table:', err.message);
-    } else {
-      console.log('Departments table initialized');
-      // Check if we need to seed default departments
-      db.get('SELECT COUNT(*) as count FROM departments', (err, row) => {
-        if (err) {
-          console.error('Error checking departments count:', err.message);
-        } else if (row.count === 0) {
-          seedDefaultDepartments();
-        }
-      });
-    }
-  });
+    // Create departments table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS departments (
+        id TEXT PRIMARY KEY,
+        name TEXT UNIQUE NOT NULL,
+        code TEXT UNIQUE NOT NULL,
+        description TEXT,
+        manager TEXT,
+        costCenter TEXT,
+        isActive INTEGER NOT NULL DEFAULT 1,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating departments table:', err.message);
+      } else {
+        console.log('Departments table initialized');
+        // Check if we need to seed default departments
+        db.get('SELECT COUNT(*) as count FROM departments', (err, row) => {
+          if (err) {
+            console.error('Error checking departments count:', err.message);
+          } else if (row.count === 0) {
+            seedDefaultDepartments();
+          }
+        });
+      }
+    });
 
-  // Create requesters table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS requesters (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE,
-      employeeId TEXT UNIQUE NOT NULL,
-      department TEXT,
-      position TEXT,
-      phone TEXT,
-      isActive INTEGER NOT NULL DEFAULT 1,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating requesters table:', err.message);
-    } else {
-      console.log('Requesters table initialized');
-      // Check if we need to seed default requesters
-      db.get('SELECT COUNT(*) as count FROM requesters', (err, row) => {
-        if (err) {
-          console.error('Error checking requesters count:', err.message);
-        } else if (row.count === 0) {
-          seedDefaultRequesters();
-        }
-      });
-    }
-  });
+    // Create requesters table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS requesters (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE,
+        employeeId TEXT UNIQUE NOT NULL,
+        department TEXT,
+        position TEXT,
+        phone TEXT,
+        isActive INTEGER NOT NULL DEFAULT 1,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating requesters table:', err.message);
+      } else {
+        console.log('Requesters table initialized');
+        // Check if we need to seed default requesters
+        db.get('SELECT COUNT(*) as count FROM requesters', (err, row) => {
+          if (err) {
+            console.error('Error checking requesters count:', err.message);
+          } else if (row.count === 0) {
+            seedDefaultRequesters();
+          }
+        });
+      }
+    });
 
-  // Create purchase_orders table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS purchase_orders (
-      id TEXT PRIMARY KEY,
-      poNumber TEXT UNIQUE NOT NULL,
-      supplier TEXT NOT NULL,
-      status TEXT NOT NULL,
-      subtotal REAL NOT NULL,
-      tax REAL NOT NULL,
-      total REAL NOT NULL,
-      orderDate TEXT NOT NULL,
-      expectedDelivery TEXT,
-      notes TEXT,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating purchase_orders table:', err.message);
-    } else {
-      console.log('Purchase orders table initialized');
-      // Check if we need to seed default purchase orders
-      db.get('SELECT COUNT(*) as count FROM purchase_orders', (err, row) => {
-        if (err) {
-          console.error('Error checking purchase orders count:', err.message);
-        } else if (row.count === 0) {
-          seedDefaultPurchaseOrders();
-        }
-      });
-    }
-  });
+    // Create purchase_orders table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS purchase_orders (
+        id TEXT PRIMARY KEY,
+        poNumber TEXT UNIQUE NOT NULL,
+        supplier TEXT NOT NULL,
+        status TEXT NOT NULL,
+        subtotal REAL NOT NULL,
+        tax REAL NOT NULL,
+        total REAL NOT NULL,
+        orderDate TEXT NOT NULL,
+        expectedDelivery TEXT,
+        notes TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating purchase_orders table:', err.message);
+      } else {
+        console.log('Purchase orders table initialized');
+        // Check if we need to seed default purchase orders
+        db.get('SELECT COUNT(*) as count FROM purchase_orders', (err, row) => {
+          if (err) {
+            console.error('Error checking purchase orders count:', err.message);
+          } else if (row.count === 0) {
+            seedDefaultPurchaseOrders();
+          }
+        });
+      }
+    });
 
-  // Create purchase_order_items table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS purchase_order_items (
-      id TEXT PRIMARY KEY,
-      poId TEXT NOT NULL,
-      itemId TEXT NOT NULL,
-      itemName TEXT NOT NULL,
-      quantity REAL NOT NULL,
-      unitCost REAL NOT NULL,
-      totalCost REAL NOT NULL,
-      FOREIGN KEY (poId) REFERENCES purchase_orders(id) ON DELETE CASCADE
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating purchase_order_items table:', err.message);
-    } else {
-      console.log('Purchase order items table initialized');
-    }
-  });
+    // Create purchase_order_items table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS purchase_order_items (
+        id TEXT PRIMARY KEY,
+        poId TEXT NOT NULL,
+        itemId TEXT NOT NULL,
+        itemName TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unitCost REAL NOT NULL,
+        totalCost REAL NOT NULL,
+        FOREIGN KEY (poId) REFERENCES purchase_orders(id) ON DELETE CASCADE
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating purchase_order_items table:', err.message);
+      } else {
+        console.log('Purchase order items table initialized');
+      }
+    });
 
-  // Create cabinet_templates table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS cabinet_templates (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      category TEXT NOT NULL,
-      defaultDimensions TEXT NOT NULL,
-      minDimensions TEXT NOT NULL,
-      maxDimensions TEXT NOT NULL,
-      previewImage TEXT,
-      description TEXT,
-      features TEXT,
-      construction TEXT,
-      materialThickness TEXT NOT NULL,
-      hardware TEXT NOT NULL,
-      parts TEXT,
-      hardwareItems TEXT,
-      isActive INTEGER NOT NULL DEFAULT 1,
-      isCustom INTEGER NOT NULL DEFAULT 0,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating cabinet_templates table:', err.message);
-    } else {
-      console.log('Cabinet templates table initialized');
-    }
-  });
+    // Create cabinet_templates table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS cabinet_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        category TEXT NOT NULL,
+        defaultDimensions TEXT NOT NULL,
+        minDimensions TEXT NOT NULL,
+        maxDimensions TEXT NOT NULL,
+        previewImage TEXT,
+        description TEXT,
+        features TEXT,
+        construction TEXT,
+        materialThickness TEXT NOT NULL,
+        hardware TEXT NOT NULL,
+        parts TEXT,
+        hardwareItems TEXT,
+        isActive INTEGER NOT NULL DEFAULT 1,
+        isCustom INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating cabinet_templates table:', err.message);
+      } else {
+        console.log('Cabinet templates table initialized');
+      }
+    });
 
-  // Create cabinet_configurations table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS cabinet_configurations (
-      id TEXT PRIMARY KEY,
-      templateId TEXT NOT NULL,
-      name TEXT NOT NULL,
-      dimensions TEXT NOT NULL,
-      customizations TEXT NOT NULL,
-      materials TEXT NOT NULL,
-      hardware TEXT NOT NULL,
-      cuttingList TEXT NOT NULL,
-      totalCost REAL NOT NULL,
-      laborCost REAL NOT NULL,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating cabinet_configurations table:', err.message);
-    } else {
-      console.log('Cabinet configurations table initialized');
-    }
-  });
+    // Create cabinet_configurations table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS cabinet_configurations (
+        id TEXT PRIMARY KEY,
+        templateId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        dimensions TEXT NOT NULL,
+        customizations TEXT NOT NULL,
+        materials TEXT NOT NULL,
+        hardware TEXT NOT NULL,
+        cuttingList TEXT NOT NULL,
+        totalCost REAL NOT NULL,
+        laborCost REAL NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating cabinet_configurations table:', err.message);
+      } else {
+        console.log('Cabinet configurations table initialized');
+      }
+    });
 
-  // Create cabinet_projects table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS cabinet_projects (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      description TEXT,
-      customerName TEXT NOT NULL,
-      customerContact TEXT,
-      configurations TEXT NOT NULL,
-      totalMaterialCost REAL NOT NULL,
-      totalHardwareCost REAL NOT NULL,
-      totalLaborCost REAL NOT NULL,
-      subtotal REAL NOT NULL,
-      tax REAL NOT NULL,
-      total REAL NOT NULL,
-      estimatedDays INTEGER NOT NULL,
-      status TEXT NOT NULL,
-      notes TEXT,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
-    )
-  `, function(err) {
-    if (err) {
-      console.error('Error creating cabinet_projects table:', err.message);
-    } else {
-      console.log('Cabinet projects table initialized');
-    }
+    // Create cabinet_projects table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS cabinet_projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        customerName TEXT NOT NULL,
+        customerContact TEXT,
+        configurations TEXT NOT NULL,
+        totalMaterialCost REAL NOT NULL,
+        totalHardwareCost REAL NOT NULL,
+        totalLaborCost REAL NOT NULL,
+        subtotal REAL NOT NULL,
+        tax REAL NOT NULL,
+        total REAL NOT NULL,
+        estimatedDays INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        notes TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    `, function(err) {
+      if (err) {
+        console.error('Error creating cabinet_projects table:', err.message);
+      } else {
+        console.log('Cabinet projects table initialized');
+      }
+    });
   });
 }
 
