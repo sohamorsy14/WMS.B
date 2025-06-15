@@ -41,18 +41,18 @@ const retryDatabaseOperation = (operation, maxRetries = 5, delay = 100) => {
   });
 };
 
-// Create database connection
-const db = new sqlite3.Database(dbPath, (err) => {
+// Create the raw database connection
+const rawDb = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error connecting to database:', err.message);
   } else {
     console.log(`Connected to SQLite database at ${dbPath}`);
     
     // Configure busy timeout to handle concurrent access - increased to 30 seconds
-    db.configure('busyTimeout', 30000);
+    rawDb.configure('busyTimeout', 30000);
     
     // Set WAL mode for better concurrency
-    db.run('PRAGMA journal_mode = WAL;', (err) => {
+    rawDb.run('PRAGMA journal_mode = WAL;', (err) => {
       if (err) {
         console.error('Error setting WAL mode:', err.message);
       } else {
@@ -61,7 +61,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
     });
     
     // Set synchronous mode to NORMAL for better performance
-    db.run('PRAGMA synchronous = NORMAL;', (err) => {
+    rawDb.run('PRAGMA synchronous = NORMAL;', (err) => {
       if (err) {
         console.error('Error setting synchronous mode:', err.message);
       } else {
@@ -73,15 +73,211 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
+// Create a wrapper that applies retry logic to all database operations
+const createDatabaseWrapper = (rawDatabase) => {
+  const wrapper = {
+    // Wrap the run method with retry logic
+    run: function(sql, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      
+      return retryDatabaseOperation((retryCallback) => {
+        rawDatabase.run(sql, params, retryCallback);
+      }).then(result => {
+        if (callback) callback(null, result);
+        return result;
+      }).catch(err => {
+        if (callback) callback(err);
+        throw err;
+      });
+    },
+
+    // Wrap the get method with retry logic
+    get: function(sql, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      
+      return retryDatabaseOperation((retryCallback) => {
+        rawDatabase.get(sql, params, retryCallback);
+      }).then(result => {
+        if (callback) callback(null, result);
+        return result;
+      }).catch(err => {
+        if (callback) callback(err);
+        throw err;
+      });
+    },
+
+    // Wrap the all method with retry logic
+    all: function(sql, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      
+      return retryDatabaseOperation((retryCallback) => {
+        rawDatabase.all(sql, params, retryCallback);
+      }).then(result => {
+        if (callback) callback(null, result);
+        return result;
+      }).catch(err => {
+        if (callback) callback(err);
+        throw err;
+      });
+    },
+
+    // Wrap the each method with retry logic
+    each: function(sql, params, callback, complete) {
+      if (typeof params === 'function') {
+        complete = callback;
+        callback = params;
+        params = [];
+      }
+      
+      return retryDatabaseOperation((retryCallback) => {
+        rawDatabase.each(sql, params, callback, retryCallback);
+      }).then(result => {
+        if (complete) complete(null, result);
+        return result;
+      }).catch(err => {
+        if (complete) complete(err);
+        throw err;
+      });
+    },
+
+    // Wrap the prepare method with retry logic
+    prepare: function(sql, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      
+      const stmt = rawDatabase.prepare(sql, params, callback);
+      
+      // Wrap statement methods with retry logic
+      const originalRun = stmt.run.bind(stmt);
+      const originalGet = stmt.get.bind(stmt);
+      const originalAll = stmt.all.bind(stmt);
+      const originalEach = stmt.each.bind(stmt);
+      
+      stmt.run = function(params, callback) {
+        if (typeof params === 'function') {
+          callback = params;
+          params = [];
+        }
+        
+        return retryDatabaseOperation((retryCallback) => {
+          originalRun(params, retryCallback);
+        }).then(result => {
+          if (callback) callback(null, result);
+          return result;
+        }).catch(err => {
+          if (callback) callback(err);
+          throw err;
+        });
+      };
+      
+      stmt.get = function(params, callback) {
+        if (typeof params === 'function') {
+          callback = params;
+          params = [];
+        }
+        
+        return retryDatabaseOperation((retryCallback) => {
+          originalGet(params, retryCallback);
+        }).then(result => {
+          if (callback) callback(null, result);
+          return result;
+        }).catch(err => {
+          if (callback) callback(err);
+          throw err;
+        });
+      };
+      
+      stmt.all = function(params, callback) {
+        if (typeof params === 'function') {
+          callback = params;
+          params = [];
+        }
+        
+        return retryDatabaseOperation((retryCallback) => {
+          originalAll(params, retryCallback);
+        }).then(result => {
+          if (callback) callback(null, result);
+          return result;
+        }).catch(err => {
+          if (callback) callback(err);
+          throw err;
+        });
+      };
+      
+      stmt.each = function(params, callback, complete) {
+        if (typeof params === 'function') {
+          complete = callback;
+          callback = params;
+          params = [];
+        }
+        
+        return retryDatabaseOperation((retryCallback) => {
+          originalEach(params, callback, retryCallback);
+        }).then(result => {
+          if (complete) complete(null, result);
+          return result;
+        }).catch(err => {
+          if (complete) complete(err);
+          throw err;
+        });
+      };
+      
+      return stmt;
+    },
+
+    // Pass through other methods and properties
+    serialize: rawDatabase.serialize.bind(rawDatabase),
+    parallelize: rawDatabase.parallelize.bind(rawDatabase),
+    configure: rawDatabase.configure.bind(rawDatabase),
+    close: rawDatabase.close.bind(rawDatabase),
+    interrupt: rawDatabase.interrupt.bind(rawDatabase),
+    
+    // Add promise-based methods for easier async/await usage
+    runAsync: function(sql, params = []) {
+      return retryDatabaseOperation((callback) => {
+        rawDatabase.run(sql, params, callback);
+      });
+    },
+    
+    getAsync: function(sql, params = []) {
+      return retryDatabaseOperation((callback) => {
+        rawDatabase.get(sql, params, callback);
+      });
+    },
+    
+    allAsync: function(sql, params = []) {
+      return retryDatabaseOperation((callback) => {
+        rawDatabase.all(sql, params, callback);
+      });
+    }
+  };
+  
+  return wrapper;
+};
+
+// Create the wrapped database instance
+const db = createDatabaseWrapper(rawDb);
+
 // Initialize database tables if they don't exist
 function initializeDatabase() {
   // Serialize all database operations to prevent concurrency issues
-  db.serialize(() => {
+  rawDb.serialize(() => {
     // Enable foreign keys
-    db.run('PRAGMA foreign_keys = ON');
+    rawDb.run('PRAGMA foreign_keys = ON');
 
     // Create users table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
@@ -99,7 +295,7 @@ function initializeDatabase() {
         console.log('Users table initialized');
         // Check if we need to seed default users with retry mechanism
         retryDatabaseOperation((callback) => {
-          db.get('SELECT COUNT(*) as count FROM users', callback);
+          rawDb.get('SELECT COUNT(*) as count FROM users', callback);
         })
         .then((row) => {
           if (row.count === 0) {
@@ -113,7 +309,7 @@ function initializeDatabase() {
     });
 
     // Create inventory_items table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS inventory_items (
         id TEXT PRIMARY KEY,
         itemId TEXT UNIQUE NOT NULL,
@@ -137,7 +333,7 @@ function initializeDatabase() {
         console.log('Inventory items table initialized');
         // Check if we need to seed default inventory items with retry mechanism
         retryDatabaseOperation((callback) => {
-          db.get('SELECT COUNT(*) as count FROM inventory_items', callback);
+          rawDb.get('SELECT COUNT(*) as count FROM inventory_items', callback);
         })
         .then((row) => {
           if (row.count === 0) {
@@ -151,7 +347,7 @@ function initializeDatabase() {
     });
 
     // Create suppliers table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS suppliers (
         id TEXT PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,
@@ -169,7 +365,7 @@ function initializeDatabase() {
         console.log('Suppliers table initialized');
         // Check if we need to seed default suppliers with retry mechanism
         retryDatabaseOperation((callback) => {
-          db.get('SELECT COUNT(*) as count FROM suppliers', callback);
+          rawDb.get('SELECT COUNT(*) as count FROM suppliers', callback);
         })
         .then((row) => {
           if (row.count === 0) {
@@ -183,7 +379,7 @@ function initializeDatabase() {
     });
 
     // Create departments table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS departments (
         id TEXT PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,
@@ -202,7 +398,7 @@ function initializeDatabase() {
         console.log('Departments table initialized');
         // Check if we need to seed default departments with retry mechanism
         retryDatabaseOperation((callback) => {
-          db.get('SELECT COUNT(*) as count FROM departments', callback);
+          rawDb.get('SELECT COUNT(*) as count FROM departments', callback);
         })
         .then((row) => {
           if (row.count === 0) {
@@ -216,7 +412,7 @@ function initializeDatabase() {
     });
 
     // Create requesters table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS requesters (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -236,7 +432,7 @@ function initializeDatabase() {
         console.log('Requesters table initialized');
         // Check if we need to seed default requesters with retry mechanism
         retryDatabaseOperation((callback) => {
-          db.get('SELECT COUNT(*) as count FROM requesters', callback);
+          rawDb.get('SELECT COUNT(*) as count FROM requesters', callback);
         })
         .then((row) => {
           if (row.count === 0) {
@@ -250,7 +446,7 @@ function initializeDatabase() {
     });
 
     // Create purchase_orders table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS purchase_orders (
         id TEXT PRIMARY KEY,
         poNumber TEXT UNIQUE NOT NULL,
@@ -272,7 +468,7 @@ function initializeDatabase() {
         console.log('Purchase orders table initialized');
         // Check if we need to seed default purchase orders with retry mechanism
         retryDatabaseOperation((callback) => {
-          db.get('SELECT COUNT(*) as count FROM purchase_orders', callback);
+          rawDb.get('SELECT COUNT(*) as count FROM purchase_orders', callback);
         })
         .then((row) => {
           if (row.count === 0) {
@@ -286,7 +482,7 @@ function initializeDatabase() {
     });
 
     // Create purchase_order_items table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS purchase_order_items (
         id TEXT PRIMARY KEY,
         poId TEXT NOT NULL,
@@ -306,7 +502,7 @@ function initializeDatabase() {
     });
 
     // Create cabinet_templates table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS cabinet_templates (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -337,7 +533,7 @@ function initializeDatabase() {
     });
 
     // Create cabinet_configurations table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS cabinet_configurations (
         id TEXT PRIMARY KEY,
         templateId TEXT NOT NULL,
@@ -361,7 +557,7 @@ function initializeDatabase() {
     });
 
     // Create cabinet_projects table
-    db.run(`
+    rawDb.run(`
       CREATE TABLE IF NOT EXISTS cabinet_projects (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -414,7 +610,7 @@ function seedDefaultUsers() {
     }
   ];
 
-  const stmt = db.prepare(`
+  const stmt = rawDb.prepare(`
     INSERT INTO users (id, username, email, password, role, permissions, createdAt)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
@@ -488,7 +684,7 @@ function seedDefaultInventoryItems() {
     }
   ];
 
-  const stmt = db.prepare(`
+  const stmt = rawDb.prepare(`
     INSERT INTO inventory_items (
       id, itemId, name, category, subCategory, quantity, unitCost, totalCost,
       location, supplier, unitMeasurement, minStockLevel, maxStockLevel, lastUpdated
@@ -554,7 +750,7 @@ function seedDefaultSuppliers() {
     }
   ];
 
-  const stmt = db.prepare(`
+  const stmt = rawDb.prepare(`
     INSERT INTO suppliers (id, name, contactPerson, phone, email, address, isActive, createdAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
@@ -614,7 +810,7 @@ function seedDefaultDepartments() {
     }
   ];
 
-  const stmt = db.prepare(`
+  const stmt = rawDb.prepare(`
     INSERT INTO departments (id, name, code, description, manager, costCenter, isActive, createdAt, updatedAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
@@ -678,7 +874,7 @@ function seedDefaultRequesters() {
     }
   ];
 
-  const stmt = db.prepare(`
+  const stmt = rawDb.prepare(`
     INSERT INTO requesters (id, name, email, employeeId, department, position, phone, isActive, createdAt, updatedAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
@@ -765,16 +961,16 @@ function seedDefaultPurchaseOrders() {
     }
   ];
 
-  // Use db.serialize to ensure sequential execution and wrap in transaction
-  db.serialize(() => {
-    db.run('BEGIN TRANSACTION;', (err) => {
+  // Use rawDb.serialize to ensure sequential execution and wrap in transaction
+  rawDb.serialize(() => {
+    rawDb.run('BEGIN TRANSACTION;', (err) => {
       if (err) {
         console.error('Error starting transaction:', err.message);
         return;
       }
 
       // Insert purchase orders first
-      const poStmt = db.prepare(`
+      const poStmt = rawDb.prepare(`
         INSERT INTO purchase_orders (
           id, poNumber, supplier, status, subtotal, tax, total,
           orderDate, expectedDelivery, notes, createdAt, updatedAt
@@ -802,12 +998,12 @@ function seedDefaultPurchaseOrders() {
       poStmt.finalize((err) => {
         if (err) {
           console.error('Error inserting purchase orders:', err.message);
-          db.run('ROLLBACK;');
+          rawDb.run('ROLLBACK;');
           return;
         }
 
         // Insert purchase order items after purchase orders are committed
-        const itemStmt = db.prepare(`
+        const itemStmt = rawDb.prepare(`
           INSERT INTO purchase_order_items (id, poId, itemId, itemName, quantity, unitCost, totalCost)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
@@ -827,15 +1023,15 @@ function seedDefaultPurchaseOrders() {
         itemStmt.finalize((err) => {
           if (err) {
             console.error('Error inserting purchase order items:', err.message);
-            db.run('ROLLBACK;');
+            rawDb.run('ROLLBACK;');
             return;
           }
 
           // Commit the transaction
-          db.run('COMMIT;', (err) => {
+          rawDb.run('COMMIT;', (err) => {
             if (err) {
               console.error('Error committing transaction:', err.message);
-              db.run('ROLLBACK;');
+              rawDb.run('ROLLBACK;');
             } else {
               console.log('Default purchase orders seeded');
               console.log('Default purchase order items seeded');
