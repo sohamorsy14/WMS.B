@@ -179,22 +179,27 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
 
               {/* Visual Nesting Layout */}
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <div className="relative border-2 border-gray-300 bg-white" style={{ 
-                  width: '100%', 
-                  height: '300px',
-                  aspectRatio: `${result.sheetSize.length} / ${result.sheetSize.width}`
-                }}>
+                {/* Container with proper aspect ratio */}
+                <div className="relative border-2 border-gray-300 bg-white w-full" 
+                     style={{ 
+                       height: '400px',
+                       maxWidth: '800px',
+                       margin: '0 auto'
+                     }}>
                   {/* Sheet outline */}
                   <div className="absolute inset-0 border border-gray-400">
                     {/* Parts layout */}
                     {result.parts.map((part, index) => {
-                      const scaleX = 100 / result.sheetSize.length;
-                      const scaleY = 100 / result.sheetSize.width;
+                      // Calculate position percentages based on sheet dimensions
+                      const xPercent = (part.x / result.sheetSize.length) * 100;
+                      const yPercent = (part.y / result.sheetSize.width) * 100;
+                      const widthPercent = (part.length / result.sheetSize.length) * 100;
+                      const heightPercent = (part.width / result.sheetSize.width) * 100;
                       
                       // Determine color based on grain direction
-                      let bgColor = 'bg-blue-100';
-                      let borderColor = 'border-blue-500';
-                      let textColor = 'text-blue-800';
+                      let bgColor = 'bg-gray-100';
+                      let borderColor = 'border-gray-500';
+                      let textColor = 'text-gray-800';
                       
                       if (part.grain === 'length') {
                         bgColor = 'bg-green-100';
@@ -204,10 +209,6 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                         bgColor = 'bg-purple-100';
                         borderColor = 'border-purple-500';
                         textColor = 'text-purple-800';
-                      } else if (part.grain === 'none') {
-                        bgColor = 'bg-gray-100';
-                        borderColor = 'border-gray-500';
-                        textColor = 'text-gray-800';
                       }
                       
                       return (
@@ -215,11 +216,11 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
                           key={part.id}
                           className={`absolute border ${borderColor} ${bgColor} bg-opacity-50 flex items-center justify-center text-xs font-medium ${textColor}`}
                           style={{
-                            left: `${part.x * scaleX}%`,
-                            top: `${part.y * scaleY}%`,
-                            width: `${part.length * scaleX}%`,
-                            height: `${part.width * scaleY}%`,
-                            transform: `rotate(${part.rotation}deg)`,
+                            left: `${xPercent}%`,
+                            top: `${yPercent}%`,
+                            width: `${widthPercent}%`,
+                            height: `${heightPercent}%`,
+                            transform: part.rotation ? `rotate(${part.rotation}deg)` : 'none',
                             transformOrigin: 'center',
                             zIndex: index + 1
                           }}

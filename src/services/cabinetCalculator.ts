@@ -671,7 +671,7 @@ export class CabinetCalculatorService {
       const [materialType, thickness] = key.split('-');
       
       // Mock nesting algorithm (in a real app, this would use a proper nesting algorithm)
-      const parts: NestingPart[] = [];
+      const parts: any[] = [];
       let x = 0;
       let y = 0;
       let rowHeight = 0;

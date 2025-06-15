@@ -39,7 +39,7 @@ export const exportCuttingListPDF = (config: CabinetConfiguration) => {
   // Add cutting list table
   (doc as any).autoTable({
     startY: 40,
-    head: [['Part Name', 'Material', 'Thickness', 'Length', 'Width', 'Qty', 'Edge Banding']],
+    head: [['Part Name', 'Material', 'Thickness', 'Length', 'Width', 'Qty', 'Edge Banding', 'Grain']],
     body: config.cuttingList.map(item => [
       item.partName,
       item.materialType,
@@ -50,7 +50,8 @@ export const exportCuttingListPDF = (config: CabinetConfiguration) => {
       Object.entries(item.edgeBanding)
         .filter(([_, value]) => value)
         .map(([edge]) => edge)
-        .join(', ') || 'None'
+        .join(', ') || 'None',
+      item.grain
     ]),
     theme: 'striped',
     headStyles: { fillColor: [66, 139, 202] }
@@ -239,19 +240,35 @@ export const exportProjectPDF = (project: CabinetProject) => {
 
 // Export nesting result as SVG
 export const exportNestingSVG = (result: NestingResult) => {
-  // Create SVG content
-  let svg = `<svg width="${result.sheetSize.length}" height="${result.sheetSize.width}" xmlns="http://www.w3.org/2000/svg">`;
+  // Create SVG content with correct aspect ratio
+  const svgWidth = 800; // Fixed width for the SVG
+  const svgHeight = Math.round((result.sheetSize.width / result.sheetSize.length) * svgWidth);
+  
+  let svg = `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${result.sheetSize.length} ${result.sheetSize.width}" xmlns="http://www.w3.org/2000/svg">`;
   
   // Add sheet background
   svg += `<rect width="${result.sheetSize.length}" height="${result.sheetSize.width}" fill="white" stroke="black" stroke-width="2"/>`;
   
   // Add parts
   result.parts.forEach((part, index) => {
+    // Determine color based on grain direction
+    let fillColor = "#DDDDDD"; // Default gray for no grain
+    let strokeColor = "#555555";
+    
+    if (part.grain === 'length') {
+      fillColor = "#BBDEFB"; // Blue for length grain
+      strokeColor = "#1E88E5";
+    } else if (part.grain === 'width') {
+      fillColor = "#D1C4E9"; // Purple for width grain
+      strokeColor = "#673AB7";
+    }
+    
     // Apply rotation transform if needed
-    const transform = part.rotation ? `transform="rotate(${part.rotation} ${part.x + part.length/2} ${part.y + part.width/2})"` : '';
+    const transformOrigin = `${part.x + part.length/2} ${part.y + part.width/2}`;
+    const transform = part.rotation ? `transform="rotate(${part.rotation} ${transformOrigin})"` : '';
     
     svg += `<g ${transform}>`;
-    svg += `<rect x="${part.x}" y="${part.y}" width="${part.length}" height="${part.width}" fill="#BBDEFB" stroke="#1E88E5" stroke-width="1"/>`;
+    svg += `<rect x="${part.x}" y="${part.y}" width="${part.length}" height="${part.width}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1"/>`;
     svg += `<text x="${part.x + part.length/2}" y="${part.y + part.width/2}" font-family="Arial" font-size="12" text-anchor="middle" dominant-baseline="middle">${index + 1}</text>`;
     svg += `</g>`;
   });
@@ -260,6 +277,16 @@ export const exportNestingSVG = (result: NestingResult) => {
   svg += `<text x="10" y="${result.sheetSize.width + 20}" font-family="Arial" font-size="14" font-weight="bold">${result.materialType} - ${result.thickness}mm</text>`;
   svg += `<text x="10" y="${result.sheetSize.width + 40}" font-family="Arial" font-size="12">Efficiency: ${result.efficiency.toFixed(1)}%</text>`;
   svg += `<text x="10" y="${result.sheetSize.width + 60}" font-family="Arial" font-size="12">Sheet size: ${result.sheetSize.length} × ${result.sheetSize.width}mm</text>`;
+  
+  // Add grain direction legend
+  svg += `<rect x="10" y="${result.sheetSize.width + 70}" width="15" height="15" fill="#BBDEFB" stroke="#1E88E5" stroke-width="1"/>`;
+  svg += `<text x="30" y="${result.sheetSize.width + 82}" font-family="Arial" font-size="10">Grain with Length</text>`;
+  
+  svg += `<rect x="150" y="${result.sheetSize.width + 70}" width="15" height="15" fill="#D1C4E9" stroke="#673AB7" stroke-width="1"/>`;
+  svg += `<text x="170" y="${result.sheetSize.width + 82}" font-family="Arial" font-size="10">Grain with Width</text>`;
+  
+  svg += `<rect x="290" y="${result.sheetSize.width + 70}" width="15" height="15" fill="#DDDDDD" stroke="#555555" stroke-width="1"/>`;
+  svg += `<text x="310" y="${result.sheetSize.width + 82}" font-family="Arial" font-size="10">No Grain</text>`;
   
   svg += `</svg>`;
   
@@ -272,21 +299,6 @@ export const exportNestingDXF = (result: NestingResult) => {
   // Create a simplified DXF file
   let dxf = '0\nSECTION\n2\nENTITIES\n';
   
-  // Add parts as rectangles
-  result.parts.forEach((part) => {
-    // For each part, create a rectangle
-    dxf += `0\nPOLYLINE\n8\n${result.materialType}\n66\n1\n70\n1\n`;
-    dxf += `0\nVERTEX\n8\n${result.materialType}\n10\n${part.x}\n20\n${part.y}\n`;
-    dxf += `0\nVERTEX\n8\n${result.materialType}\n10\n${part.x + part.length}\n20\n${part.y}\n`;
-    dxf += `0\nVERTEX\n8\n${result.materialType}\n10\n${part.x + part.length}\n20\n${part.y + part.width}\n`;
-    dxf += `0\nVERTEX\n8\n${result.materialType}\n10\n${part.x}\n20\n${part.y + part.width}\n`;
-    dxf += `0\nVERTEX\n8\n${result.materialType}\n10\n${part.x}\n20\n${part.y}\n`;
-    dxf += `0\nSEQEND\n`;
-    
-    // Add part number as text
-    dxf += `0\nTEXT\n8\n${result.materialType}\n10\n${part.x + part.length/2}\n20\n${part.y + part.width/2}\n40\n10\n1\nPart ${part.id.slice(-4)}\n`;
-  });
-  
   // Add sheet outline
   dxf += `0\nPOLYLINE\n8\nSheet\n66\n1\n70\n1\n`;
   dxf += `0\nVERTEX\n8\nSheet\n10\n0\n20\n0\n`;
@@ -295,6 +307,59 @@ export const exportNestingDXF = (result: NestingResult) => {
   dxf += `0\nVERTEX\n8\nSheet\n10\n0\n20\n${result.sheetSize.width}\n`;
   dxf += `0\nVERTEX\n8\nSheet\n10\n0\n20\n0\n`;
   dxf += `0\nSEQEND\n`;
+  
+  // Add parts as rectangles
+  result.parts.forEach((part, index) => {
+    // Create a layer name based on grain direction
+    const layerName = part.grain === 'length' ? 'GrainLength' : 
+                     part.grain === 'width' ? 'GrainWidth' : 'NoGrain';
+    
+    // For each part, create a rectangle
+    if (part.rotation) {
+      // For rotated parts, we need to calculate the rotated coordinates
+      const centerX = part.x + part.length/2;
+      const centerY = part.y + part.width/2;
+      const angle = part.rotation * Math.PI / 180;
+      
+      // Calculate corner points
+      const corners = [
+        { x: part.x, y: part.y },
+        { x: part.x + part.length, y: part.y },
+        { x: part.x + part.length, y: part.y + part.width },
+        { x: part.x, y: part.y + part.width }
+      ];
+      
+      // Rotate points around center
+      const rotatedCorners = corners.map(corner => {
+        const dx = corner.x - centerX;
+        const dy = corner.y - centerY;
+        return {
+          x: centerX + dx * Math.cos(angle) - dy * Math.sin(angle),
+          y: centerY + dx * Math.sin(angle) + dy * Math.cos(angle)
+        };
+      });
+      
+      // Create polyline with rotated points
+      dxf += `0\nPOLYLINE\n8\n${layerName}\n66\n1\n70\n1\n`;
+      rotatedCorners.forEach(corner => {
+        dxf += `0\nVERTEX\n8\n${layerName}\n10\n${corner.x}\n20\n${corner.y}\n`;
+      });
+      dxf += `0\nVERTEX\n8\n${layerName}\n10\n${rotatedCorners[0].x}\n20\n${rotatedCorners[0].y}\n`;
+      dxf += `0\nSEQEND\n`;
+    } else {
+      // For non-rotated parts, create a simple rectangle
+      dxf += `0\nPOLYLINE\n8\n${layerName}\n66\n1\n70\n1\n`;
+      dxf += `0\nVERTEX\n8\n${layerName}\n10\n${part.x}\n20\n${part.y}\n`;
+      dxf += `0\nVERTEX\n8\n${layerName}\n10\n${part.x + part.length}\n20\n${part.y}\n`;
+      dxf += `0\nVERTEX\n8\n${layerName}\n10\n${part.x + part.length}\n20\n${part.y + part.width}\n`;
+      dxf += `0\nVERTEX\n8\n${layerName}\n10\n${part.x}\n20\n${part.y + part.width}\n`;
+      dxf += `0\nVERTEX\n8\n${layerName}\n10\n${part.x}\n20\n${part.y}\n`;
+      dxf += `0\nSEQEND\n`;
+    }
+    
+    // Add part number as text
+    dxf += `0\nTEXT\n8\n${layerName}\n10\n${part.x + part.length/2}\n20\n${part.y + part.width/2}\n40\n10\n1\n${index + 1}\n`;
+  });
   
   dxf += '0\nENDSEC\n0\nEOF\n';
   
