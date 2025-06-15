@@ -49,7 +49,10 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
     { value: 'Plywood', label: 'Plywood' },
     { value: 'MDF', label: 'MDF' },
     { value: 'Melamine', label: 'Melamine' },
-    { value: 'Particleboard', label: 'Particleboard' }
+    { value: 'Particleboard', label: 'Particleboard' },
+    { value: 'Material 1', label: 'Material 1' },
+    { value: 'Material 2', label: 'Material 2' },
+    { value: 'Material 3', label: 'Material 3' }
   ];
 
   const totalSheets = nestingResults.reduce((sum, result) => sum + result.sheetCount, 0);

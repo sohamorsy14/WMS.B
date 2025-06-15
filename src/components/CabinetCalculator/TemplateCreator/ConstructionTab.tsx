@@ -10,6 +10,7 @@ interface ConstructionTabProps {
 interface PartDefinition {
   id: string;
   name: string;
+  materialType: string;
   thickness: number;
   widthFormula: string;
   heightFormula: string;
@@ -37,6 +38,7 @@ const predefinedParts = [
   { value: 'drawer_side', label: 'Drawer Side' },
   { value: 'drawer_back', label: 'Drawer Back' },
   { value: 'drawer_bottom', label: 'Drawer Bottom' },
+  { value: 'drawer_counter_front', label: 'Drawer Counter Front' },
   { value: 'toe_kick', label: 'Toe Kick' },
   { value: 'filler_panel', label: 'Filler Panel' },
   { value: 'upright', label: 'Upright' },
@@ -44,6 +46,15 @@ const predefinedParts = [
   { value: 'back_rail', label: 'Back Rail' },
   { value: 'corner_support', label: 'Corner Support' },
   { value: 'custom_part', label: 'Custom Part' }
+];
+
+const materialTypes = [
+  { value: 'Material 1', label: 'Material 1' },
+  { value: 'Material 2', label: 'Material 2' },
+  { value: 'Material 3', label: 'Material 3' },
+  { value: 'Material 1 Grain', label: 'Material 1 with Grain' },
+  { value: 'Material 2 Grain', label: 'Material 2 with Grain' },
+  { value: 'Material 3 Grain', label: 'Material 3 with Grain' }
 ];
 
 const grainDirections = [
@@ -56,7 +67,7 @@ const grainDirections = [
 const commonFormulas = {
   side_panel: {
     width: 'depth - (hasBack ? back : 0)',
-    height: 'height - (hasTop ? topBottom : 0) - (hasBottom ? topBottom : 0)'
+    height: 'height - (hasTop ? Top : 0) - (hasBottom ? Bottom : 0)'
   },
   top_panel: {
     width: 'width - (2 * side)',
@@ -68,7 +79,11 @@ const commonFormulas = {
   },
   back_panel: {
     width: 'width - (2 * side)',
-    height: 'height - (hasTop ? topBottom : 0) - (hasBottom ? topBottom : 0)'
+    height: 'height - (hasTop ? Top : 0) - (hasBottom ? Bottom : 0)'
+  },
+  double_back_panel: {
+    width: 'width - (2 * side)',
+    height: 'height - (hasTop ? Top : 0) - (hasBottom ? Bottom : 0)'
   },
   fixed_shelf: {
     width: 'width - (2 * side) - 3',
@@ -87,16 +102,20 @@ const commonFormulas = {
     height: '(height - 12) / drawerCount - 3'
   },
   drawer_side: {
-    width: 'depth - 80',
-    height: '(height - 12) / drawerCount - 30'
+    width: '500', // Standard drawer depth
+    height: '160' // Standard drawer height
   },
   drawer_back: {
-    width: 'width - 90',
-    height: '(height - 12) / drawerCount - 30'
+    width: 'width-(Side+DrawerRunner+drawer)*2',
+    height: '160-10' // Standard drawer height minus 10mm
+  },
+  drawer_counter_front: {
+    width: 'width-(Side+DrawerRunner+drawer)*2',
+    height: '160-10' // Standard drawer height minus 10mm
   },
   drawer_bottom: {
-    width: 'width - 90',
-    height: 'depth - 80'
+    width: 'width-(Side+DrawerRunner+drawer)*2+10',
+    height: '500-10' // Standard drawer depth minus 10mm
   }
 };
 
@@ -107,6 +126,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
   const [newPart, setNewPart] = useState<PartDefinition>({
     id: `part-${Date.now()}`,
     name: '',
+    materialType: 'Material 1',
     thickness: 18,
     widthFormula: '',
     heightFormula: '',
@@ -140,6 +160,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
     setNewPart({
       id: `part-${Date.now()}`,
       name: '',
+      materialType: 'Material 1',
       thickness: 18,
       widthFormula: '',
       heightFormula: '',
@@ -280,6 +301,35 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
               {predefinedParts.map(part => (
                 <option key={part.value} value={part.value}>
                   {part.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-blue-700 mb-1">
+              Material Type
+            </label>
+            <select
+              value={editingPart ? editingPart.materialType : newPart.materialType}
+              onChange={(e) => {
+                if (editingPart) {
+                  setEditingPart({
+                    ...editingPart,
+                    materialType: e.target.value
+                  });
+                } else {
+                  setNewPart({
+                    ...newPart,
+                    materialType: e.target.value
+                  });
+                }
+              }}
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {materialTypes.map(material => (
+                <option key={material.value} value={material.value}>
+                  {material.label}
                 </option>
               ))}
             </select>
@@ -544,6 +594,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
           <thead className="bg-gray-50 sticky top-0">
             <tr>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part Name</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thickness</th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Formulas</th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
@@ -555,7 +606,7 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
           <tbody className="bg-white divide-y divide-gray-200">
             {parts.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   No parts defined yet. Click "Add Part" to get started.
                 </td>
               </tr>
@@ -569,6 +620,9 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
                         Required
                       </span>
                     )}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{part.materialType}</div>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{part.thickness}mm</div>
@@ -641,16 +695,25 @@ const ConstructionTab: React.FC<ConstructionTabProps> = ({ template, setTemplate
             <span className="font-mono text-yellow-800">side</span>: Side panel thickness
           </div>
           <div>
-            <span className="font-mono text-yellow-800">topBottom</span>: Top/bottom thickness
+            <span className="font-mono text-yellow-800">Top</span>: Top panel thickness
+          </div>
+          <div>
+            <span className="font-mono text-yellow-800">Bottom</span>: Bottom panel thickness
           </div>
           <div>
             <span className="font-mono text-yellow-800">back</span>: Back panel thickness
+          </div>
+          <div>
+            <span className="font-mono text-yellow-800">Doubleback</span>: Double back thickness
           </div>
           <div>
             <span className="font-mono text-yellow-800">doorCount</span>: Number of doors
           </div>
           <div>
             <span className="font-mono text-yellow-800">drawerCount</span>: Number of drawers
+          </div>
+          <div>
+            <span className="font-mono text-yellow-800">DrawerRunner</span>: Drawer runner space
           </div>
           <div>
             <span className="font-mono text-yellow-800">hasTop</span>: Has top panel

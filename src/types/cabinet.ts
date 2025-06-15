@@ -44,6 +44,7 @@ export interface CabinetTemplate {
     drawerBottom?: number;
     uprights?: number;
     doubleBack?: number;
+    drawerRunner?: number; // New: space for drawer runners
   };
   hardware: {
     hinges: number;
@@ -64,6 +65,7 @@ export interface CabinetTemplate {
 export interface PartDefinition {
   id: string;
   name: string;
+  materialType: string; // Material type (Material 1, Material 2, Material 3, etc.)
   thickness: number;
   widthFormula: string;
   heightFormula: string;

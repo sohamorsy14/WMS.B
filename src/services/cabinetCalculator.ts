@@ -313,24 +313,55 @@ export class CabinetCalculatorService {
           );
           
           // Drawer box parts (sides, back, bottom)
+          // Use standard drawer heights (120, 140, 160, 180, or 200mm)
+          const standardDrawerHeights = [120, 140, 160, 180, 200];
+          const closestStandardHeight = standardDrawerHeights.reduce((prev, curr) => 
+            Math.abs(curr - (drawerHeight - 30)) < Math.abs(prev - (drawerHeight - 30)) ? curr : prev
+          );
+          
+          // Use standard drawer depths (300, 350, 400, 450, 500, or 550mm)
+          const standardDrawerDepths = [300, 350, 400, 450, 500, 550];
+          const closestStandardDepth = standardDrawerDepths.reduce((prev, curr) => 
+            Math.abs(curr - (depth - 80)) < Math.abs(prev - (depth - 80)) ? curr : prev
+          );
+          
+          // Calculate drawer runner space
+          const drawerRunner = template.materialThickness.drawerRunner || 13; // Default 13mm for standard runners
+          
           addItem(
             `Drawer Side ${i + 1}`,
             'Plywood',
             drawer || 15, // Thinner material for drawer box
-            depth - 80, // Shorter than cabinet depth
-            drawerHeight - 30, // Lower than front
+            closestStandardDepth, // Standard depth
+            closestStandardHeight, // Standard height
             2,
             { front: true, back: false, left: true, right: true },
             'length',
             2
           );
           
+          // Drawer back and counter front have same dimensions
+          // Width = Cabinet width - (Side thickness + DrawerRunner + Drawer side thickness) * 2
+          const drawerBackWidth = width - ((side + drawerRunner + (drawer || 15)) * 2);
+          
           addItem(
             `Drawer Back ${i + 1}`,
             'Plywood',
             drawer || 15,
-            width - 90, // Narrower than cabinet width
-            drawerHeight - 30,
+            drawerBackWidth,
+            closestStandardHeight - 10, // 10mm less than sides
+            1,
+            { front: false, back: false, left: true, right: true },
+            'length',
+            2
+          );
+          
+          addItem(
+            `Drawer Counter Front ${i + 1}`,
+            'Plywood',
+            drawer || 15,
+            drawerBackWidth,
+            closestStandardHeight - 10, // 10mm less than sides
             1,
             { front: false, back: false, left: true, right: true },
             'length',
@@ -341,8 +372,8 @@ export class CabinetCalculatorService {
             `Drawer Bottom ${i + 1}`,
             'Plywood',
             drawerBottom || 12, // Thinner material for bottom
-            width - 90,
-            depth - 80,
+            drawerBackWidth + 10, // Slightly wider than back
+            closestStandardDepth - 10, // Slightly shorter than sides
             1,
             { front: false, back: false, left: false, right: false },
             'length',
@@ -593,7 +624,9 @@ export class CabinetCalculatorService {
       
       // Material thicknesses with defaults
       side: template?.materialThickness?.side ?? 18,
-      topBottom: template?.materialThickness?.topBottom ?? 18,
+      Top: template?.materialThickness?.topBottom ?? 18, // New: separate Top thickness
+      Bottom: template?.materialThickness?.topBottom ?? 18, // New: separate Bottom thickness
+      topBottom: template?.materialThickness?.topBottom ?? 18, // Keep for backward compatibility
       back: template?.materialThickness?.back ?? 12,
       shelf: template?.materialThickness?.shelf ?? 18,
       door: template?.materialThickness?.door ?? 18,
@@ -602,11 +635,11 @@ export class CabinetCalculatorService {
       drawerBottom: template?.materialThickness?.drawerBottom ?? 12,
       uprights: template?.materialThickness?.uprights ?? 18,
       doubleBack: template?.materialThickness?.doubleBack ?? 12,
+      Doubleback: template?.materialThickness?.doubleBack ?? 12, // New: alias for doubleBack
+      DrawerRunner: template?.materialThickness?.drawerRunner ?? 13, // New: drawer runner space
       
       // Common aliases and variations
       Side: template?.materialThickness?.side ?? 18,
-      Top: template?.materialThickness?.topBottom ?? 18,
-      Bottom: template?.materialThickness?.topBottom ?? 18,
       Back: template?.materialThickness?.back ?? 12,
       Shelf: template?.materialThickness?.shelf ?? 18,
       Door: template?.materialThickness?.door ?? 18,
@@ -640,7 +673,7 @@ export class CabinetCalculatorService {
         
         return result;
       } catch (error) {
-        console.error('Error evaluating formula:', error);
+        console.error('Error evaluating formula:', formula, error);
         return 0;
       }
     };
@@ -650,12 +683,27 @@ export class CabinetCalculatorService {
       const length = evaluateFormula(part.widthFormula);
       const width = evaluateFormula(part.heightFormula);
       
+      // Determine material type based on part.materialType
+      // This will be replaced later in the nesting optimization with the actual material
+      let materialType = 'Plywood';
+      
+      // Map generic material types to actual materials for display purposes
+      if (part.materialType) {
+        if (part.materialType.includes('Material 1')) {
+          materialType = 'Material 1';
+        } else if (part.materialType.includes('Material 2')) {
+          materialType = 'Material 2';
+        } else if (part.materialType.includes('Material 3')) {
+          materialType = 'Material 3';
+        }
+      }
+      
       cuttingList.push({
         id: `${config.id}-${part.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
         partName: part.name,
         cabinetId: config.id,
         cabinetName: config.name,
-        materialType: 'Plywood', // Default material type
+        materialType: materialType,
         thickness: part.thickness,
         length,
         width,
@@ -686,9 +734,18 @@ export class CabinetCalculatorService {
     // Calculate sheet requirements for each material group
     materialGroups.forEach((items, key) => {
       const [materialType, thickness] = key.split('-');
-      const sheet = materialSheets.find(s => 
+      
+      // Find matching sheet or use default
+      let sheet = materialSheets.find(s => 
         s.type === materialType && s.thickness === parseInt(thickness)
       );
+      
+      // If no exact match, use a default sheet
+      if (!sheet) {
+        sheet = materialSheets.find(s => 
+          s.type === 'Plywood' && s.thickness === parseInt(thickness)
+        ) || materialSheets[0];
+      }
 
       if (sheet) {
         // Simple area calculation (in real implementation, use nesting algorithm)
