@@ -1,969 +1,632 @@
-import { CabinetTemplate, CabinetConfiguration, CuttingListItem, CabinetMaterial, CabinetHardware, NestingResult, CabinetProject, PartDefinition, HardwareItem } from '../types/cabinet';
-import { materialSheets, laborRates } from '../data/cabinetTemplates';
-import axios from 'axios';
+import { CabinetTemplate, CabinetConfiguration, CabinetProject, NestingResult, CuttingListItem, CabinetMaterial, CabinetHardware, PartDefinition } from '../types/cabinet';
+import { cabinetTemplates, materialSheets, laborRates } from '../data/cabinetTemplates';
 
-// Get API URL
-const getApiUrl = () => {
-  // In development, use Vite proxy
-  if (import.meta.env.DEV) {
-    return '/api';
+// Cabinet Calculator Service
+export class CabinetCalculatorService {
+  // Generate a configuration from a template and customizations
+  static generateConfiguration(
+    template: CabinetTemplate,
+    dimensions: { width: number; height: number; depth: number },
+    customizations: any
+  ): CabinetConfiguration {
+    // Generate a unique ID for the configuration
+    const configId = `config-${Date.now()}`;
+    
+    // Calculate cutting list based on dimensions and customizations
+    const cuttingList = this.calculateCuttingList(template, dimensions, customizations);
+    
+    // Calculate materials needed
+    const materials = this.calculateMaterials(cuttingList);
+    
+    // Calculate hardware needed
+    const hardware = this.calculateHardware(template, customizations);
+    
+    // Calculate labor cost
+    const laborCost = this.calculateLaborCost(cuttingList, hardware);
+    
+    // Calculate total cost
+    const materialCost = materials.reduce((sum, m) => sum + m.totalCost, 0);
+    const hardwareCost = hardware.reduce((sum, h) => sum + h.totalCost, 0);
+    const totalCost = materialCost + hardwareCost + laborCost;
+    
+    // Create configuration object
+    const configuration: CabinetConfiguration = {
+      id: configId,
+      templateId: template.id,
+      name: `${template.name} - ${dimensions.width}×${dimensions.height}×${dimensions.depth}mm`,
+      dimensions,
+      customizations,
+      materials,
+      hardware,
+      cuttingList,
+      totalCost,
+      laborCost,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    return configuration;
   }
   
-  // In production, use relative API path
-  return '/api';
-};
-
-const API_BASE_URL = getApiUrl();
-
-// Configure axios with auth token
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-export class CabinetCalculatorService {
-  
-  // Calculate cutting list for a cabinet configuration
-  static calculateCuttingList(template: CabinetTemplate, config: CabinetConfiguration): CuttingListItem[] {
-    const { width, height, depth } = config.dimensions;
-    const { side, topBottom, back, shelf, door, drawer, fixedPanel, drawerBottom, uprights, doubleBack } = template.materialThickness;
-    const cuttingList: CuttingListItem[] = [];
-    const construction = template.construction || {};
-    
-    // If template has defined parts, use those instead of the default calculations
+  // Calculate cutting list based on template, dimensions, and customizations
+  static calculateCuttingList(
+    template: CabinetTemplate,
+    dimensions: { width: number; height: number; depth: number },
+    customizations: any
+  ): CuttingListItem[] {
+    // If the template has defined parts, use those for calculation
     if (template.parts && template.parts.length > 0) {
-      return this.calculateCuttingListFromParts(template.parts, config, template);
+      return this.calculateCuttingListFromParts(template, dimensions, customizations);
     }
-
-    // Helper function to add cutting list item
-    const addItem = (
-      partName: string,
-      materialType: string,
-      thickness: number,
-      length: number,
-      width: number,
-      quantity: number,
-      edgeBanding: any = { front: false, back: false, left: false, right: false },
-      grain: 'length' | 'width' | 'none' = 'length',
-      priority: number = 1
-    ) => {
+    
+    // Otherwise, use the default calculation logic
+    const cuttingList: CuttingListItem[] = [];
+    const { width, height, depth } = dimensions;
+    const { doorCount, drawerCount, shelfCount } = customizations;
+    
+    // Material thicknesses
+    const { side, topBottom, back, shelf, door, drawer, drawerBottom } = template.materialThickness;
+    
+    // Construction options
+    const { hasTop, hasBottom, hasBack, hasDoubleBack } = template.construction || {};
+    
+    // Side panels (always 2)
+    cuttingList.push({
+      id: `part-${Date.now()}-1`,
+      partName: 'Side Panel',
+      cabinetId: '',
+      cabinetName: '',
+      materialType: 'Material 1',
+      thickness: side,
+      length: depth - (hasBack ? back : 0),
+      width: height - (hasTop ? topBottom : 0) - (hasBottom ? topBottom : 0),
+      quantity: 2,
+      edgeBanding: { front: true, back: false, left: true, right: true },
+      grain: 'length',
+      priority: 1
+    });
+    
+    // Top panel (if applicable)
+    if (hasTop !== false) {
       cuttingList.push({
-        id: `${config.id}-${partName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-        partName,
-        cabinetId: config.id,
-        cabinetName: config.name,
-        materialType,
-        thickness,
-        length,
-        width,
-        quantity,
-        edgeBanding,
-        grain,
-        priority
+        id: `part-${Date.now()}-2`,
+        partName: 'Top Panel',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: topBottom,
+        length: width - (2 * side),
+        width: depth - (hasBack ? back : 0),
+        quantity: 1,
+        edgeBanding: { front: true, back: false, left: true, right: true },
+        grain: 'length',
+        priority: 1
       });
-    };
-
-    // Calculate main cabinet parts
-    switch (template.type) {
-      case 'base':
-      case 'wall':
-      case 'tall':
-        // Sides (2 pieces)
-        addItem(
-          'Side Panel',
-          'Plywood',
-          side,
-          height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-          depth - (construction.hasBack !== false ? back : 0),
-          2,
-          { front: true, back: false, left: true, right: true },
-          'length',
-          1
-        );
-
-        // Top panel (if applicable)
-        if (construction.hasTop !== false) {
-          addItem(
-            'Top Panel',
-            'Plywood',
-            topBottom,
-            width - (side * 2),
-            depth - (construction.hasBack !== false ? back : 0),
-            1,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-        }
-
-        // Bottom panel (if applicable)
-        if (construction.hasBottom !== false) {
-          addItem(
-            'Bottom Panel',
-            'Plywood',
-            topBottom,
-            width - (side * 2),
-            depth - (construction.hasBack !== false ? back : 0),
-            1,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-        }
-
-        // Back panel (if applicable)
-        if (construction.hasBack !== false) {
-          addItem(
-            'Back Panel',
-            'Plywood',
-            back,
-            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-            width - (side * 2),
-            1,
-            { front: false, back: false, left: false, right: false },
-            'length',
-            2
-          );
-        }
-
-        // Double back panel (if applicable)
-        if (construction.hasDoubleBack === true) {
-          addItem(
-            'Double Back Panel',
-            'Plywood',
-            doubleBack || back,
-            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-            width - (side * 2),
-            1,
-            { front: false, back: false, left: false, right: false },
-            'length',
-            2
-          );
-        }
-
-        // Fixed shelf (if applicable)
-        if (construction.hasFixedShelf === true) {
-          addItem(
-            'Fixed Shelf',
-            'Plywood',
-            shelf,
-            width - (side * 2) - 3, // 3mm clearance
-            depth - (construction.hasBack !== false ? back : 0) - 20, // 20mm back clearance
-            1,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            2
-          );
-        }
-
-        // Adjustable shelves
-        if (config.customizations.shelfCount > 0) {
-          addItem(
-            'Adjustable Shelf',
-            'Plywood',
-            shelf,
-            width - (side * 2) - 6, // 3mm clearance each side
-            depth - (construction.hasBack !== false ? back : 0) - 50, // 50mm back clearance
-            config.customizations.shelfCount,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            2
-          );
-        }
-
-        // Front fixed panel (if applicable)
-        if (construction.hasFrontPanel === true) {
-          addItem(
-            'Front Fixed Panel',
-            'Plywood',
-            fixedPanel || side,
-            width - (side * 2),
-            100, // Typical height for a fixed panel
-            1,
-            { front: true, back: true, left: true, right: true },
-            'length',
-            3
-          );
-        }
-
-        // Filler panel (if applicable)
-        if (construction.hasFillerPanel === true) {
-          addItem(
-            'Filler Panel',
-            'Plywood',
-            door,
-            height - 6, // 3mm gap top and bottom
-            50, // Typical width for a filler panel
-            1,
-            { front: true, back: true, left: true, right: true },
-            'length',
-            3
-          );
-        }
-
-        // Uprights (if applicable)
-        if (construction.hasUprights === true) {
-          addItem(
-            'Upright',
-            'Plywood',
-            uprights || side,
-            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-            depth - (construction.hasBack !== false ? back : 0),
-            1, // Typically one upright in the middle
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-        }
-
-        // Doors
-        if (config.customizations.doorCount > 0) {
-          const doorWidth = config.customizations.doorCount === 1 
-            ? width - 6 // Single door with 3mm gap each side
-            : (width - 9) / 2; // Double doors with 3mm gaps
-          
-          addItem(
-            'Door',
-            'Melamine',
-            door,
-            height - 6, // 3mm gap top and bottom
-            doorWidth,
-            config.customizations.doorCount,
-            { front: true, back: true, left: true, right: true },
-            'length',
-            3
-          );
-        }
-        break;
-
-      case 'drawer':
-        // Sides (2 pieces)
-        addItem(
-          'Side Panel',
-          'Plywood',
-          side,
-          height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-          depth - (construction.hasBack !== false ? back : 0),
-          2,
-          { front: true, back: false, left: true, right: true },
-          'length',
-          1
-        );
-
-        // Top panel (if applicable)
-        if (construction.hasTop !== false) {
-          addItem(
-            'Top Panel',
-            'Plywood',
-            topBottom,
-            width - (side * 2),
-            depth - (construction.hasBack !== false ? back : 0),
-            1,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-        }
-
-        // Bottom panel (if applicable)
-        if (construction.hasBottom !== false) {
-          addItem(
-            'Bottom Panel',
-            'Plywood',
-            topBottom,
-            width - (side * 2),
-            depth - (construction.hasBack !== false ? back : 0),
-            1,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-        }
-
-        // Back panel (if applicable)
-        if (construction.hasBack !== false) {
-          addItem(
-            'Back Panel',
-            'Plywood',
-            back,
-            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-            width - (side * 2),
-            1,
-            { front: false, back: false, left: false, right: false },
-            'length',
-            2
-          );
-        }
-
-        // Drawer fronts
-        const drawerCount = config.customizations.drawerCount;
-        const drawerHeight = (height - 12) / drawerCount; // 3mm gap between drawers
-        
-        for (let i = 0; i < drawerCount; i++) {
-          addItem(
-            `Drawer Front ${i + 1}`,
-            'Melamine',
-            door,
-            drawerHeight - 3, // 3mm gap
-            width - 6, // 3mm gap each side
-            1,
-            { front: true, back: true, left: true, right: true },
-            'length',
-            3
-          );
-          
-          // Drawer box parts (sides, back, bottom)
-          // Use standard drawer heights (120, 140, 160, 180, or 200mm)
-          const standardDrawerHeights = [120, 140, 160, 180, 200];
-          const closestStandardHeight = standardDrawerHeights.reduce((prev, curr) => 
-            Math.abs(curr - (drawerHeight - 30)) < Math.abs(prev - (drawerHeight - 30)) ? curr : prev
-          );
-          
-          // Use standard drawer depths (300, 350, 400, 450, 500, or 550mm)
-          const standardDrawerDepths = [300, 350, 400, 450, 500, 550];
-          const closestStandardDepth = standardDrawerDepths.reduce((prev, curr) => 
-            Math.abs(curr - (depth - 80)) < Math.abs(prev - (depth - 80)) ? curr : prev
-          );
-          
-          // Calculate drawer runner space
-          const drawerRunner = template.materialThickness.drawerRunner || 13; // Default 13mm for standard runners
-          
-          addItem(
-            `Drawer Side ${i + 1}`,
-            'Plywood',
-            drawer || 15, // Thinner material for drawer box
-            closestStandardDepth, // Standard depth
-            closestStandardHeight, // Standard height
-            2,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            2
-          );
-          
-          // Drawer back and counter front have same dimensions
-          // Width = Cabinet width - (Side thickness + DrawerRunner + Drawer side thickness) * 2
-          const drawerBackWidth = width - ((side + drawerRunner + (drawer || 15)) * 2);
-          
-          addItem(
-            `Drawer Back ${i + 1}`,
-            'Plywood',
-            drawer || 15,
-            drawerBackWidth,
-            closestStandardHeight - 10, // 10mm less than sides
-            1,
-            { front: false, back: false, left: true, right: true },
-            'length',
-            2
-          );
-          
-          addItem(
-            `Drawer Counter Front ${i + 1}`,
-            'Plywood',
-            drawer || 15,
-            drawerBackWidth,
-            closestStandardHeight - 10, // 10mm less than sides
-            1,
-            { front: false, back: false, left: true, right: true },
-            'length',
-            2
-          );
-          
-          addItem(
-            `Drawer Bottom ${i + 1}`,
-            'Plywood',
-            drawerBottom || 12, // Thinner material for bottom
-            drawerBackWidth + 10, // Slightly wider than back
-            closestStandardDepth - 10, // Slightly shorter than sides
-            1,
-            { front: false, back: false, left: false, right: false },
-            'length',
-            2
-          );
-        }
-        break;
-
-      case 'corner':
-        // Corner cabinet has special geometry
-        if (construction.isCorner === true) {
-          // Side panels (typically 2 for L-shape)
-          addItem(
-            'Side Panel A',
-            'Plywood',
-            side,
-            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-            depth - (construction.hasBack !== false ? back : 0),
-            2,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-
-          // Top and Bottom (if applicable)
-          if (construction.hasTop !== false) {
-            addItem(
-              'Corner Top',
-              'Plywood',
-              topBottom,
-              width,
-              depth,
-              1,
-              { front: true, back: true, left: true, right: true },
-              'length',
-              1
-            );
-          }
-          
-          if (construction.hasBottom !== false) {
-            addItem(
-              'Corner Bottom',
-              'Plywood',
-              topBottom,
-              width,
-              depth,
-              1,
-              { front: true, back: true, left: true, right: true },
-              'length',
-              1
-            );
-          }
-
-          // Back panels (if applicable)
-          if (construction.hasBack !== false) {
-            addItem(
-              'Back Panel',
-              'Plywood',
-              back,
-              height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-              width - side,
-              2, // Two back panels for corner cabinet
-              { front: false, back: false, left: false, right: false },
-              'length',
-              2
-            );
-          }
-
-          // Fixed front panel for corner cabinet
-          if (construction.hasFrontPanel === true) {
-            addItem(
-              'Front Fixed Panel',
-              'Plywood',
-              fixedPanel || side,
-              height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-              100, // Typical width for a fixed panel
-              1,
-              { front: true, back: true, left: true, right: true },
-              'length',
-              3
-            );
-          }
-
-          // Shelves
-          if (config.customizations.shelfCount > 0) {
-            addItem(
-              'Corner Shelf',
-              'Plywood',
-              shelf,
-              width - 100, // Circular or L-shaped shelf
-              width - 100,
-              config.customizations.shelfCount,
-              { front: true, back: true, left: true, right: true },
-              'length',
-              2
-            );
-          }
-
-          // Doors
-          if (config.customizations.doorCount > 0) {
-            addItem(
-              'Corner Door',
-              'Melamine',
-              door,
-              height - 6,
-              width / 2 - 3,
-              config.customizations.doorCount,
-              { front: true, back: true, left: true, right: true },
-              'length',
-              3
-            );
-          }
-        }
-        break;
-
-      case 'specialty':
-        // Specialty cabinet (like sink base)
-        // Sides (2 pieces)
-        addItem(
-          'Side Panel',
-          'Plywood',
-          side,
-          height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-          depth - (construction.hasBack !== false ? back : 0),
-          2,
-          { front: true, back: false, left: true, right: true },
-          'length',
-          1
-        );
-
-        // Top panel (if applicable)
-        if (construction.hasTop !== false) {
-          addItem(
-            'Top Panel',
-            'Plywood',
-            topBottom,
-            width - (side * 2),
-            depth - (construction.hasBack !== false ? back : 0),
-            1,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-        }
-
-        // Bottom panel (if applicable)
-        if (construction.hasBottom !== false) {
-          addItem(
-            'Bottom Panel',
-            'Plywood',
-            topBottom,
-            width - (side * 2),
-            depth - (construction.hasBack !== false ? back : 0),
-            1,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-        }
-
-        // Back panel (if applicable)
-        if (construction.hasBack !== false) {
-          addItem(
-            'Back Panel',
-            'Plywood',
-            back,
-            height - (construction.hasTop !== false ? topBottom : 0) - (construction.hasBottom !== false ? topBottom : 0),
-            width - (side * 2),
-            1,
-            { front: false, back: false, left: false, right: false },
-            'length',
-            2
-          );
-        }
-
-        // Support rails for sink
-        if (template.type === 'specialty' && !construction.hasTop) {
-          addItem(
-            'Support Rail',
-            'Plywood',
-            topBottom,
-            width - (side * 2),
-            100, // 100mm wide support
-            2,
-            { front: true, back: false, left: true, right: true },
-            'length',
-            1
-          );
-        }
-
-        // Doors
-        if (config.customizations.doorCount > 0) {
-          const doorWidth = config.customizations.doorCount === 1 
-            ? width - 6 
-            : (width - 9) / 2;
-          
-          addItem(
-            'Door',
-            'Melamine',
-            door,
-            height - 6,
-            doorWidth,
-            config.customizations.doorCount,
-            { front: true, back: true, left: true, right: true },
-            'length',
-            3
-          );
-        }
-        break;
     }
-
+    
+    // Bottom panel (if applicable)
+    if (hasBottom !== false) {
+      cuttingList.push({
+        id: `part-${Date.now()}-3`,
+        partName: 'Bottom Panel',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: topBottom,
+        length: width - (2 * side),
+        width: depth - (hasBack ? back : 0),
+        quantity: 1,
+        edgeBanding: { front: true, back: false, left: true, right: true },
+        grain: 'length',
+        priority: 1
+      });
+    }
+    
+    // Back panel (if applicable)
+    if (hasBack !== false) {
+      cuttingList.push({
+        id: `part-${Date.now()}-4`,
+        partName: 'Back Panel',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: back,
+        length: width - (2 * side),
+        width: height - (hasTop ? topBottom : 0) - (hasBottom ? topBottom : 0),
+        quantity: 1,
+        edgeBanding: { front: false, back: false, left: false, right: false },
+        grain: 'none',
+        priority: 2
+      });
+    }
+    
+    // Double back panel (if applicable)
+    if (hasDoubleBack === true) {
+      cuttingList.push({
+        id: `part-${Date.now()}-5`,
+        partName: 'Double Back Panel',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: template.materialThickness.doubleBack || back,
+        length: width - (2 * side),
+        width: height - (hasTop ? topBottom : 0) - (hasBottom ? topBottom : 0),
+        quantity: 1,
+        edgeBanding: { front: false, back: false, left: false, right: false },
+        grain: 'none',
+        priority: 2
+      });
+    }
+    
+    // Shelves (if applicable)
+    if (shelfCount > 0) {
+      cuttingList.push({
+        id: `part-${Date.now()}-6`,
+        partName: 'Shelf',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: shelf,
+        length: width - (2 * side) - 6, // 3mm gap on each side
+        width: depth - (hasBack ? back : 0) - 50, // 50mm setback from front
+        quantity: shelfCount,
+        edgeBanding: { front: true, back: false, left: false, right: false },
+        grain: 'length',
+        priority: 2
+      });
+    }
+    
+    // Doors (if applicable)
+    if (doorCount > 0 && template.type !== 'drawer') {
+      const doorWidth = template.type === 'corner' 
+        ? width / 2 - 3 
+        : width / doorCount - 6; // 3mm gap on each side
+      
+      cuttingList.push({
+        id: `part-${Date.now()}-7`,
+        partName: 'Door',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: door,
+        length: doorWidth,
+        width: height - 6, // 3mm gap on top and bottom
+        quantity: doorCount,
+        edgeBanding: { front: true, back: true, left: true, right: true },
+        grain: 'length',
+        priority: 3
+      });
+    }
+    
+    // Drawer fronts and boxes (if applicable)
+    if (drawerCount > 0 || template.type === 'drawer') {
+      const count = drawerCount > 0 ? drawerCount : 3; // Default to 3 drawers if not specified
+      const drawerHeight = (height - 12) / count - 3; // 3mm gap between drawers, 6mm gap top and bottom
+      
+      // Drawer fronts
+      cuttingList.push({
+        id: `part-${Date.now()}-8`,
+        partName: 'Drawer Front',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: door,
+        length: width - 6, // 3mm gap on each side
+        width: drawerHeight,
+        quantity: count,
+        edgeBanding: { front: true, back: true, left: true, right: true },
+        grain: 'length',
+        priority: 3
+      });
+      
+      // Drawer sides
+      const drawerSideDepth = 500; // Standard drawer depth
+      const drawerSideHeight = 160; // Standard drawer height
+      
+      cuttingList.push({
+        id: `part-${Date.now()}-9`,
+        partName: 'Drawer Side',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: drawer || 15,
+        length: drawerSideDepth,
+        width: drawerSideHeight,
+        quantity: count * 2, // 2 sides per drawer
+        edgeBanding: { front: true, back: false, left: false, right: true },
+        grain: 'length',
+        priority: 3
+      });
+      
+      // Drawer back
+      const drawerRunnerThickness = template.materialThickness.drawerRunner || 12;
+      const drawerBackWidth = width - (side + drawerRunnerThickness + (drawer || 15)) * 2;
+      
+      cuttingList.push({
+        id: `part-${Date.now()}-10`,
+        partName: 'Drawer Back',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: drawer || 15,
+        length: drawerBackWidth,
+        width: drawerSideHeight - 10, // 10mm less than sides
+        quantity: count,
+        edgeBanding: { front: false, back: false, left: false, right: false },
+        grain: 'width',
+        priority: 3
+      });
+      
+      // Drawer bottom
+      const drawerBottomLength = drawerBackWidth + 10; // 5mm extra on each side
+      const drawerBottomWidth = drawerSideDepth - 10; // 10mm less than sides
+      
+      cuttingList.push({
+        id: `part-${Date.now()}-11`,
+        partName: 'Drawer Bottom',
+        cabinetId: '',
+        cabinetName: '',
+        materialType: 'Material 1',
+        thickness: drawerBottom || 12,
+        length: drawerBottomLength,
+        width: drawerBottomWidth,
+        quantity: count,
+        edgeBanding: { front: false, back: false, left: false, right: false },
+        grain: 'none',
+        priority: 3
+      });
+    }
+    
     return cuttingList;
   }
   
-  // Calculate cutting list from defined parts
+  // Calculate cutting list from template parts
   static calculateCuttingListFromParts(
-    parts: PartDefinition[], 
-    config: CabinetConfiguration,
-    template?: CabinetTemplate
+    template: CabinetTemplate,
+    dimensions: { width: number; height: number; depth: number },
+    customizations: any
   ): CuttingListItem[] {
     const cuttingList: CuttingListItem[] = [];
-    const { width, height, depth } = config.dimensions;
-    const { doorCount, drawerCount, shelfCount } = config.customizations;
+    const { width, height, depth } = dimensions;
     
-    // Create comprehensive evaluation context
-    const context: any = {
-      // Cabinet dimensions
-      width,
-      height,
-      depth,
-      
-      // Customizations
-      doorCount,
-      drawerCount,
-      shelfCount,
-      
-      // Construction flags with defaults
-      hasTop: template?.construction?.hasTop ?? true,
-      hasBottom: template?.construction?.hasBottom ?? true,
-      hasBack: template?.construction?.hasBack ?? true,
-      hasDoubleBack: template?.construction?.hasDoubleBack ?? false,
-      hasToe: template?.construction?.hasToe ?? true,
-      hasFixedShelf: template?.construction?.hasFixedShelf ?? false,
-      isCorner: template?.construction?.isCorner ?? false,
-      hasFrontPanel: template?.construction?.hasFrontPanel ?? false,
-      hasFillerPanel: template?.construction?.hasFillerPanel ?? false,
-      hasUprights: template?.construction?.hasUprights ?? false,
-      
-      // Material thicknesses with defaults
-      side: template?.materialThickness?.side ?? 18,
-      Top: template?.materialThickness?.topBottom ?? 18, // New: separate Top thickness
-      Bottom: template?.materialThickness?.topBottom ?? 18, // New: separate Bottom thickness
-      topBottom: template?.materialThickness?.topBottom ?? 18, // Keep for backward compatibility
-      back: template?.materialThickness?.back ?? 12,
-      shelf: template?.materialThickness?.shelf ?? 18,
-      door: template?.materialThickness?.door ?? 18,
-      drawer: template?.materialThickness?.drawer ?? 15,
-      fixedPanel: template?.materialThickness?.fixedPanel ?? 18,
-      drawerBottom: template?.materialThickness?.drawerBottom ?? 12,
-      uprights: template?.materialThickness?.uprights ?? 18,
-      doubleBack: template?.materialThickness?.doubleBack ?? 12,
-      Doubleback: template?.materialThickness?.doubleBack ?? 12, // New: alias for doubleBack
-      DrawerRunner: template?.materialThickness?.drawerRunner ?? 13, // New: drawer runner space
-      
-      // Common aliases and variations
-      Side: template?.materialThickness?.side ?? 18,
-      Back: template?.materialThickness?.back ?? 12,
-      Shelf: template?.materialThickness?.shelf ?? 18,
-      Door: template?.materialThickness?.door ?? 18,
-      Drawer: template?.materialThickness?.drawer ?? 15,
-      
-      // Math constants and functions
-      PI: Math.PI,
-      min: Math.min,
-      max: Math.max,
-      round: Math.round,
-      floor: Math.floor,
-      ceil: Math.ceil
-    };
+    // Material thicknesses from template
+    const materialThickness = template.materialThickness;
     
-    // Helper function to evaluate formula
-    const evaluateFormula = (formula: string): number => {
+    // Construction options
+    const construction = template.construction || {};
+    
+    // Process each part definition
+    template.parts?.forEach(part => {
       try {
-        // Use Function constructor to create a safe evaluation function
-        const evalFunc = new Function(
-          ...Object.keys(context),
-          `return ${formula};`
-        );
+        // Calculate dimensions using formulas
+        const partLength = this.evaluateFormula(part.widthFormula, {
+          width, height, depth, 
+          ...materialThickness,
+          ...construction,
+          doorCount: customizations.doorCount,
+          drawerCount: customizations.drawerCount
+        });
         
-        const result = evalFunc(...Object.values(context));
+        const partWidth = this.evaluateFormula(part.heightFormula, {
+          width, height, depth, 
+          ...materialThickness,
+          ...construction,
+          doorCount: customizations.doorCount,
+          drawerCount: customizations.drawerCount
+        });
         
-        // Validate result is a number
-        if (typeof result !== 'number' || isNaN(result)) {
-          console.error('Formula evaluation returned non-numeric result:', result);
-          return 0;
-        }
-        
-        return result;
+        // Add to cutting list
+        cuttingList.push({
+          id: `part-${Date.now()}-${part.id}`,
+          partName: part.name,
+          cabinetId: '',
+          cabinetName: '',
+          materialType: part.materialType,
+          thickness: part.thickness,
+          length: partLength,
+          width: partWidth,
+          quantity: part.quantity,
+          edgeBanding: { ...part.edgeBanding },
+          grain: part.grain,
+          priority: part.name.includes('Side') || part.name.includes('Top') || part.name.includes('Bottom') ? 1 : 
+                   part.name.includes('Back') || part.name.includes('Shelf') ? 2 : 3
+        });
       } catch (error) {
-        console.error('Error evaluating formula:', formula, error);
-        return 0;
+        console.error(`Error calculating part ${part.name}:`, error);
       }
-    };
-    
-    // Process each part
-    parts.forEach(part => {
-      const length = evaluateFormula(part.widthFormula);
-      const width = evaluateFormula(part.heightFormula);
-      
-      // Determine material type based on part.materialType
-      // This will be replaced later in the nesting optimization with the actual material
-      let materialType = 'Plywood';
-      
-      // Map generic material types to actual materials for display purposes
-      if (part.materialType) {
-        if (part.materialType.includes('Material 1')) {
-          materialType = 'Material 1';
-        } else if (part.materialType.includes('Material 2')) {
-          materialType = 'Material 2';
-        } else if (part.materialType.includes('Material 3')) {
-          materialType = 'Material 3';
-        }
-      }
-      
-      cuttingList.push({
-        id: `${config.id}-${part.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-        partName: part.name,
-        cabinetId: config.id,
-        cabinetName: config.name,
-        materialType: materialType,
-        thickness: part.thickness,
-        length,
-        width,
-        quantity: part.quantity,
-        edgeBanding: { ...part.edgeBanding },
-        grain: part.grain,
-        priority: part.isRequired ? 1 : 2
-      });
     });
     
     return cuttingList;
   }
-
-  // Calculate materials needed
-  static calculateMaterials(cuttingList: CuttingListItem[]): CabinetMaterial[] {
-    const materials: CabinetMaterial[] = [];
-    const materialGroups = new Map<string, CuttingListItem[]>();
-
-    // Group cutting list items by material type and thickness
-    cuttingList.forEach(item => {
-      const key = `${item.materialType}-${item.thickness}`;
-      if (!materialGroups.has(key)) {
-        materialGroups.set(key, []);
-      }
-      materialGroups.get(key)!.push(item);
-    });
-
-    // Calculate sheet requirements for each material group
-    materialGroups.forEach((items, key) => {
-      const [materialType, thickness] = key.split('-');
+  
+  // Evaluate a formula with given variables
+  static evaluateFormula(formula: string, variables: any): number {
+    try {
+      // Create a safe evaluation context with the provided variables
+      const { 
+        width, height, depth, 
+        side, topBottom, Top, Bottom, back, shelf, door, drawer, fixedPanel, drawerBottom, uprights, doubleBack, DrawerRunner,
+        hasTop, hasBottom, hasBack, hasDoubleBack, hasToe, hasFixedShelf, isCorner, hasFrontPanel, hasFillerPanel, hasUprights,
+        doorCount, drawerCount
+      } = variables;
       
-      // Find matching sheet or use default
-      let sheet = materialSheets.find(s => 
-        s.type === materialType && s.thickness === parseInt(thickness)
+      // Use Function constructor to create a safe evaluation function
+      const evalFunc = new Function(
+        'width', 'height', 'depth', 
+        'side', 'topBottom', 'Top', 'Bottom', 'back', 'shelf', 'door', 'drawer', 'fixedPanel', 'drawerBottom', 'uprights', 'doubleBack', 'DrawerRunner',
+        'hasTop', 'hasBottom', 'hasBack', 'hasDoubleBack', 'hasToe', 'hasFixedShelf', 'isCorner', 'hasFrontPanel', 'hasFillerPanel', 'hasUprights',
+        'doorCount', 'drawerCount',
+        `return ${formula};`
       );
       
-      // If no exact match, use a default sheet
-      if (!sheet) {
-        sheet = materialSheets.find(s => 
-          s.type === 'Plywood' && s.thickness === parseInt(thickness)
-        ) || materialSheets[0];
+      return evalFunc(
+        width, height, depth, 
+        side, topBottom, Top, Bottom, back, shelf, door, drawer, fixedPanel, drawerBottom, uprights, doubleBack, DrawerRunner,
+        hasTop, hasBottom, hasBack, hasDoubleBack, hasToe, hasFixedShelf, isCorner, hasFrontPanel, hasFillerPanel, hasUprights,
+        doorCount, drawerCount
+      );
+    } catch (error) {
+      console.error('Error evaluating formula:', error);
+      throw error;
+    }
+  }
+  
+  // Calculate materials needed based on cutting list
+  static calculateMaterials(cuttingList: CuttingListItem[]): CabinetMaterial[] {
+    const materials: CabinetMaterial[] = [];
+    const materialMap = new Map<string, { totalArea: number, items: CuttingListItem[] }>();
+    
+    // Group items by material type and thickness
+    cuttingList.forEach(item => {
+      const key = `${item.materialType}-${item.thickness}`;
+      if (!materialMap.has(key)) {
+        materialMap.set(key, { totalArea: 0, items: [] });
       }
-
-      if (sheet) {
-        // Simple area calculation (in real implementation, use nesting algorithm)
-        const totalArea = items.reduce((sum, item) => {
-          return sum + (item.length * item.width * item.quantity) / 1000000; // Convert to m²
-        }, 0);
-
-        const sheetArea = (sheet.length * sheet.width) / 1000000; // Convert to m²
-        const sheetsNeeded = Math.ceil(totalArea / sheetArea * 1.1); // 10% waste factor
-
-        materials.push({
-          id: `material-${key}-${Date.now()}`,
-          materialId: sheet.id,
-          materialName: sheet.name,
-          type: materialType.toLowerCase() as any,
-          thickness: parseInt(thickness),
-          dimensions: {
-            length: sheet.length,
-            width: sheet.width
-          },
-          quantity: sheetsNeeded,
-          unitCost: sheet.costPerSheet,
-          totalCost: sheetsNeeded * sheet.costPerSheet,
-          supplier: sheet.supplier
-        });
-      }
+      
+      const entry = materialMap.get(key)!;
+      const itemArea = (item.length * item.width * item.quantity) / 1000000; // Convert to m²
+      entry.totalArea += itemArea;
+      entry.items.push(item);
     });
-
+    
+    // Find appropriate material sheets and calculate quantities
+    materialMap.forEach((value, key) => {
+      const [materialType, thicknessStr] = key.split('-');
+      const thickness = parseInt(thicknessStr);
+      
+      // Find matching material sheet
+      const sheet = materialSheets.find(s => 
+        s.type === materialType && s.thickness === thickness
+      ) || materialSheets[0]; // Use first sheet as fallback
+      
+      // Calculate number of sheets needed (with 15% waste factor)
+      const sheetArea = (sheet.length * sheet.width) / 1000000; // Convert to m²
+      const sheetsNeeded = Math.ceil(value.totalArea / sheetArea * 1.15);
+      
+      // Add to materials list
+      materials.push({
+        id: `material-${Date.now()}-${materials.length}`,
+        materialId: sheet.id,
+        materialName: sheet.name,
+        type: 'panel',
+        thickness: sheet.thickness,
+        dimensions: {
+          length: sheet.length,
+          width: sheet.width
+        },
+        quantity: sheetsNeeded,
+        unitCost: sheet.costPerSheet,
+        totalCost: sheetsNeeded * sheet.costPerSheet,
+        supplier: sheet.supplier
+      });
+    });
+    
     return materials;
   }
-
-  // Calculate hardware requirements
-  static calculateHardware(template: CabinetTemplate, config: CabinetConfiguration): CabinetHardware[] {
-    // If template has defined hardware items, use those
+  
+  // Calculate hardware needed based on template and customizations
+  static calculateHardware(template: CabinetTemplate, customizations: any): CabinetHardware[] {
+    const hardware: CabinetHardware[] = [];
+    const { doorCount, drawerCount, shelfCount } = customizations;
+    
+    // Add hardware from template hardware items if available
     if (template.hardwareItems && template.hardwareItems.length > 0) {
-      return template.hardwareItems.map(item => ({
-        id: `hardware-${item.type}-${Date.now()}`,
-        hardwareId: `${item.type}-${item.name.replace(/\s+/g, '-').toLowerCase()}`,
-        hardwareName: item.name,
-        type: item.type as any,
-        quantity: item.quantity,
-        unitCost: item.unitCost,
-        totalCost: item.quantity * item.unitCost,
-        supplier: item.supplier
-      }));
+      template.hardwareItems.forEach(item => {
+        hardware.push({
+          id: `hardware-${Date.now()}-${hardware.length}`,
+          hardwareId: item.id,
+          hardwareName: item.name,
+          type: item.type as any,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+          totalCost: item.quantity * item.unitCost,
+          supplier: item.supplier
+        });
+      });
+      return hardware;
     }
     
-    // Otherwise use the default calculation
-    const hardware: CabinetHardware[] = [];
-
-    // Hinges
-    if (template.hardware.hinges > 0 && config.customizations.doorCount > 0) {
-      const hingeCount = Math.min(template.hardware.hinges, config.customizations.doorCount * 2);
+    // Otherwise, use default hardware calculation
+    
+    // Hinges (2 per door)
+    if (doorCount > 0) {
       hardware.push({
-        id: `hardware-hinges-${Date.now()}`,
+        id: `hardware-${Date.now()}-1`,
         hardwareId: 'HNG-CONC-35',
         hardwareName: 'Concealed Hinges 35mm',
         type: 'hinge',
-        quantity: hingeCount,
+        quantity: doorCount * 2,
         unitCost: 3.25,
-        totalCost: hingeCount * 3.25,
+        totalCost: doorCount * 2 * 3.25,
         supplier: 'Hardware Plus'
       });
     }
-
-    // Drawer slides
-    if (template.hardware.slides > 0 || config.customizations.drawerCount > 0) {
-      const slideCount = Math.max(template.hardware.slides, config.customizations.drawerCount) * 2; // Pair of slides per drawer
+    
+    // Drawer slides (1 pair per drawer)
+    if (drawerCount > 0 || template.type === 'drawer') {
+      const count = drawerCount > 0 ? drawerCount : 3; // Default to 3 drawers
       hardware.push({
-        id: `hardware-slides-${Date.now()}`,
+        id: `hardware-${Date.now()}-2`,
         hardwareId: 'SLD-18-FULL',
         hardwareName: 'Full Extension Slides 18"',
         type: 'slide',
-        quantity: slideCount,
+        quantity: count,
         unitCost: 12.50,
-        totalCost: slideCount * 12.50,
-        supplier: 'Slide Systems Inc.'
+        totalCost: count * 12.50,
+        supplier: 'Hardware Plus'
       });
     }
-
-    // Handles
-    const handleCount = config.customizations.doorCount + config.customizations.drawerCount;
+    
+    // Handles (1 per door/drawer)
+    const handleCount = doorCount + (drawerCount > 0 ? drawerCount : template.type === 'drawer' ? 3 : 0);
     if (handleCount > 0) {
       hardware.push({
-        id: `hardware-handles-${Date.now()}`,
+        id: `hardware-${Date.now()}-3`,
         hardwareId: 'HDL-BAR-128',
         hardwareName: 'Bar Handle 128mm Chrome',
         type: 'handle',
         quantity: handleCount,
         unitCost: 5.85,
         totalCost: handleCount * 5.85,
-        supplier: 'Handle World'
+        supplier: 'Hardware Plus'
       });
     }
-
-    // Shelf pins
-    if (config.customizations.shelfCount > 0) {
-      const pinCount = config.customizations.shelfCount * 4; // 4 pins per shelf
+    
+    // Shelf pins (4 per shelf)
+    if (shelfCount > 0) {
       hardware.push({
-        id: `hardware-pins-${Date.now()}`,
-        hardwareId: 'SHF-ADJ-5MM',
-        hardwareName: 'Adjustable Shelf Pins 5mm',
+        id: `hardware-${Date.now()}-4`,
+        hardwareId: 'PIN-SHELF-5',
+        hardwareName: 'Shelf Support Pins 5mm',
         type: 'shelf_pin',
-        quantity: pinCount,
+        quantity: shelfCount * 4,
         unitCost: 0.25,
-        totalCost: pinCount * 0.25,
-        supplier: 'Cabinet Accessories'
+        totalCost: shelfCount * 4 * 0.25,
+        supplier: 'Hardware Plus'
       });
     }
-
-    // Add cam locks for RTA (ready to assemble) cabinets
-    const camLockCount = 8; // Typical number for a standard cabinet
-    hardware.push({
-      id: `hardware-camlocks-${Date.now()}`,
-      hardwareId: 'CAM-LOCK-15',
-      hardwareName: 'Cam Lock 15mm',
-      type: 'cam_lock',
-      quantity: camLockCount,
-      unitCost: 0.45,
-      totalCost: camLockCount * 0.45,
-      supplier: 'Cabinet Accessories'
-    });
-
+    
     return hardware;
   }
-
-  // Calculate labor cost
-  static calculateLaborCost(config: CabinetConfiguration): number {
-    let totalLaborCost = 0;
-
-    // Assembly time
-    const assemblyRate = laborRates.find(r => r.id === 'assembly');
-    if (assemblyRate) {
-      totalLaborCost += assemblyRate.ratePerHour * assemblyRate.timePerUnit;
-    }
-
-    // Drilling and hardware installation
-    const drillingRate = laborRates.find(r => r.id === 'drilling');
-    if (drillingRate) {
-      totalLaborCost += drillingRate.ratePerHour * drillingRate.timePerUnit;
-    }
-
-    // Finishing
-    const finishingRate = laborRates.find(r => r.id === 'finishing');
-    if (finishingRate) {
-      totalLaborCost += finishingRate.ratePerHour * finishingRate.timePerUnit;
-    }
-
-    // Edge banding (estimate based on perimeter)
-    const edgeBandingRate = laborRates.find(r => r.id === 'edgebanding');
-    if (edgeBandingRate && config.cuttingList) {
-      const totalEdgeBanding = config.cuttingList.reduce((sum, item) => {
-        const perimeter = (item.length + item.width) * 2 / 1000; // Convert to meters
-        const edgeCount = Object.values(item.edgeBanding).filter(Boolean).length;
-        return sum + (perimeter * edgeCount * item.quantity);
-      }, 0);
+  
+  // Calculate labor cost based on cutting list and hardware
+  static calculateLaborCost(cuttingList: CuttingListItem[], hardware: CabinetHardware[]): number {
+    let totalLaborHours = 0;
+    
+    // Cutting labor (per part)
+    const totalCuts = cuttingList.reduce((sum, item) => sum + item.quantity, 0);
+    totalLaborHours += totalCuts * 0.1; // 6 minutes per cut
+    
+    // Edge banding labor (per edge)
+    let totalEdges = 0;
+    cuttingList.forEach(item => {
+      const edgeCount = Object.values(item.edgeBanding).filter(Boolean).length;
+      totalEdges += edgeCount * item.quantity;
+    });
+    totalLaborHours += totalEdges * 0.05; // 3 minutes per edge
+    
+    // Hardware installation labor
+    totalLaborHours += hardware.reduce((sum, item) => {
+      if (item.type === 'hinge' || item.type === 'handle') {
+        return sum + item.quantity * 0.1; // 6 minutes per hinge/handle
+      } else if (item.type === 'slide') {
+        return sum + item.quantity * 0.25; // 15 minutes per drawer slide pair
+      }
+      return sum + item.quantity * 0.05; // 3 minutes for other hardware
+    }, 0);
+    
+    // Assembly labor (fixed time per cabinet)
+    totalLaborHours += 1.5; // 1.5 hours for assembly
+    
+    // Finishing labor (fixed time per cabinet)
+    totalLaborHours += 0.5; // 30 minutes for finishing
+    
+    // Calculate cost at $45/hour
+    return totalLaborHours * 45;
+  }
+  
+  // Generate CSV for cutting list
+  static generateCuttingListCSV(config: CabinetConfiguration): string {
+    let csv = 'Part Name,Material,Thickness,Length,Width,Quantity,Edge Banding,Grain Direction\n';
+    
+    config.cuttingList.forEach(item => {
+      const edgeBanding = Object.entries(item.edgeBanding)
+        .filter(([_, value]) => value)
+        .map(([edge]) => edge)
+        .join('+') || 'None';
       
-      totalLaborCost += edgeBandingRate.ratePerHour * edgeBandingRate.timePerUnit * totalEdgeBanding;
-    }
-
-    return Math.round(totalLaborCost * 100) / 100; // Round to 2 decimal places
+      csv += `"${item.partName}","${item.materialType}",${item.thickness},${item.length},${item.width},${item.quantity},"${edgeBanding}","${item.grain}"\n`;
+    });
+    
+    return csv;
   }
-
-  // Calculate total cost for a cabinet configuration
-  static calculateTotalCost(config: CabinetConfiguration): number {
-    const materialCost = config.materials.reduce((sum, material) => sum + material.totalCost, 0);
-    const hardwareCost = config.hardware.reduce((sum, hardware) => sum + hardware.totalCost, 0);
-    const laborCost = config.laborCost;
-
-    return materialCost + hardwareCost + laborCost;
-  }
-
-  // Generate complete cabinet configuration
-  static generateConfiguration(
-    template: CabinetTemplate,
-    customDimensions: { width: number; height: number; depth: number },
-    customizations: any
-  ): CabinetConfiguration {
-    const config: CabinetConfiguration = {
-      id: `config-${Date.now()}`,
-      templateId: template.id,
-      name: `${template.name} - ${customDimensions.width}x${customDimensions.height}x${customDimensions.depth}`,
-      dimensions: customDimensions,
-      customizations: {
-        doorCount: customizations.doorCount || (template.type === 'drawer' ? 0 : template.name.includes('Double') ? 2 : 1),
-        drawerCount: customizations.drawerCount || (template.type === 'drawer' ? 3 : 0),
-        shelfCount: customizations.shelfCount || template.hardware.shelves,
-        doorStyle: customizations.doorStyle || 'Shaker',
-        finish: customizations.finish || 'White',
-        hardware: customizations.hardware || 'Chrome'
-      },
-      materials: [],
-      hardware: [],
-      cuttingList: [],
-      totalCost: 0,
-      laborCost: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  
+  // Generate BOM (Bill of Materials)
+  static generateBOM(config: CabinetConfiguration): any {
+    return {
+      name: `BOM - ${config.name}`,
+      materials: config.materials,
+      hardware: config.hardware,
+      totalCost: config.totalCost
     };
-
-    // Calculate cutting list
-    config.cuttingList = this.calculateCuttingList(template, config);
-
-    // Calculate materials
-    config.materials = this.calculateMaterials(config.cuttingList);
-
-    // Calculate hardware
-    config.hardware = this.calculateHardware(template, config);
-
-    // Calculate labor cost
-    config.laborCost = this.calculateLaborCost(config);
-
-    // Calculate total cost
-    config.totalCost = this.calculateTotalCost(config);
-
-    return config;
   }
-
+  
+  // Create a project from configurations
+  static createProject(
+    name: string,
+    description: string,
+    customerName: string,
+    customerContact: string,
+    configurations: CabinetConfiguration[],
+    notes?: string
+  ): CabinetProject {
+    // Calculate costs
+    const totalMaterialCost = configurations.reduce(
+      (sum, config) => sum + config.materials.reduce((s, m) => s + m.totalCost, 0),
+      0
+    );
+    
+    const totalHardwareCost = configurations.reduce(
+      (sum, config) => sum + config.hardware.reduce((s, h) => s + h.totalCost, 0),
+      0
+    );
+    
+    const totalLaborCost = configurations.reduce(
+      (sum, config) => sum + config.laborCost,
+      0
+    );
+    
+    const subtotal = totalMaterialCost + totalHardwareCost + totalLaborCost;
+    const tax = subtotal * 0.1; // 10% tax
+    const total = subtotal + tax;
+    
+    // Estimate days based on cabinet count (1 day per 3 cabinets, minimum 1 day)
+    const estimatedDays = Math.max(1, Math.ceil(configurations.length / 3));
+    
+    // Create project
+    const project: CabinetProject = {
+      id: `project-${Date.now()}`,
+      name,
+      description,
+      customerName,
+      customerContact,
+      configurations,
+      totalMaterialCost,
+      totalHardwareCost,
+      totalLaborCost,
+      subtotal,
+      tax,
+      total,
+      estimatedDays,
+      status: 'draft',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes
+    };
+    
+    return project;
+  }
+  
   // Copy a template with a new name
   static copyTemplate(template: CabinetTemplate, newName: string): CabinetTemplate {
     return {
@@ -974,507 +637,279 @@ export class CabinetCalculatorService {
       createdAt: new Date().toISOString()
     };
   }
-
-  // Improved nesting algorithm with support for different sheet sizes
-  static calculateNesting(cuttingList: CuttingListItem[], sheetSize?: { length: number, width: number }): NestingResult[] {
-    const results: NestingResult[] = [];
-    const materialGroups = new Map<string, CuttingListItem[]>();
-
-    // Group by material type and thickness
-    cuttingList.forEach(item => {
+  
+  // Optimize nesting of cutting list items
+  static async optimizeNesting(
+    cuttingList: CuttingListItem[],
+    sheetSize?: { length: number; width: number },
+    materialType?: string
+  ): Promise<NestingResult[]> {
+    // Default sheet size if not provided
+    const defaultSheetSize = { length: 2440, width: 1220 };
+    const size = sheetSize || defaultSheetSize;
+    
+    // Filter cutting list by material type if specified
+    const filteredList = materialType && materialType !== 'all'
+      ? cuttingList.filter(item => item.materialType === materialType)
+      : cuttingList;
+    
+    // Group items by material type and thickness
+    const groupedItems = new Map<string, CuttingListItem[]>();
+    
+    filteredList.forEach(item => {
       const key = `${item.materialType}-${item.thickness}`;
-      if (!materialGroups.has(key)) {
-        materialGroups.set(key, []);
+      if (!groupedItems.has(key)) {
+        groupedItems.set(key, []);
       }
-      materialGroups.get(key)!.push(item);
+      groupedItems.get(key)!.push(item);
     });
-
-    // Process each material group
-    materialGroups.forEach((items, key) => {
+    
+    // Generate nesting results for each group
+    const results: NestingResult[] = [];
+    
+    groupedItems.forEach((items, key) => {
       const [materialType, thickness] = key.split('-');
       
-      // Find the appropriate sheet size
-      let sheet;
-      if (sheetSize) {
-        // Use custom sheet size if provided
-        sheet = {
-          length: sheetSize.length,
-          width: sheetSize.width,
-          type: materialType,
-          thickness: parseInt(thickness)
-        };
-      } else {
-        // Otherwise use standard sheet from materialSheets
-        sheet = materialSheets.find(s => 
-          s.type === materialType && s.thickness === parseInt(thickness)
-        );
-      }
-
-      if (sheet) {
-        // Create a copy of items for manipulation
-        const itemsToPlace = [...items].flatMap(item => 
-          Array(item.quantity).fill(0).map(() => ({
-            id: `part-${item.id}-${Math.random().toString(36).substring(2, 9)}`,
+      // Mock nesting algorithm (in a real app, this would use a proper nesting algorithm)
+      const parts: NestingPart[] = [];
+      let x = 0;
+      let y = 0;
+      let rowHeight = 0;
+      let usedArea = 0;
+      
+      items.forEach(item => {
+        // For each quantity of the item
+        for (let q = 0; q < item.quantity; q++) {
+          // Determine if the part fits better rotated
+          const canRotate = item.grain === 'none';
+          const rotated = canRotate && item.width > item.length;
+          const partLength = rotated ? item.width : item.length;
+          const partWidth = rotated ? item.length : item.width;
+          
+          // Check if we need to move to a new row
+          if (x + partLength > size.length) {
+            x = 0;
+            y += rowHeight;
+            rowHeight = 0;
+          }
+          
+          // Check if we need to move to a new sheet (not implemented in this mock)
+          if (y + partWidth > size.width) {
+            // In a real implementation, we would start a new sheet
+            // For this mock, we'll just place it anyway
+          }
+          
+          // Add the part to the nesting result
+          parts.push({
+            id: `nested-${Date.now()}-${parts.length}`,
             partId: item.id,
-            length: item.length,
-            width: item.width,
-            rotation: 0,
-            x: 0,
-            y: 0,
-            placed: false,
-            grain: item.grain
-          }))
-        );
-
-        // Sort items by area (largest first)
-        itemsToPlace.sort((a, b) => (b.length * b.width) - (a.length * a.width));
-
-        // Calculate how many sheets we need
-        const totalArea = itemsToPlace.reduce((sum, item) => sum + (item.length * item.width), 0);
-        const sheetArea = sheet.length * sheet.width;
-        const estimatedSheets = Math.ceil(totalArea / (sheetArea * 0.85)); // Assuming 85% efficiency
-        
-        // Create result object
-        const result: NestingResult = {
-          id: `nesting-${key}-${Date.now()}`,
-          sheetSize: {
-            length: sheet.length,
-            width: sheet.width
-          },
-          materialType,
-          thickness: parseInt(thickness),
-          parts: [],
-          efficiency: 0,
-          wasteArea: 0,
-          totalArea: sheetArea * estimatedSheets,
-          sheetCount: estimatedSheets
-        };
-
-        // Simple bin packing algorithm
-        // This is a very basic implementation - in a real app, you'd use a more sophisticated algorithm
-        let currentX = 0;
-        let currentY = 0;
-        let maxHeightInRow = 0;
-        const padding = 5; // 5mm spacing between parts
-        
-        itemsToPlace.forEach(item => {
-          // Check if item fits in current row
-          if (currentX + item.length > sheet.length) {
-            // Move to next row
-            currentX = 0;
-            currentY += maxHeightInRow + padding;
-            maxHeightInRow = 0;
-          }
-          
-          // Check if item fits in current sheet
-          if (currentY + item.width > sheet.width) {
-            // This would go to next sheet in a real implementation
-            // For now, we'll just place it anyway for visualization
-          }
-          
-          // Place the item
-          item.x = currentX;
-          item.y = currentY;
-          item.placed = true;
-          result.parts.push({
-            id: item.id,
-            partId: item.partId,
-            x: item.x,
-            y: item.y,
-            rotation: item.rotation,
-            length: item.length,
-            width: item.width,
+            x,
+            y,
+            rotation: rotated ? 90 : 0,
+            length: partLength,
+            width: partWidth,
             grain: item.grain
           });
           
-          // Update position for next item
-          currentX += item.length + padding;
-          maxHeightInRow = Math.max(maxHeightInRow, item.width);
-        });
-        
-        // Calculate efficiency
-        const usedArea = itemsToPlace.reduce((sum, item) => sum + (item.length * item.width), 0);
-        result.efficiency = (usedArea / result.totalArea) * 100;
-        result.wasteArea = result.totalArea - usedArea;
-        
-        results.push(result);
-      }
-    });
-
-    return results;
-  }
-
-  // Create a new project with multiple cabinet configurations
-  static createProject(
-    name: string,
-    description: string,
-    customerName: string,
-    customerContact: string,
-    configurations: CabinetConfiguration[],
-    notes?: string
-  ): CabinetProject {
-    // Calculate costs
-    const totalMaterialCost = configurations.reduce((sum, config) => {
-      return sum + config.materials.reduce((materialSum, material) => materialSum + material.totalCost, 0);
-    }, 0);
-
-    const totalHardwareCost = configurations.reduce((sum, config) => {
-      return sum + config.hardware.reduce((hardwareSum, hardware) => hardwareSum + hardware.totalCost, 0);
-    }, 0);
-
-    const totalLaborCost = configurations.reduce((sum, config) => sum + config.laborCost, 0);
-    
-    const subtotal = totalMaterialCost + totalHardwareCost + totalLaborCost;
-    const tax = subtotal * 0.1; // 10% tax
-    const total = subtotal + tax;
-
-    // Estimate production days (1 day per 3 cabinets, minimum 1 day)
-    const estimatedDays = Math.max(1, Math.ceil(configurations.length / 3));
-
-    return {
-      id: `project-${Date.now()}`,
-      name,
-      description,
-      customerName,
-      customerContact,
-      configurations,
-      totalMaterialCost,
-      totalLaborCost,
-      totalHardwareCost,
-      subtotal,
-      tax,
-      total,
-      estimatedDays,
-      status: 'draft',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      notes
-    };
-  }
-
-  // Generate BOM from cabinet configuration
-  static generateBOM(config: CabinetConfiguration) {
-    // Combine materials and hardware into a single BOM
-    const bomItems = [
-      ...config.materials.map(material => ({
-        id: material.id,
-        itemId: material.materialId,
-        itemName: material.materialName,
-        quantity: material.quantity,
-        unitCost: material.unitCost,
-        totalCost: material.totalCost,
-        unitMeasurement: 'Sheets',
-        isOptional: false
-      })),
-      ...config.hardware.map(hardware => ({
-        id: hardware.id,
-        itemId: hardware.hardwareId,
-        itemName: hardware.hardwareName,
-        quantity: hardware.quantity,
-        unitCost: hardware.unitCost,
-        totalCost: hardware.totalCost,
-        unitMeasurement: 'Pieces',
-        isOptional: false
-      }))
-    ];
-
-    return {
-      id: `bom-${config.id}`,
-      bomNumber: `BOM-${Date.now().toString().slice(-6)}`,
-      name: `BOM for ${config.name}`,
-      version: '1.0',
-      linkedType: 'cabinet',
-      linkedId: config.id,
-      linkedNumber: config.id,
-      status: 'draft',
-      description: `Bill of Materials for ${config.name}`,
-      category: 'Cabinet',
-      items: bomItems,
-      totalCost: config.totalCost,
-      estimatedTime: config.laborCost / 45, // Assuming $45/hour labor rate
-      createdBy: 'Cabinet Calculator',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-  }
-
-  // Generate cutting list in CSV format
-  static generateCuttingListCSV(config: CabinetConfiguration): string {
-    let csv = 'Part Name,Material,Thickness,Length,Width,Quantity,Edge Banding,Grain,Cabinet\n';
-    
-    config.cuttingList.forEach(item => {
-      const edgeBanding = Object.entries(item.edgeBanding)
-        .filter(([_, value]) => value)
-        .map(([edge]) => edge)
-        .join('+');
-      
-      csv += `"${item.partName}","${item.materialType}",${item.thickness},${item.length},${item.width},${item.quantity},"${edgeBanding}","${item.grain}","${config.name}"\n`;
-    });
-    
-    return csv;
-  }
-
-  // Integrate with backend API for nesting optimization
-  static async optimizeNesting(cuttingList: CuttingListItem[], sheetSize?: { length: number, width: number }, materialType?: string): Promise<NestingResult[]> {
-    try {
-      // Prepare request data
-      const requestData: any = { cuttingList };
-      
-      // Add sheet size if provided
-      if (sheetSize) {
-        requestData.sheetSize = sheetSize;
-      }
-      
-      // Add material filter if provided
-      if (materialType && materialType !== 'all') {
-        requestData.materialType = materialType;
-      }
-      
-      console.log('Sending nesting optimization request with:', {
-        sheetSize,
-        materialType,
-        cuttingListCount: cuttingList.length
+          // Update position and used area
+          x += partLength;
+          rowHeight = Math.max(rowHeight, partWidth);
+          usedArea += partLength * partWidth;
+        }
       });
       
-      // Call the backend API for nesting optimization
-      const response = await axios.post(`${API_BASE_URL}/cabinet-calculator/nesting`, 
-        requestData,
-        { headers: getAuthHeader() }
-      );
+      // Calculate efficiency
+      const totalArea = size.length * size.width;
+      const efficiency = (usedArea / totalArea) * 100;
       
-      // If we get a valid response, return it
-      if (response.data && Array.isArray(response.data)) {
-        return response.data;
-      }
-      
-      // Otherwise fall back to our local implementation
-      return this.calculateNesting(cuttingList, sheetSize);
-    } catch (error) {
-      console.error('Nesting optimization error:', error);
-      
-      // Parse sheet size from string if needed
-      let parsedSheetSize = sheetSize;
-      if (!parsedSheetSize && typeof sheetSize === 'string') {
-        const [length, width] = (sheetSize as string).split('x').map(Number);
-        if (!isNaN(length) && !isNaN(width)) {
-          parsedSheetSize = { length, width };
-        }
-      }
-      
-      // Fall back to local implementation
-      return this.calculateNesting(cuttingList, parsedSheetSize);
-    }
+      // Add to results
+      results.push({
+        id: `nesting-${Date.now()}-${results.length}`,
+        sheetSize: size,
+        materialType,
+        thickness: parseInt(thickness),
+        parts,
+        efficiency,
+        wasteArea: totalArea - usedArea,
+        totalArea,
+        sheetCount: 1
+      });
+    });
+    
+    return results;
   }
 }
 
-// Cabinet storage service using database API
+// Cabinet Storage Service for saving/loading configurations and templates
 export class CabinetStorageService {
+  // Save a cabinet configuration
+  static async saveConfiguration(config: CabinetConfiguration): Promise<void> {
+    try {
+      // Get existing configurations
+      const configs = await this.getConfigurations();
+      
+      // Check if configuration already exists
+      const index = configs.findIndex(c => c.id === config.id);
+      
+      if (index !== -1) {
+        // Update existing configuration
+        configs[index] = {
+          ...config,
+          updatedAt: new Date().toISOString()
+        };
+      } else {
+        // Add new configuration
+        configs.push(config);
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('cabinetConfigurations', JSON.stringify(configs));
+    } catch (error) {
+      console.error('Error saving configuration:', error);
+      throw error;
+    }
+  }
+  
+  // Get all saved configurations
+  static async getConfigurations(): Promise<CabinetConfiguration[]> {
+    try {
+      const configsJson = localStorage.getItem('cabinetConfigurations');
+      return configsJson ? JSON.parse(configsJson) : [];
+    } catch (error) {
+      console.error('Error getting configurations:', error);
+      return [];
+    }
+  }
+  
+  // Delete a configuration
+  static async deleteConfiguration(configId: string): Promise<void> {
+    try {
+      // Get existing configurations
+      const configs = await this.getConfigurations();
+      
+      // Filter out the configuration to delete
+      const updatedConfigs = configs.filter(c => c.id !== configId);
+      
+      // Save to localStorage
+      localStorage.setItem('cabinetConfigurations', JSON.stringify(updatedConfigs));
+    } catch (error) {
+      console.error('Error deleting configuration:', error);
+      throw error;
+    }
+  }
+  
+  // Save a cabinet template
+  static async saveTemplate(template: CabinetTemplate): Promise<void> {
+    try {
+      // Get existing templates
+      const templates = await this.getCustomTemplates();
+      
+      // Check if template already exists
+      const index = templates.findIndex(t => t.id === template.id);
+      
+      if (index !== -1) {
+        // Update existing template
+        templates[index] = {
+          ...template,
+          updatedAt: new Date().toISOString()
+        };
+      } else {
+        // Add new template
+        templates.push({
+          ...template,
+          isCustom: true
+        });
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('cabinetTemplates', JSON.stringify(templates));
+    } catch (error) {
+      console.error('Error saving template:', error);
+      throw error;
+    }
+  }
+  
   // Get all custom templates
   static async getCustomTemplates(): Promise<CabinetTemplate[]> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/cabinet-calculator/templates`, {
-        headers: getAuthHeader()
-      });
-      return response.data.filter((template: CabinetTemplate) => template.isCustom);
+      const templatesJson = localStorage.getItem('cabinetTemplates');
+      return templatesJson ? JSON.parse(templatesJson) : [];
     } catch (error) {
-      console.error('Failed to fetch custom templates:', error);
-      // Fallback to localStorage if API fails
-      const templates = localStorage.getItem('customCabinetTemplates');
-      return templates ? JSON.parse(templates) : [];
+      console.error('Error getting templates:', error);
+      return [];
     }
   }
-
-  // Save template to database
-  static async saveTemplate(template: CabinetTemplate): Promise<void> {
-    try {
-      if (template.id && !template.id.startsWith('template-')) {
-        // Update existing template
-        await axios.put(`${API_BASE_URL}/cabinet-calculator/templates/${template.id}`, 
-          template,
-          { headers: getAuthHeader() }
-        );
-      } else {
-        // Create new template
-        await axios.post(`${API_BASE_URL}/cabinet-calculator/templates`, 
-          template,
-          { headers: getAuthHeader() }
-        );
-      }
-    } catch (error) {
-      console.error('Failed to save template:', error);
-      // Fallback to localStorage if API fails
-      const templates = localStorage.getItem('customCabinetTemplates');
-      const existingTemplates = templates ? JSON.parse(templates) : [];
-      const existingIndex = existingTemplates.findIndex((t: CabinetTemplate) => t.id === template.id);
-      
-      if (existingIndex >= 0) {
-        existingTemplates[existingIndex] = template;
-      } else {
-        existingTemplates.push(template);
-      }
-      
-      localStorage.setItem('customCabinetTemplates', JSON.stringify(existingTemplates));
-    }
-  }
-
-  // Delete template from database
+  
+  // Delete a template
   static async deleteTemplate(templateId: string): Promise<void> {
     try {
-      await axios.delete(`${API_BASE_URL}/cabinet-calculator/templates/${templateId}`, {
-        headers: getAuthHeader()
-      });
-    } catch (error) {
-      console.error('Failed to delete template:', error);
-      // Fallback to localStorage if API fails
-      const templates = localStorage.getItem('customCabinetTemplates');
-      if (templates) {
-        const existingTemplates = JSON.parse(templates);
-        const updatedTemplates = existingTemplates.filter((t: CabinetTemplate) => t.id !== templateId);
-        localStorage.setItem('customCabinetTemplates', JSON.stringify(updatedTemplates));
-      }
-    }
-  }
-
-  // Get all configurations
-  static async getConfigurations(): Promise<CabinetConfiguration[]> {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/cabinet-calculator/configurations`, {
-        headers: getAuthHeader()
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch configurations:', error);
-      // Fallback to localStorage if API fails
-      const configs = localStorage.getItem('cabinetConfigurations');
-      return configs ? JSON.parse(configs) : [];
-    }
-  }
-
-  // Save configuration to database
-  static async saveConfiguration(config: CabinetConfiguration): Promise<void> {
-    try {
-      if (config.id && config.id.startsWith('config-')) {
-        // Update existing configuration
-        await axios.put(`${API_BASE_URL}/cabinet-calculator/configurations/${config.id}`, 
-          config,
-          { headers: getAuthHeader() }
-        );
-      } else {
-        // Create new configuration
-        await axios.post(`${API_BASE_URL}/cabinet-calculator/configurations`, 
-          config,
-          { headers: getAuthHeader() }
-        );
-      }
-    } catch (error) {
-      console.error('Failed to save configuration:', error);
-      // Fallback to localStorage if API fails
-      const configs = localStorage.getItem('cabinetConfigurations');
-      const existingConfigs = configs ? JSON.parse(configs) : [];
-      const existingIndex = existingConfigs.findIndex((c: CabinetConfiguration) => c.id === config.id);
+      // Get existing templates
+      const templates = await this.getCustomTemplates();
       
-      if (existingIndex >= 0) {
-        existingConfigs[existingIndex] = config;
-      } else {
-        existingConfigs.push(config);
-      }
+      // Filter out the template to delete
+      const updatedTemplates = templates.filter(t => t.id !== templateId);
       
-      localStorage.setItem('cabinetConfigurations', JSON.stringify(existingConfigs));
-    }
-  }
-
-  // Delete configuration from database
-  static async deleteConfiguration(configId: string): Promise<void> {
-    try {
-      await axios.delete(`${API_BASE_URL}/cabinet-calculator/configurations/${configId}`, {
-        headers: getAuthHeader()
-      });
+      // Save to localStorage
+      localStorage.setItem('cabinetTemplates', JSON.stringify(updatedTemplates));
     } catch (error) {
-      console.error('Failed to delete configuration:', error);
-      // Fallback to localStorage if API fails
-      const configs = localStorage.getItem('cabinetConfigurations');
-      if (configs) {
-        const existingConfigs = JSON.parse(configs);
-        const updatedConfigs = existingConfigs.filter((c: CabinetConfiguration) => c.id !== configId);
-        localStorage.setItem('cabinetConfigurations', JSON.stringify(updatedConfigs));
-      }
+      console.error('Error deleting template:', error);
+      throw error;
     }
   }
-
-  // Get all projects
-  static async getProjects(): Promise<CabinetProject[]> {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/cabinet-calculator/projects`, {
-        headers: getAuthHeader()
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch projects:', error);
-      // Fallback to localStorage if API fails
-      const projects = localStorage.getItem('cabinetProjects');
-      return projects ? JSON.parse(projects) : [];
-    }
-  }
-
-  // Save project to database
+  
+  // Save a cabinet project
   static async saveProject(project: CabinetProject): Promise<void> {
     try {
-      if (project.id && project.id.startsWith('project-')) {
+      // Get existing projects
+      const projects = await this.getProjects();
+      
+      // Check if project already exists
+      const index = projects.findIndex(p => p.id === project.id);
+      
+      if (index !== -1) {
         // Update existing project
-        await axios.put(`${API_BASE_URL}/cabinet-calculator/projects/${project.id}`, 
-          project,
-          { headers: getAuthHeader() }
-        );
+        projects[index] = {
+          ...project,
+          updatedAt: new Date().toISOString()
+        };
       } else {
-        // Create new project
-        await axios.post(`${API_BASE_URL}/cabinet-calculator/projects`, 
-          project,
-          { headers: getAuthHeader() }
-        );
+        // Add new project
+        projects.push(project);
       }
+      
+      // Save to localStorage
+      localStorage.setItem('cabinetProjects', JSON.stringify(projects));
     } catch (error) {
-      console.error('Failed to save project:', error);
-      // Fallback to localStorage if API fails
-      const projects = localStorage.getItem('cabinetProjects');
-      const existingProjects = projects ? JSON.parse(projects) : [];
-      const existingIndex = existingProjects.findIndex((p: CabinetProject) => p.id === project.id);
-      
-      if (existingIndex >= 0) {
-        existingProjects[existingIndex] = project;
-      } else {
-        existingProjects.push(project);
-      }
-      
-      localStorage.setItem('cabinetProjects', JSON.stringify(existingProjects));
+      console.error('Error saving project:', error);
+      throw error;
     }
   }
-
-  // Delete project from database
+  
+  // Get all saved projects
+  static async getProjects(): Promise<CabinetProject[]> {
+    try {
+      const projectsJson = localStorage.getItem('cabinetProjects');
+      return projectsJson ? JSON.parse(projectsJson) : [];
+    } catch (error) {
+      console.error('Error getting projects:', error);
+      return [];
+    }
+  }
+  
+  // Delete a project
   static async deleteProject(projectId: string): Promise<void> {
     try {
-      await axios.delete(`${API_BASE_URL}/cabinet-calculator/projects/${projectId}`, {
-        headers: getAuthHeader()
-      });
-    } catch (error) {
-      console.error('Failed to delete project:', error);
-      // Fallback to localStorage if API fails
-      const projects = localStorage.getItem('cabinetProjects');
-      if (projects) {
-        const existingProjects = JSON.parse(projects);
-        const updatedProjects = existingProjects.filter((p: CabinetProject) => p.id !== projectId);
-        localStorage.setItem('cabinetProjects', JSON.stringify(updatedProjects));
-      }
-    }
-  }
-
-  // Get project by ID
-  static async getProjectById(projectId: string): Promise<CabinetProject | null> {
-    try {
+      // Get existing projects
       const projects = await this.getProjects();
-      return projects.find(p => p.id === projectId) || null;
+      
+      // Filter out the project to delete
+      const updatedProjects = projects.filter(p => p.id !== projectId);
+      
+      // Save to localStorage
+      localStorage.setItem('cabinetProjects', JSON.stringify(updatedProjects));
     } catch (error) {
-      console.error('Failed to get project by ID:', error);
-      return null;
+      console.error('Error deleting project:', error);
+      throw error;
     }
   }
 }
