@@ -36,7 +36,8 @@ const isServerUnavailable = (error: any) => {
     (error.code === 'ECONNREFUSED' || 
      error.code === 'ERR_NETWORK' || 
      error.message.includes('Network Error') ||
-     (error.response && (error.response.status >= 500 || error.response.status === 404)));
+     error.response?.status === 404 ||
+     (error.response && error.response.status >= 500));
 };
 
 // Add response interceptor for better error handling
@@ -1351,6 +1352,7 @@ export const bomService = {
       
       // Return mock data if server is unavailable
       if (isServerUnavailable(error)) {
+        console.log('Using mock BOM data - server unavailable');
         return [
           {
             id: '1',
@@ -1420,6 +1422,135 @@ export const bomService = {
             estimatedTime: 3,
             createdBy: 'Sarah Johnson',
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            id: '3',
+            bomNumber: 'BOM-2024-003',
+            name: 'Prototype Kitchen Island BOM',
+            version: '1.0',
+            linkedType: 'prototype',
+            linkedId: '1',
+            linkedNumber: 'PROTO-2024-001',
+            status: 'draft',
+            description: 'BOM for modular kitchen island prototype',
+            category: 'Kitchen Islands',
+            items: [
+              {
+                id: '4',
+                itemId: 'PLY-18-4X8',
+                itemName: 'Plywood 18mm 4x8ft',
+                quantity: 3,
+                unitCost: 52.75,
+                totalCost: 158.25,
+                unitMeasurement: 'Sheets',
+                isOptional: false
+              },
+              {
+                id: '5',
+                itemId: 'HNG-CONC-35',
+                itemName: 'Concealed Hinges 35mm',
+                quantity: 6,
+                unitCost: 3.25,
+                totalCost: 19.50,
+                unitMeasurement: 'Pieces',
+                isOptional: false
+              }
+            ],
+            totalCost: 177.75,
+            estimatedTime: 8,
+            createdBy: 'Design Team',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            id: '4',
+            bomNumber: 'BOM-2024-004',
+            name: 'Smart Storage Cabinet BOM v1',
+            version: '1.0',
+            linkedType: 'prototype',
+            linkedId: '2',
+            linkedNumber: 'PROTO-2024-002',
+            status: 'approved',
+            description: 'BOM for smart storage cabinet prototype',
+            category: 'Storage Solutions',
+            items: [
+              {
+                id: '6',
+                itemId: 'MDF-18-4X8',
+                itemName: 'MDF 18mm 4x8ft',
+                quantity: 2,
+                unitCost: 38.90,
+                totalCost: 77.80,
+                unitMeasurement: 'Sheets',
+                isOptional: false
+              },
+              {
+                id: '7',
+                itemId: 'SLD-18-FULL',
+                itemName: 'Full Extension Slides 18"',
+                quantity: 4,
+                unitCost: 12.50,
+                totalCost: 50.00,
+                unitMeasurement: 'Pieces',
+                isOptional: false
+              }
+            ],
+            totalCost: 127.80,
+            estimatedTime: 6,
+            createdBy: 'Innovation Lab',
+            approvedBy: 'Manager',
+            approvalDate: new Date().toISOString(),
+            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            id: '5',
+            bomNumber: 'BOM-2024-005',
+            name: 'Smart Storage Cabinet BOM v2',
+            version: '2.0',
+            linkedType: 'prototype',
+            linkedId: '2',
+            linkedNumber: 'PROTO-2024-002',
+            status: 'draft',
+            description: 'Updated BOM for smart storage cabinet prototype with improvements',
+            category: 'Storage Solutions',
+            items: [
+              {
+                id: '8',
+                itemId: 'MDF-18-4X8',
+                itemName: 'MDF 18mm 4x8ft',
+                quantity: 2.5,
+                unitCost: 38.90,
+                totalCost: 97.25,
+                unitMeasurement: 'Sheets',
+                isOptional: false
+              },
+              {
+                id: '9',
+                itemId: 'SLD-18-FULL',
+                itemName: 'Full Extension Slides 18"',
+                quantity: 6,
+                unitCost: 12.50,
+                totalCost: 75.00,
+                unitMeasurement: 'Pieces',
+                isOptional: false
+              },
+              {
+                id: '10',
+                itemId: 'HNG-CONC-35',
+                itemName: 'Concealed Hinges 35mm',
+                quantity: 4,
+                unitCost: 3.25,
+                totalCost: 13.00,
+                unitMeasurement: 'Pieces',
+                isOptional: false
+              }
+            ],
+            totalCost: 185.25,
+            estimatedTime: 7,
+            createdBy: 'Innovation Lab',
+            createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
             updatedAt: new Date().toISOString()
           }
         ];
@@ -1498,7 +1629,8 @@ export const bomService = {
       
       // Return mock data if server is unavailable
       if (isServerUnavailable(error)) {
-        // Return filtered mock data
+        console.log('Using mock linked BOM data - server unavailable');
+        // Return filtered mock data based on linkedType and linkedId
         const allBoms = await this.getAll();
         return allBoms.filter(bom => bom.linkedType === linkedType && bom.linkedId === linkedId);
       }
@@ -1518,6 +1650,7 @@ export const prototypeService = {
       
       // Return mock data if server is unavailable
       if (isServerUnavailable(error)) {
+        console.log('Using mock prototype data - server unavailable');
         return [
           {
             id: '1',
@@ -1545,6 +1678,19 @@ export const prototypeService = {
             bomCount: 2,
             createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
             updatedAt: new Date().toISOString()
+          },
+          {
+            id: '3',
+            prototypeNumber: 'PROTO-2024-003',
+            name: 'Eco-Friendly Cabinet Series',
+            description: 'Sustainable cabinet design using recycled materials',
+            status: 'concept',
+            category: 'Kitchen Cabinets',
+            designer: 'Green Design Team',
+            createdDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+            bomCount: 0,
+            createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+            updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
           }
         ];
       }
