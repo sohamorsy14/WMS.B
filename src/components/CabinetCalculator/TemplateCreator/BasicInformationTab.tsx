@@ -178,7 +178,7 @@ const BasicInformationTab: React.FC<BasicInformationTabProps> = ({ template, set
                 <img 
                   src={previewImage} 
                   alt="Cabinet preview" 
-                  className="w-full h-full object-cover rounded-lg border border-gray-300"
+                  className="w-full h-full object-contain rounded-lg border border-gray-300"
                 />
                 <button
                   type="button"
