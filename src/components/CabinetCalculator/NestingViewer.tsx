@@ -180,12 +180,14 @@ const NestingViewer: React.FC<NestingViewerProps> = ({
               {/* Visual Nesting Layout */}
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
                 {/* Container with proper aspect ratio */}
-                <div className="relative border-2 border-gray-300 bg-white w-full" 
-                     style={{ 
-                       height: '400px',
-                       maxWidth: '800px',
-                       margin: '0 auto'
-                     }}>
+                <div 
+                  className="relative border-2 border-gray-300 bg-white w-full" 
+                  style={{ 
+                    paddingTop: `${(result.sheetSize.width / result.sheetSize.length) * 100}%`,
+                    maxWidth: '800px',
+                    margin: '0 auto'
+                  }}
+                >
                   {/* Sheet outline */}
                   <div className="absolute inset-0 border border-gray-400">
                     {/* Parts layout */}
