@@ -670,76 +670,93 @@ export class CabinetCalculatorService {
     groupedItems.forEach((items, key) => {
       const [materialType, thickness] = key.split('-');
       
-      // Mock nesting algorithm (in a real app, this would use a proper nesting algorithm)
-      const parts: any[] = [];
-      let x = 0;
-      let y = 0;
-      let rowHeight = 0;
-      let usedArea = 0;
+      // Improved nesting algorithm
+      const nestingResult = this.performNesting(items, size, materialType, parseInt(thickness));
+      results.push(nestingResult);
+    });
+    
+    return results;
+  }
+  
+  // Perform nesting algorithm for a group of items
+  private static performNesting(
+    items: CuttingListItem[],
+    sheetSize: { length: number; width: number },
+    materialType: string,
+    thickness: number
+  ): NestingResult {
+    // Sort items by grain direction and size
+    const sortedItems = [...items].sort((a, b) => {
+      // First sort by grain direction (length grain first)
+      if (a.grain === 'length' && b.grain !== 'length') return -1;
+      if (a.grain !== 'length' && b.grain === 'length') return 1;
       
-      // Sort items by grain direction and size
-      // Items with grain direction should be placed with their length along the grain direction of the sheet
-      const sortedItems = [...items].sort((a, b) => {
-        // First sort by grain direction (length grain first)
-        if (a.grain === 'length' && b.grain !== 'length') return -1;
-        if (a.grain !== 'length' && b.grain === 'length') return 1;
+      // Then sort by size (larger first)
+      return (b.length * b.width) - (a.length * a.width);
+    });
+    
+    const parts: any[] = [];
+    let x = 0;
+    let y = 0;
+    let rowHeight = 0;
+    let usedArea = 0;
+    let sheetCount = 1;
+    
+    // Process each item
+    sortedItems.forEach(item => {
+      // For each quantity of the item
+      for (let q = 0; q < item.quantity; q++) {
+        // Determine orientation based on grain direction
+        let rotated = false;
+        let partLength = item.length;
+        let partWidth = item.width;
         
-        // Then sort by size (larger first)
-        return (b.length * b.width) - (a.length * a.width);
-      });
-      
-      sortedItems.forEach(item => {
-        // For each quantity of the item
-        for (let q = 0; q < item.quantity; q++) {
-          // Determine if the part needs to be rotated based on grain direction
-          // For 'length' grain, the length of the part should align with the length of the sheet (2440mm)
-          // For 'width' grain, the length of the part should align with the width of the sheet (1220mm)
-          // For 'none' grain, we can rotate freely for best fit
-          
-          let rotated = false;
-          let partLength = item.length;
-          let partWidth = item.width;
-          
-          if (item.grain === 'length') {
-            // For length grain, try to align with sheet length (2440mm)
-            // Only rotate if it fits better and still aligns with grain
-            if (item.width > item.length && item.width <= size.length) {
-              rotated = true;
-              partLength = item.width;
-              partWidth = item.length;
-            }
-          } else if (item.grain === 'width') {
-            // For width grain, try to align with sheet width (1220mm)
-            // Only rotate if it fits better and still aligns with grain
-            if (item.length > item.width && item.length <= size.width) {
-              rotated = true;
-              partLength = item.width;
-              partWidth = item.length;
-            }
-          } else {
-            // For no grain, rotate for best fit
-            if (item.width > item.length && 
-                (x + item.width <= size.length || y + item.length <= size.width)) {
-              rotated = true;
-              partLength = item.width;
-              partWidth = item.length;
-            }
+        // Check if part needs to be rotated based on grain direction
+        if (item.grain === 'length') {
+          // For length grain, the part's length should align with sheet length (2440mm)
+          // Only rotate if it makes sense and respects grain direction
+          if (item.width > item.length && item.width <= sheetSize.length && item.length <= sheetSize.width) {
+            rotated = true;
+            partLength = item.width;
+            partWidth = item.length;
           }
-          
-          // Check if we need to move to a new row
-          if (x + partLength > size.length) {
-            x = 0;
-            y += rowHeight;
-            rowHeight = 0;
+        } else if (item.grain === 'width') {
+          // For width grain, the part's width should align with sheet length (2440mm)
+          // Only rotate if it makes sense and respects grain direction
+          if (item.length > item.width && item.length <= sheetSize.width && item.width <= sheetSize.length) {
+            rotated = true;
+            partLength = item.width;
+            partWidth = item.length;
           }
-          
-          // Check if we need to move to a new sheet (not implemented in this mock)
-          if (y + partWidth > size.width) {
-            // In a real implementation, we would start a new sheet
-            // For this mock, we'll just place it anyway
-            console.warn('Part exceeds sheet dimensions, would start new sheet in real implementation');
+        } else {
+          // For no grain, rotate for best fit
+          if (item.width > item.length && 
+              (x + item.width <= sheetSize.length && y + item.length <= sheetSize.width)) {
+            rotated = true;
+            partLength = item.width;
+            partWidth = item.length;
           }
-          
+        }
+        
+        // Check if we need to move to a new row
+        if (x + partLength > sheetSize.length) {
+          x = 0;
+          y += rowHeight;
+          rowHeight = 0;
+        }
+        
+        // Check if we need to move to a new sheet
+        if (y + partWidth > sheetSize.width) {
+          // Start a new sheet
+          sheetCount++;
+          x = 0;
+          y = 0;
+          rowHeight = 0;
+          console.log(`Starting new sheet for part ${item.partName}`);
+        }
+        
+        // Ensure part fits within sheet boundaries
+        if (x + partLength <= sheetSize.length && y + partWidth <= sheetSize.width) {
           // Add the part to the nesting result
           parts.push({
             id: `nested-${Date.now()}-${parts.length}`,
@@ -756,28 +773,28 @@ export class CabinetCalculatorService {
           x += partLength;
           rowHeight = Math.max(rowHeight, partWidth);
           usedArea += partLength * partWidth;
+        } else {
+          console.warn(`Part ${item.partName} (${partLength}x${partWidth}) doesn't fit on sheet, skipping`);
         }
-      });
-      
-      // Calculate efficiency
-      const totalArea = size.length * size.width;
-      const efficiency = (usedArea / totalArea) * 100;
-      
-      // Add to results
-      results.push({
-        id: `nesting-${Date.now()}-${results.length}`,
-        sheetSize: size,
-        materialType,
-        thickness: parseInt(thickness),
-        parts,
-        efficiency,
-        wasteArea: totalArea - usedArea,
-        totalArea,
-        sheetCount: 1
-      });
+      }
     });
     
-    return results;
+    // Calculate efficiency
+    const totalArea = sheetSize.length * sheetSize.width * sheetCount;
+    const efficiency = (usedArea / totalArea) * 100;
+    
+    // Create nesting result
+    return {
+      id: `nesting-${Date.now()}`,
+      sheetSize,
+      materialType,
+      thickness,
+      parts,
+      efficiency,
+      wasteArea: totalArea - usedArea,
+      totalArea,
+      sheetCount
+    };
   }
 }
 
