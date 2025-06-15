@@ -610,7 +610,7 @@ function seedDefaultUsers() {
     }
   ];
 
-  const stmt = rawDb.prepare(`
+  const stmt = db.prepare(`
     INSERT INTO users (id, username, email, password, role, permissions, createdAt)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
@@ -684,7 +684,7 @@ function seedDefaultInventoryItems() {
     }
   ];
 
-  const stmt = rawDb.prepare(`
+  const stmt = db.prepare(`
     INSERT INTO inventory_items (
       id, itemId, name, category, subCategory, quantity, unitCost, totalCost,
       location, supplier, unitMeasurement, minStockLevel, maxStockLevel, lastUpdated
@@ -750,7 +750,7 @@ function seedDefaultSuppliers() {
     }
   ];
 
-  const stmt = rawDb.prepare(`
+  const stmt = db.prepare(`
     INSERT INTO suppliers (id, name, contactPerson, phone, email, address, isActive, createdAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
@@ -810,7 +810,7 @@ function seedDefaultDepartments() {
     }
   ];
 
-  const stmt = rawDb.prepare(`
+  const stmt = db.prepare(`
     INSERT INTO departments (id, name, code, description, manager, costCenter, isActive, createdAt, updatedAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
@@ -874,7 +874,7 @@ function seedDefaultRequesters() {
     }
   ];
 
-  const stmt = rawDb.prepare(`
+  const stmt = db.prepare(`
     INSERT INTO requesters (id, name, email, employeeId, department, position, phone, isActive, createdAt, updatedAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
@@ -961,16 +961,16 @@ function seedDefaultPurchaseOrders() {
     }
   ];
 
-  // Use rawDb.serialize to ensure sequential execution and wrap in transaction
-  rawDb.serialize(() => {
-    rawDb.run('BEGIN TRANSACTION;', (err) => {
+  // Use db.serialize to ensure sequential execution and wrap in transaction
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION;', (err) => {
       if (err) {
         console.error('Error starting transaction:', err.message);
         return;
       }
 
       // Insert purchase orders first
-      const poStmt = rawDb.prepare(`
+      const poStmt = db.prepare(`
         INSERT INTO purchase_orders (
           id, poNumber, supplier, status, subtotal, tax, total,
           orderDate, expectedDelivery, notes, createdAt, updatedAt
@@ -998,12 +998,12 @@ function seedDefaultPurchaseOrders() {
       poStmt.finalize((err) => {
         if (err) {
           console.error('Error inserting purchase orders:', err.message);
-          rawDb.run('ROLLBACK;');
+          db.run('ROLLBACK;');
           return;
         }
 
         // Insert purchase order items after purchase orders are committed
-        const itemStmt = rawDb.prepare(`
+        const itemStmt = db.prepare(`
           INSERT INTO purchase_order_items (id, poId, itemId, itemName, quantity, unitCost, totalCost)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
@@ -1023,15 +1023,15 @@ function seedDefaultPurchaseOrders() {
         itemStmt.finalize((err) => {
           if (err) {
             console.error('Error inserting purchase order items:', err.message);
-            rawDb.run('ROLLBACK;');
+            db.run('ROLLBACK;');
             return;
           }
 
           // Commit the transaction
-          rawDb.run('COMMIT;', (err) => {
+          db.run('COMMIT;', (err) => {
             if (err) {
               console.error('Error committing transaction:', err.message);
-              rawDb.run('ROLLBACK;');
+              db.run('ROLLBACK;');
             } else {
               console.log('Default purchase orders seeded');
               console.log('Default purchase order items seeded');
